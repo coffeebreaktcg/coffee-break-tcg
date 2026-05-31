@@ -1,0 +1,7 @@
+.env
+.DS_Store
+node_modules/
+data/db.json
+data/backups/
+reports/
+assets/uploads/expense-*

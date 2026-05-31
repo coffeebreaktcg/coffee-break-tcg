@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Coffee Break TCG | Boutique Pokémon</title>
+    <meta
+      name="description"
+      content="Boutique Coffee Break TCG pour découvrir des cartes Pokémon, produits sealed et slabs disponibles."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <button class="hamburger-button" type="button" data-open-menu aria-label="Ouvrir le menu" data-i18n-aria="menuOpen">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <a class="brand" href="/" data-home-link aria-label="Coffee Break TCG">
+        <img class="brand-logo-img" src="/assets/coffee-break-logo-cbtcg-wordmark-header-transparent.png?v=cbtcg-header-transparent-20260531" alt="Coffee Break TCG" />
+      </a>
+      <nav class="main-nav" aria-label="Navigation principale">
+        <a href="/singles" data-route-category="Singles">Singles</a>
+        <a href="/graded" data-route-category="Graded">Graded</a>
+        <a href="/sealed" data-route-category="Sealed">Sealed</a>
+        <a href="/faq" data-content-route="faq">FAQ</a>
+        <a href="/apropos" data-content-route="apropos" data-i18n="navAbout">À propos</a>
+      </nav>
+      <div class="header-actions">
+        <div class="language-toggle" aria-label="Langue">
+          <button type="button" data-language="fr">FR</button>
+          <button type="button" data-language="en">EN</button>
+        </div>
+        <button class="icon-button" type="button" data-open-search aria-label="Rechercher" data-i18n-aria="search">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-4.2-4.2"></path>
+          </svg>
+        </button>
+        <button class="icon-button cart-button" type="button" data-open-cart aria-label="Ouvrir le panier" data-i18n-aria="cartOpen">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6h15l-2 9H8L6 6Z"></path>
+            <path d="M6 6 5 3H2"></path>
+            <circle cx="9" cy="20" r="1"></circle>
+            <circle cx="18" cy="20" r="1"></circle>
+          </svg>
+          <span class="cart-count" data-cart-count>0</span>
+        </button>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow" data-i18n="heroEyebrow">Pokémon TCG - Coffee Break</p>
+          <h1 data-i18n="heroTitle">Produits Pokémon choisis avec soin.</h1>
+          <p data-i18n="heroText">
+            Singles, graded et sealed choisis pour les collectionneurs. Photos réelles, paiement simple et livraison suivie le jour même depuis Saint-Sauveur.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#shop" data-i18n="shopNow">Magasiner</a>
+            <button class="button secondary" type="button" data-open-menu data-i18n="seeOptions">Voir les options</button>
+          </div>
+        </div>
+        <div class="hero-media parallax-media" data-depth="0.12">
+          <img src="/assets/hero-business-cards.png?v=business-cards-20260531" alt="Cartes d'affaires Coffee Break TCG dans une ambiance claire" />
+        </div>
+      </section>
+
+      <section class="trust-strip" aria-label="Pourquoi commander chez Coffee Break TCG">
+        <div class="trust-track">
+          <span data-i18n="trustPhotos">Photos réelles</span>
+          <span data-i18n="trustShipping">Livraison suivie le jour même</span>
+          <span data-i18n="trustPayment">Paiement Square</span>
+          <span data-i18n="trustReserve">Réservation 1 h</span>
+          <span data-i18n="trustLocal">Basé à Saint-Sauveur</span>
+          <span data-i18n="trustPhotos">Photos réelles</span>
+          <span data-i18n="trustShipping">Livraison suivie le jour même</span>
+          <span data-i18n="trustPayment">Paiement Square</span>
+          <span data-i18n="trustReserve">Réservation 1 h</span>
+          <span data-i18n="trustLocal">Basé à Saint-Sauveur</span>
+        </div>
+        <div class="trust-track" aria-hidden="true">
+          <span data-i18n="trustPhotos">Photos réelles</span>
+          <span data-i18n="trustShipping">Livraison suivie le jour même</span>
+          <span data-i18n="trustPayment">Paiement Square</span>
+          <span data-i18n="trustReserve">Réservation 1 h</span>
+          <span data-i18n="trustLocal">Basé à Saint-Sauveur</span>
+          <span data-i18n="trustPhotos">Photos réelles</span>
+          <span data-i18n="trustShipping">Livraison suivie le jour même</span>
+          <span data-i18n="trustPayment">Paiement Square</span>
+          <span data-i18n="trustReserve">Réservation 1 h</span>
+          <span data-i18n="trustLocal">Basé à Saint-Sauveur</span>
+        </div>
+      </section>
+
+      <section class="inventory-shell" id="shop">
+        <div class="featured-sections" id="featuredSections"></div>
+        <div class="review-section" id="reviewSection"></div>
+
+        <div class="category-tabs" role="tablist" aria-label="Categories">
+          <button class="tab active" type="button" data-category="all" data-i18n="all">Tout</button>
+          <button class="tab" type="button" data-category="Singles">Singles</button>
+          <button class="tab" type="button" data-category="Graded">Graded</button>
+          <button class="tab" type="button" data-category="Sealed">Sealed</button>
+        </div>
+
+        <div class="inventory-tools">
+          <label class="search-field">
+            <span class="sr-only" data-i18n="searchCard">Rechercher une carte</span>
+            <input id="searchInput" type="search" placeholder="Rechercher" autocomplete="off" data-i18n-placeholder="search" />
+          </label>
+          <label class="search-field sort-field">
+            <span class="sr-only" data-i18n="sortProducts">Trier les produits</span>
+            <select id="sortSelect" aria-label="Trier les produits">
+              <option value="featured" selected data-i18n="sortFeatured">En vedette</option>
+              <option value="recent" data-i18n="sortRecent">Ajouts récents</option>
+              <option value="priceAsc" data-i18n="sortPriceAsc">Prix: bas à haut</option>
+              <option value="priceDesc" data-i18n="sortPriceDesc">Prix: haut à bas</option>
+              <option value="marketDesc" data-i18n="sortMarketDesc">Valeur marché: haut à bas</option>
+              <option value="marketAsc" data-i18n="sortMarketAsc">Valeur marché: bas à haut</option>
+              <option value="gradeDesc" data-i18n="sortGradeDesc">Grade: haut à bas</option>
+              <option value="conditionDesc" data-i18n="sortConditionDesc">Condition: meilleure d’abord</option>
+              <option value="stockDesc" data-i18n="sortStock">Disponibilité</option>
+              <option value="nameAsc" data-i18n="sortNameAsc">Nom: A-Z</option>
+              <option value="nameDesc" data-i18n="sortNameDesc">Nom: Z-A</option>
+            </select>
+          </label>
+          <label class="search-field sort-field">
+            <span class="sr-only">Filtrer par extension</span>
+            <select id="setFilterSelect" aria-label="Filtrer par extension">
+              <option value="all">Toutes les extensions</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="product-grid" id="productGrid" aria-live="polite"></div>
+        <div class="curated-sections" id="curatedSections"></div>
+      </section>
+
+      <section class="priority-block reveal-section">
+        <div>
+          <p class="eyebrow" data-i18n="buyCardsEyebrow">On achète vos cartes</p>
+          <h2 data-i18n="buyCardsTitle">Soumets-nous ta collection.</h2>
+        </div>
+        <div class="priority-grid">
+          <article class="sell-priority-card">
+            <span>01</span>
+            <h3 data-i18n="buyCardsCardTitle">On achète vos cartes</h3>
+            <p data-i18n="buyCardsCardText">Soumets ta collection de 1 000 $ et plus avec un résumé clair, les cartes importantes et des photos nettes.</p>
+            <a href="/vendre" data-content-route="vendre" data-i18n="submitCollection">Soumettre une collection</a>
+          </article>
+          <article class="sell-priority-card">
+            <span>02</span>
+            <h3 data-i18n="shippingCardTitle">Livraison claire</h3>
+            <p data-i18n="shippingCardText">Livraison depuis Saint-Sauveur, suivi inclus, avec protection adaptée pour singles, sealed et slabs.</p>
+            <a href="/livraison" data-content-route="livraison" data-i18n="viewShipping">Voir la livraison</a>
+          </article>
+        </div>
+      </section>
+
+      <section class="shows-section reveal-section" id="cardshows">
+        <div class="section-heading compact">
+          <p class="eyebrow" data-i18n="eventsEyebrow">Événements</p>
+          <h2 data-i18n="upcomingShows">Prochains card shows</h2>
+        </div>
+        <div class="shows-grid" id="cardShowsGrid"></div>
+      </section>
+    </main>
+
+    <section class="product-detail-page" id="productDetailPage" aria-label="Detail produit">
+      <div class="detail-shell" id="productDetailContent"></div>
+    </section>
+
+    <section class="content-page" id="contentPage" aria-label="Information Coffee Break">
+      <div class="content-shell" id="contentPageContent"></div>
+    </section>
+
+    <section class="checkout-page" id="checkoutPage" aria-label="Commande">
+      <div class="checkout-heading">
+        <div>
+          <p class="eyebrow" data-i18n="order">Commande</p>
+          <h1 data-i18n="checkoutTitle">Finaliser</h1>
+        </div>
+        <a class="button secondary" href="/" data-i18n="backShop">Retour boutique</a>
+      </div>
+      <div class="checkout-page-layout">
+        <aside class="checkout-summary">
+          <h2 data-i18n="summary">Récapitulatif</h2>
+          <div class="cart-items" id="checkoutItems"></div>
+          <div class="totals" id="checkoutTotals"></div>
+        </aside>
+        <form class="shipping-form checkout-form" id="checkoutForm">
+          <h2 data-i18n="shipping">Livraison</h2>
+          <div class="form-row two">
+            <label><span data-i18n="fullName">Nom complet</span> <input name="name" autocomplete="name" required /></label>
+            <label><span data-i18n="email">Courriel</span> <input name="email" type="email" autocomplete="email" required /></label>
+          </div>
+          <div class="form-row contact-row">
+            <label><span data-i18n="phone">Téléphone</span> <input name="phone" autocomplete="tel" /></label>
+            <label><span data-i18n="address">Adresse</span> <input name="address" autocomplete="street-address" required /></label>
+          </div>
+          <div class="form-row location-row">
+            <label><span data-i18n="city">Ville</span> <input name="city" autocomplete="address-level2" required /></label>
+            <label><span data-i18n="province">Province</span> <input name="province" autocomplete="address-level1" value="QC" required /></label>
+            <label><span data-i18n="postal">Code postal</span> <input name="postal" autocomplete="postal-code" required /></label>
+          </div>
+          <label><span data-i18n="deliveryNotes">Notes de livraison</span> <input name="notes" placeholder="Appartement, instructions, etc." data-i18n-placeholder="deliveryNotesPlaceholder" /></label>
+          <button class="square-pay-button" type="submit" aria-label="Payer avec Square">
+            <span class="square-logo" aria-hidden="true"></span>
+            <span data-i18n="paySquare">Payer avec Square</span>
+          </button>
+          <p class="form-status" id="checkoutStatus" role="status"></p>
+        </form>
+      </div>
+    </section>
+
+    <section class="admin-page" id="adminPage" aria-label="Administration inventaire">
+      <div class="admin-login-card" id="adminLogin">
+        <p class="eyebrow">Accès privé</p>
+        <h1>Connexion admin</h1>
+        <p>Entre tes identifiants pour gérer l’inventaire, les ventes et les card shows.</p>
+        <form class="admin-login-form" id="adminLoginForm">
+          <label>Courriel <input name="email" type="email" autocomplete="username" required /></label>
+          <label>Mot de passe <input name="password" type="password" autocomplete="current-password" required /></label>
+          <button class="button primary wide" type="submit">Entrer dans l’admin</button>
+          <p class="form-status" id="adminLoginStatus" role="status"></p>
+        </form>
+      </div>
+
+      <div class="admin-content hidden" id="adminContent">
+      <div class="admin-heading">
+        <div>
+          <p class="eyebrow">Back-office</p>
+          <h1>Inventaire & ventes</h1>
+        </div>
+        <div class="admin-actions">
+          <button class="button secondary" type="button" id="adminLogoutButton">Déconnexion</button>
+          <a class="button secondary" href="/">Retour boutique</a>
+        </div>
+      </div>
+
+      <div class="admin-metrics" id="adminMetrics"></div>
+      <p class="admin-price-sync hidden" id="adminPriceSync"></p>
+
+      <details class="admin-card admin-accordion admin-security-panel">
+        <summary>Sécurité & sauvegarde</summary>
+        <div class="security-grid">
+          <article>
+            <span>Accès admin</span>
+            <strong>Session privée avec expiration</strong>
+            <p>L’accès admin expire automatiquement. Après plusieurs mauvais essais, la connexion se bloque temporairement.</p>
+          </article>
+          <article>
+            <span>Sauvegarde locale + Drive</span>
+            <strong>Données + références fichiers</strong>
+            <p>Une copie locale est créée automatiquement. Google Drive peut remplacer le fichier de sauvegarde attitré après chaque changement.</p>
+          </article>
+          <article>
+            <span>Google Drive</span>
+            <strong id="driveBackupState">Non configuré</strong>
+            <p id="driveBackupMessage">Ajoute le dossier Google Drive et les identifiants pour activer la synchronisation.</p>
+          </article>
+        </div>
+        <div class="show-admin-actions">
+          <a class="button primary" href="/api/admin/backup.zip" download="coffee-break-backup.zip" data-backup-download>Télécharger la sauvegarde ZIP</a>
+          <button class="button secondary" type="button" id="syncDriveBackupButton">Synchroniser Google Drive</button>
+        </div>
+        <p class="admin-status" id="backupStatus" role="status"></p>
+      </details>
+
+      <div class="admin-sections">
+        <details class="admin-card admin-accordion admin-product-section" open>
+          <summary>Ajouter un item dans la boutique</summary>
+          <form class="admin-form" id="adminProductForm">
+          <fieldset class="admin-form-section">
+            <legend>Ajout rapide</legend>
+          <div class="form-row two">
+            <label>Nom <input name="name" required /></label>
+            <label>Numéro <input name="cardNumber" placeholder="Ex. 215/203" /></label>
+          </div>
+          <div class="form-row two admin-category-row">
+            <label>
+              Catégorie
+              <select name="category">
+                <option value="Singles">Singles</option>
+                <option value="Sealed">Scellé</option>
+                <option value="Graded">Gradé</option>
+                <option value="Preorder">Précommande</option>
+                <option value="Accessories">Accessoires</option>
+              </select>
+            </label>
+            <label>
+              Type boutique
+              <select name="kind">
+                <option value="single">Single</option>
+                <option value="slab">Slab</option>
+                <option value="etb">ETB</option>
+                <option value="utb">UTB</option>
+                <option value="pack">Pack</option>
+                <option value="booster-bundle">Booster bundle</option>
+                <option value="booster-box">Booster box</option>
+                <option value="japanese">Japanese</option>
+                <option value="accessory">Accessoire</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row two">
+            <label>
+              Compagnie slab
+              <select name="gradingCompany">
+                <option value="">Non gradé</option>
+                <option value="PSA">PSA</option>
+                <option value="Beckett">Beckett</option>
+                <option value="TAG">TAG</option>
+              </select>
+            </label>
+            <label>
+              Note slab
+              <select name="grade">
+                <option value="">Aucune</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+              </select>
+            </label>
+          </div>
+          <div class="admin-image-search">
+            <div>
+              <strong>Recherche photo automatique</strong>
+              <p>Entre le nom, cherche l'item, puis choisis le visuel avant et, au besoin, le visuel arrière. Les détails et le prix marché se rempliront automatiquement.</p>
+            </div>
+            <div class="image-search-actions">
+              <button class="button secondary" type="button" id="searchCardImageButton">Rechercher la photo</button>
+            </div>
+            <input type="hidden" name="imageUrl" id="selectedCardImageUrl" />
+            <input type="hidden" name="galleryImageUrls" id="selectedGalleryImageUrls" />
+            <input type="hidden" name="id" id="editingProductId" />
+            <div class="image-search-preview hidden" id="imageSearchPreview"></div>
+            <p class="image-search-status" id="imageSearchStatus" role="status"></p>
+          </div>
+          <div class="market-suggest-actions">
+            <button class="button secondary" type="button" id="suggestMarketButton">Suggérer prix marché</button>
+            <p class="market-suggest-status" id="marketSuggestStatus" role="status"></p>
+          </div>
+          <div class="form-row three">
+            <label>Prix paye <input name="cost" type="number" min="0" step="0.01" /></label>
+            <label>Prix marché <input name="market" type="number" min="0" step="0.01" /></label>
+            <label>Prix affiché <input name="price" type="number" min="0" step="0.01" required /></label>
+          </div>
+          <button class="button primary wide" type="submit">Sauvegarder l'item</button>
+          <p class="admin-status" role="status"></p>
+          </fieldset>
+          <details class="admin-form-section advanced-form-section">
+            <summary>Détails avancés</summary>
+          <div class="form-row two">
+            <label>
+              Extension
+              <select name="setId" id="pokemonSetSelect">
+                <option value="">Chargement des extensions...</option>
+              </select>
+            </label>
+            <label>
+              Rareté
+              <select name="rarity">
+                <option value="">À confirmer</option>
+                <option value="SIR">SIR</option>
+                <option value="IR">IR</option>
+                <option value="Gold">Gold</option>
+                <option value="Commune">Commune</option>
+              </select>
+            </label>
+          </div>
+          <fieldset class="choice-strip">
+            <legend>Condition</legend>
+            <label><input type="radio" name="condition" value="NM" checked /> NM</label>
+            <label><input type="radio" name="condition" value="LP" /> LP</label>
+            <label><input type="radio" name="condition" value="MP" /> MP</label>
+            <label><input type="radio" name="condition" value="Damaged" /> Damaged</label>
+            <label><input type="radio" name="condition" value="Scellé parfait" /> Scellé parfait</label>
+            <label><input type="radio" name="condition" value="Scellé endommagé" /> Scellé endommagé</label>
+          </fieldset>
+          <div class="form-row">
+            <label>Stock <input name="stock" type="number" min="0" value="1" /></label>
+          </div>
+          <label>Photos additionnelles - jusqu’à 4 <input name="galleryFiles" type="file" accept="image/*" multiple /></label>
+          <fieldset class="admin-marketing-options">
+            <legend>Vitrine</legend>
+            <label class="save-check">
+              <input type="checkbox" name="featured" />
+              Mettre en vedette
+            </label>
+            <label>
+              Badge
+              <select name="badge">
+                <option value="">Aucun badge</option>
+                <option value="Nouveau">Nouveau</option>
+                <option value="Deal">Deal</option>
+                <option value="Dernier exemplaire">Dernier exemplaire</option>
+                <option value="Hit populaire">Hit populaire</option>
+                <option value="Sous marché">Sous marché</option>
+                <option value="Prix ajusté">Prix ajusté</option>
+                <option value="Promo">Promo</option>
+              </select>
+            </label>
+          </fieldset>
+          </details>
+          <fieldset class="feature-options">
+            <legend>Particularités - max 2</legend>
+            <label><input type="checkbox" name="features" value="Swirl" data-feature-checkbox /> Swirl</label>
+            <label><input type="checkbox" name="features" value="Low pop" data-feature-checkbox /> Low pop</label>
+            <label><input type="checkbox" name="features" value="Miscut" data-feature-checkbox /> Miscut</label>
+          </fieldset>
+          <button class="button primary wide" type="submit">Sauvegarder l'item</button>
+          </form>
+        </details>
+
+        <details class="admin-card admin-accordion admin-inventory-section" open>
+          <summary>Inventaire</summary>
+          <div class="admin-inventory-tools">
+            <label>Rechercher <input id="adminInventorySearch" type="search" placeholder="Nom, extension, numéro..." /></label>
+            <label>Catégorie
+              <select id="adminInventoryCategory">
+                <option value="all">Tout</option>
+                <option value="Singles">Singles</option>
+                <option value="Graded">Slabs</option>
+                <option value="Sealed">Scellé</option>
+              </select>
+            </label>
+            <label>Trier
+              <select id="adminInventorySort">
+                <option value="recent">Plus récent</option>
+                <option value="name">Nom A-Z</option>
+                <option value="priceDesc">Prix haut à bas</option>
+                <option value="priceAsc">Prix bas à haut</option>
+                <option value="stockDesc">Stock haut à bas</option>
+              </select>
+            </label>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Cat.</th>
+                  <th>Stock</th>
+                  <th>Payé</th>
+                  <th>Marché</th>
+                  <th>Affiche</th>
+                  <th>Profit potentiel</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="adminInventoryRows"></tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+
+      <details class="admin-card admin-accordion" open>
+        <summary>Réservations en attente</summary>
+        <p class="accordion-help">Si le paiement n’arrive pas, clique sur “Remettre en vitrine” pour remettre les cartes en stock.</p>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Demande</th>
+                <th>Date</th>
+                <th>Client</th>
+                <th>Carte</th>
+                <th>Total</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="adminPendingOrderRows"></tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="admin-card admin-accordion">
+        <summary>Cartes vendues</summary>
+        <div class="admin-table-wrap sold-cards-wrap" id="soldCardsWrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Vente</th>
+                <th>Date</th>
+                <th>Carte</th>
+                <th>Vendu</th>
+                <th>Payé</th>
+                <th>Profit</th>
+              </tr>
+            </thead>
+            <tbody id="adminOrderRows"></tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="admin-card admin-accordion">
+        <summary>Comptabilité</summary>
+        <p class="accordion-help">
+          Reprise du modèle comptable Coffee Break: ventes, dépenses, taxes et résumé mensuel. Les TPS/TVQ de dépenses sont calculées automatiquement à partir du montant total.
+        </p>
+        <div class="accounting-dashboard" id="accountingDashboard"></div>
+        <form class="admin-show-form expense-form" id="adminExpenseForm">
+          <input type="hidden" name="id" />
+          <input type="hidden" name="receiptUrl" />
+          <div class="form-row four">
+            <label>Date <input name="date" type="date" required /></label>
+            <label>Fournisseur <input name="supplier" required placeholder="Ex. Amazon" /></label>
+            <label>
+              Catégorie
+              <select name="category">
+                <option value="Packaging">Packaging</option>
+                <option value="Équipement">Équipement</option>
+                <option value="Frais de plateforme">Frais de plateforme</option>
+                <option value="Shipping">Shipping</option>
+                <option value="Marketing">Marketing</option>
+                <option value="Autre">Autre</option>
+              </select>
+            </label>
+            <label>Montant total <input name="total" type="number" min="0" step="0.01" required /></label>
+          </div>
+          <div class="form-row two">
+            <label>Description <input name="description" placeholder="Ex. Papier bulle, enveloppes" /></label>
+            <label>Payé par <input name="paidBy" placeholder="Ex. Maxime" /></label>
+          </div>
+          <div class="form-row">
+            <label class="receipt-dropzone" id="receiptDropzone">
+              <span>Facture PDF</span>
+              <strong>Glisse le PDF ici</strong>
+              <small id="receiptDropzoneText">ou clique pour choisir un fichier</small>
+              <input name="receiptFile" type="file" accept="application/pdf" />
+            </label>
+          </div>
+          <div class="show-admin-actions">
+            <button class="button primary" type="submit">Sauvegarder la dépense</button>
+            <button class="button secondary" type="reset">Effacer le formulaire</button>
+          </div>
+          <p class="admin-status" id="expenseStatus" role="status"></p>
+        </form>
+        <details class="expense-list-panel" open>
+          <summary>8 dernières dépenses</summary>
+          <div class="admin-table-wrap">
+            <table class="admin-table accounting-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Fournisseur</th>
+                  <th>Catégorie</th>
+                  <th>Description</th>
+                  <th>Montant total</th>
+                  <th>TPS</th>
+                  <th>TVQ</th>
+                  <th>Facture</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="adminExpenseRows"></tbody>
+            </table>
+          </div>
+        </details>
+        <div class="reports-divider">
+          <span>Rapports téléchargeables</span>
+          <p>Résumé, ventes, réservations, dépenses et taxes pour la comptable.</p>
+        </div>
+        <div class="report-grid">
+          <a class="report-card" href="/api/admin/reports/sales.csv" download="coffee-break-ventes.csv" data-report-download="coffee-break-ventes.csv">
+            <span>Rapport ventes</span>
+            <strong>Ventes détaillées CSV</strong>
+            <em>Commandes, clients, taxes, profit par ligne.</em>
+          </a>
+          <a class="report-card" href="/api/admin/reports/monthly.csv" download="coffee-break-resume-mensuel.csv" data-report-download="coffee-break-resume-mensuel.csv">
+            <span>Résumé mensuel</span>
+            <strong>Résumé comptable CSV</strong>
+            <em>Revenus, dépenses, profit net et marge par mois.</em>
+          </a>
+          <a class="report-card" href="/api/admin/reports/pending.csv" download="coffee-break-reservations.csv" data-report-download="coffee-break-reservations.csv">
+            <span>Réservations</span>
+            <strong>Commandes en attente CSV</strong>
+            <em>Cartes réservées, clients et expiration.</em>
+          </a>
+          <a class="report-card" href="/api/admin/reports/expenses.csv" download="coffee-break-depenses.csv" data-report-download="coffee-break-depenses.csv">
+            <span>Dépenses</span>
+            <strong>Dépenses CSV</strong>
+            <em>Fournisseurs, catégories, TPS et TVQ calculées.</em>
+          </a>
+          <a class="report-card" href="/api/admin/reports/taxes.csv" download="coffee-break-taxes.csv" data-report-download="coffee-break-taxes.csv">
+            <span>Taxes</span>
+            <strong>Taxes CSV</strong>
+            <em>TPS/TVQ collectées, dépensées et nettes.</em>
+          </a>
+        </div>
+        <p class="admin-status" id="reportStatus" role="status"></p>
+      </details>
+
+      <details class="admin-card admin-accordion">
+        <summary>Avis clients</summary>
+        <p class="accordion-help">Ajoute les avis reçus après une commande. Seuls les avis publiés apparaissent sur la page d’accueil.</p>
+        <form class="admin-show-form" id="adminReviewForm">
+          <input type="hidden" name="id" />
+          <div class="form-row three">
+            <label>Nom <input name="name" required placeholder="Ex. Julien" /></label>
+            <label>Ville <input name="city" placeholder="Ex. Québec" /></label>
+            <label>Note
+              <select name="rating">
+                <option value="5">5 étoiles</option>
+                <option value="4">4 étoiles</option>
+                <option value="3">3 étoiles</option>
+                <option value="2">2 étoiles</option>
+                <option value="1">1 étoile</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row two">
+            <label>Produit acheté <input name="product" placeholder="Ex. Deerling IR" /></label>
+            <label>Date <input name="date" type="date" /></label>
+          </div>
+          <label>Commentaire <textarea name="text" rows="4" required placeholder="Ex. Carte impeccable, très bien protégée."></textarea></label>
+          <label class="save-check">
+            <input type="checkbox" name="published" checked />
+            Afficher sur le site
+          </label>
+          <div class="show-admin-actions">
+            <button class="button primary" type="submit">Sauvegarder l’avis</button>
+            <button class="button secondary" type="reset">Effacer le formulaire</button>
+          </div>
+          <p class="admin-status" id="reviewStatus" role="status"></p>
+        </form>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Avis</th>
+                <th>Note</th>
+                <th>Statut</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="adminReviewRows"></tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="admin-card admin-accordion card-show-admin">
+        <summary>Prochains card shows</summary>
+        <form class="admin-show-form" id="adminCardShowForm">
+          <input type="hidden" name="id" />
+          <div class="form-row two">
+            <label>Nom du show <input name="name" required /></label>
+            <label>Collaborateur <input name="collaborator" placeholder="Ex. Nom du partenaire" /></label>
+          </div>
+          <div class="form-row">
+            <label>Lien de l’annonce <input name="announcementUrl" type="url" placeholder="https://..." /></label>
+          </div>
+          <div class="form-row three">
+            <label>Emplacement <input name="location" placeholder="Ex. Centre communautaire" /></label>
+            <label>Ville <input name="city" placeholder="Ex. Saint-Sauveur" /></label>
+            <label>Heure <input name="time" placeholder="Ex. 10 h à 16 h" /></label>
+          </div>
+          <div class="form-row three">
+            <label>Date <input name="date" type="date" /></label>
+            <label>Date de fin <input name="dateEnd" type="date" /></label>
+            <label>Nombre de tables <input name="tables" placeholder="Ex. 2 tables" /></label>
+          </div>
+          <div class="form-row">
+            <label>Image / logo <input name="imageFile" type="file" accept="image/*" /></label>
+          </div>
+          <div class="show-admin-actions">
+            <button class="button primary" type="submit">Sauvegarder le show</button>
+            <button class="button secondary" type="reset">Effacer le formulaire</button>
+          </div>
+          <p class="admin-status" id="cardShowStatus" role="status"></p>
+        </form>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Show</th>
+                <th>Ville</th>
+                <th>Date / heure</th>
+                <th>Tables</th>
+                <th>Collaborateur</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="adminCardShowRows"></tbody>
+          </table>
+        </div>
+      </details>
+      </div>
+    </section>
+
+    <footer class="site-footer">
+      <div class="footer-brand">
+        <a class="brand footer-logo" href="/" data-home-link aria-label="Coffee Break TCG">
+          <img class="brand-logo-img brand-logo-transparent" src="/assets/coffee-break-logo-cbtcg-wordmark-transparent.png?v=cbtcg-transparent-20260531" alt="Coffee Break TCG" />
+        </a>
+        <p data-i18n="footerLocation">Saint-Sauveur, Québec</p>
+      </div>
+      <nav aria-label="Pied de page">
+        <a href="#shop" data-i18n="shopNow">Magasiner</a>
+        <a href="/vendre" data-content-route="vendre" data-i18n="sellCards">On achète vos cartes</a>
+        <a href="/livraison" data-content-route="livraison" data-i18n="shipping">Livraison</a>
+        <a href="/faq" data-content-route="faq">FAQ</a>
+        <a href="/apropos" data-content-route="apropos" data-i18n="navAbout">À propos</a>
+        <a href="mailto:coffeebreaktcg@gmail.com">Contact</a>
+      </nav>
+      <form class="newsletter">
+        <label for="newsletterEmail" data-i18n="stayTuned">Restez à l’affût des prochains drops à l’avance!</label>
+        <div>
+          <input id="newsletterEmail" type="email" placeholder="Votre courriel" data-i18n-placeholder="emailPlaceholder" />
+          <button type="submit" aria-label="S'inscrire">-&gt;</button>
+        </div>
+      </form>
+    </footer>
+
+    <div class="drawer-backdrop" data-close-drawers></div>
+
+    <div class="language-loader" id="languageLoader" aria-hidden="true">
+      <div>
+        <img class="brand-logo-img loader-logo brand-logo-transparent" src="/assets/coffee-break-logo-cbtcg-wordmark-transparent.png?v=cbtcg-transparent-20260531" alt="Coffee Break TCG" />
+      </div>
+      <p>Chargement</p>
+    </div>
+
+    <aside class="cart-drawer" aria-label="Panier" aria-hidden="true">
+      <div class="drawer-head">
+        <h2 data-i18n="cart">Panier</h2>
+        <button class="modal-close" type="button" data-close-drawers aria-label="Fermer">x</button>
+      </div>
+      <div class="cart-items" id="cartItems"></div>
+      <div class="totals drawer-totals" id="cartTotals"></div>
+      <div class="drawer-checkout">
+        <a class="button primary wide" href="/checkout" data-checkout-link data-i18n="checkoutButton">Passer à la commande</a>
+      </div>
+    </aside>
+
+    <aside class="menu-drawer" aria-label="Menu principal" aria-hidden="true">
+      <div class="drawer-head">
+        <a class="brand drawer-brand" href="/" data-home-link aria-label="Coffee Break TCG">
+          <img class="brand-logo-img brand-logo-transparent" src="/assets/coffee-break-logo-cbtcg-wordmark-transparent.png?v=cbtcg-transparent-20260531" alt="Coffee Break TCG" />
+        </a>
+        <button class="modal-close" type="button" data-close-drawers aria-label="Fermer">x</button>
+      </div>
+      <nav class="drawer-nav">
+        <details class="drawer-group">
+          <summary data-i18n="pokemonCategory">Pokémon</summary>
+          <div class="drawer-subnav">
+            <a href="/singles" data-route-category="Singles">Singles</a>
+            <a href="/graded" data-route-category="Graded">Graded</a>
+            <span class="drawer-separator" aria-hidden="true"></span>
+            <details class="drawer-nested-group">
+              <summary>Sealed</summary>
+              <div class="drawer-nested-subnav">
+                <a href="/sealed" data-kind-route="pack">Packs</a>
+                <a href="/sealed" data-kind-route="booster-bundle">Booster bundle</a>
+                <a href="/sealed" data-kind-route="etb">ETB</a>
+                <a href="/sealed" data-kind-route="utb">UTB</a>
+                <a href="/sealed" data-kind-route="japanese">Japanese</a>
+              </div>
+            </details>
+          </div>
+        </details>
+        <a href="/vendre" data-content-route="vendre" data-i18n="sellCards">On achète vos cartes</a>
+        <a href="/#cardshows" data-show-anchor data-i18n="upcomingShowsShort">Prochains shows</a>
+        <a href="/faq" data-content-route="faq">FAQ</a>
+        <a href="/apropos" data-content-route="apropos" data-i18n="navAbout">À propos</a>
+        <a href="/admin" data-admin-link hidden>Admin inventaire</a>
+      </nav>
+    </aside>
+
+    <script src="/app.js?v=logo-transparent-all-20260531"></script>
+  </body>
+</html>

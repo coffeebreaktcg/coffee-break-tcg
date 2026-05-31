@@ -1,0 +1,10 @@
+{
+  "name": "coffee-break-tcg",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Boutique Coffee Break TCG avec inventaire, compte client et checkout local.",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check app.js && node --check server.js"
+  }
+}
