@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&family=Space+Grotesk:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=mobile-cardshow-image-20260531" />
+    <link rel="stylesheet" href="/styles.css?v=customer-account-20260531" />
   </head>
   <body>
     <header class="site-header">
@@ -34,6 +34,12 @@
         <a href="/apropos" data-content-route="apropos" data-i18n="navAbout">À propos</a>
       </nav>
       <div class="header-actions">
+        <a class="icon-button" href="/compte" data-account-link aria-label="Compte client" data-i18n-aria="account">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8" r="4"></circle>
+            <path d="M4 21c1.5-4 4.2-6 8-6s6.5 2 8 6"></path>
+          </svg>
+        </a>
         <button class="icon-button" type="button" data-open-search aria-label="Rechercher" data-i18n-aria="search">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="11" cy="11" r="7"></circle>
@@ -208,6 +214,10 @@
             <label><span data-i18n="postal">Code postal</span> <input name="postal" autocomplete="postal-code" required /></label>
           </div>
           <label><span data-i18n="deliveryNotes">Notes de livraison</span> <input name="notes" placeholder="Appartement, instructions, etc." data-i18n-placeholder="deliveryNotesPlaceholder" /></label>
+          <label class="save-profile-option">
+            <input name="saveProfile" type="checkbox" />
+            <span data-i18n="saveProfile">Sauvegarder ces informations dans mon compte</span>
+          </label>
           <button class="square-pay-button" type="submit" aria-label="Payer avec Square">
             <span class="square-logo" aria-hidden="true"></span>
             <span data-i18n="paySquare">Payer avec Square</span>
@@ -215,6 +225,10 @@
           <p class="form-status" id="checkoutStatus" role="status"></p>
         </form>
       </div>
+    </section>
+
+    <section class="account-page" id="accountPage" aria-label="Compte client">
+      <div class="account-shell" id="accountContent"></div>
     </section>
 
     <section class="admin-page" id="adminPage" aria-label="Administration inventaire">
@@ -784,12 +798,13 @@
         </details>
         <a href="/vendre" data-content-route="vendre" data-i18n="sellCards">On achète vos cartes</a>
         <a href="/#cardshows" data-show-anchor data-i18n="upcomingShowsShort">Prochains shows</a>
+        <a href="/compte" data-account-link data-i18n="account">Compte</a>
         <a href="/faq" data-content-route="faq">FAQ</a>
         <a href="/apropos" data-content-route="apropos" data-i18n="navAbout">À propos</a>
         <a href="/admin" data-admin-link hidden>Admin inventaire</a>
       </nav>
     </aside>
 
-    <script src="/app.js?v=mobile-cardshow-image-20260531"></script>
+    <script src="/app.js?v=customer-account-20260531"></script>
   </body>
 </html>

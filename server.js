@@ -904,6 +904,22 @@ function publicUser(user) {
   };
 }
 
+function publicCustomerOrder(order) {
+  return {
+    id: order.id,
+    status: order.status,
+    items: Array.isArray(order.items) ? order.items : [],
+    subtotalAmount: Number(order.subtotalAmount || 0),
+    tpsAmount: Number(order.tpsAmount || 0),
+    tvqAmount: Number(order.tvqAmount || 0),
+    totalAmount: Number(order.totalAmount || order.total || 0),
+    paymentMethod: order.paymentMethod || null,
+    paymentUrl: order.paymentUrl || "",
+    reservationExpiresAt: order.reservationExpiresAt || "",
+    createdAt: order.createdAt || "",
+  };
+}
+
 function getAdminSession(req, db) {
   const sessionId = parseCookies(req).cb_admin;
   const session = sessionId ? db.adminSessions?.[sessionId] : null;
@@ -2518,6 +2534,39 @@ async function handleApi(req, res) {
     return json(res, 200, { user: publicUser(await getSessionUser(req, db)) });
   }
 
+  if (url.pathname === "/api/profile" && req.method === "POST") {
+    const user = await getSessionUser(req, db);
+    if (!user) return json(res, 401, { error: "Connexion requise" });
+    const body = await readBody(req);
+    const name = String(body.name || "").trim();
+    const address = body.address && typeof body.address === "object" ? body.address : {};
+    if (!name) return json(res, 400, { error: "Nom requis" });
+    user.name = name;
+    user.address = {
+      name,
+      email: user.email,
+      phone: String(address.phone || "").trim(),
+      address: String(address.address || "").trim(),
+      city: String(address.city || "").trim(),
+      province: String(address.province || "QC").trim(),
+      postal: String(address.postal || "").trim(),
+      notes: String(address.notes || "").trim(),
+    };
+    user.updatedAt = new Date().toISOString();
+    await writeDb(db);
+    return json(res, 200, { user: publicUser(user) });
+  }
+
+  if (url.pathname === "/api/my-orders" && req.method === "GET") {
+    const user = await getSessionUser(req, db);
+    if (!user) return json(res, 401, { error: "Connexion requise" });
+    const orders = (db.orders || [])
+      .filter((order) => order.userId === user.id)
+      .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+      .map(publicCustomerOrder);
+    return json(res, 200, { orders });
+  }
+
   if (url.pathname === "/api/products" && req.method === "GET") {
     return json(res, 200, { products: db.inventory.map(publicProduct) });
   }
@@ -3040,8 +3089,9 @@ async function handleApi(req, res) {
     const sessionId = parseCookies(req).cb_session;
     if (sessionId) delete db.sessions[sessionId];
     await writeDb(db);
+    const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
     return json(res, 200, { ok: true }, {
-      "Set-Cookie": "cb_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
+      "Set-Cookie": `cb_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`,
     });
   }
 

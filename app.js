@@ -261,6 +261,7 @@ const suggestMarketButton = document.querySelector("#suggestMarketButton");
 const marketSuggestStatus = document.querySelector("#marketSuggestStatus");
 const productDetailContent = document.querySelector("#productDetailContent");
 const contentPageContent = document.querySelector("#contentPageContent");
+const accountContent = document.querySelector("#accountContent");
 const cardShowsGrid = document.querySelector("#cardShowsGrid");
 const featuredSections = document.querySelector("#featuredSections");
 const curatedSections = document.querySelector("#curatedSections");
@@ -273,6 +274,8 @@ let lastShopView = JSON.parse(sessionStorage.getItem("coffeeBreakLastShopView") 
 let cardShows = [];
 let reviews = [];
 let expenses = [];
+let currentUser = null;
+let customerOrders = [];
 let currentLang = localStorage.getItem("coffeeBreakLang") || "fr";
 
 if ("scrollRestoration" in history) {
@@ -284,6 +287,7 @@ const translations = {
     menuOpen: "Ouvrir le menu",
     search: "Rechercher",
     cartOpen: "Ouvrir le panier",
+    account: "Compte",
     navAbout: "À propos",
     heroEyebrow: "Pokémon TCG - Coffee Break",
     heroTitle: "Produits Pokémon choisis avec soin.",
@@ -322,6 +326,8 @@ const translations = {
     checkoutButton: "Passer à la commande",
     order: "Commande",
     checkoutTitle: "Finaliser",
+    accountTitle: "Mon compte",
+    accountText: "Connecte-toi pour voir tes commandes, garder tes informations de livraison et accélérer tes prochains achats.",
     backShop: "Retour boutique",
     summary: "Récapitulatif",
     shipping: "Livraison",
@@ -335,6 +341,14 @@ const translations = {
     deliveryNotes: "Notes de livraison",
     deliveryNotesPlaceholder: "Appartement, instructions, etc.",
     paySquare: "Payer avec Square",
+    login: "Connexion",
+    createAccount: "Créer un compte",
+    password: "Mot de passe",
+    updateProfile: "Mettre à jour mes informations",
+    orderHistory: "Commandes précédentes",
+    noOrders: "Aucune commande pour le moment.",
+    logout: "Déconnexion",
+    saveProfile: "Sauvegarder ces informations dans mon compte",
     or: "ou",
     sellCards: "On achète vos cartes",
     stayTuned: "Restez à l’affût des prochains drops à l’avance!",
@@ -380,6 +394,7 @@ const translations = {
     menuOpen: "Open menu",
     search: "Search",
     cartOpen: "Open cart",
+    account: "Account",
     navAbout: "About",
     heroEyebrow: "Pokemon TCG - Coffee Break",
     heroTitle: "Carefully selected Pokemon products.",
@@ -418,6 +433,8 @@ const translations = {
     checkoutButton: "Go to checkout",
     order: "Order",
     checkoutTitle: "Checkout",
+    accountTitle: "My account",
+    accountText: "Sign in to view previous orders, keep your shipping details and make future purchases faster.",
     backShop: "Back to shop",
     summary: "Summary",
     shipping: "Shipping",
@@ -431,6 +448,14 @@ const translations = {
     deliveryNotes: "Delivery notes",
     deliveryNotesPlaceholder: "Apartment, instructions, etc.",
     paySquare: "Pay with Square",
+    login: "Sign in",
+    createAccount: "Create account",
+    password: "Password",
+    updateProfile: "Update my information",
+    orderHistory: "Previous orders",
+    noOrders: "No orders yet.",
+    logout: "Sign out",
+    saveProfile: "Save these details to my account",
     or: "or",
     sellCards: "We buy cards",
     stayTuned: "Get early notice of upcoming drops!",
@@ -511,6 +536,8 @@ function applyTranslations() {
   });
   updateCategoryHeading();
   renderReviews();
+  updateAccountButtons();
+  if (document.body.classList.contains("account-mode")) renderAccount();
 }
 
 function wait(ms) {
@@ -1021,6 +1048,60 @@ async function loadProducts() {
   } catch {
     // Keep local starter inventory if the API is unavailable.
   }
+}
+
+async function loadCurrentUser() {
+  try {
+    const payload = await api("/api/me");
+    currentUser = payload.user || null;
+  } catch {
+    currentUser = null;
+  }
+  updateAccountButtons();
+  fillCheckoutFromProfile();
+  return currentUser;
+}
+
+async function loadCustomerOrders() {
+  if (!currentUser) {
+    customerOrders = [];
+    return customerOrders;
+  }
+  try {
+    const payload = await api("/api/my-orders");
+    customerOrders = payload.orders || [];
+  } catch {
+    customerOrders = [];
+  }
+  return customerOrders;
+}
+
+function updateAccountButtons() {
+  document.querySelectorAll("[data-account-link]").forEach((link) => {
+    link.setAttribute("aria-label", currentUser ? `${t("account")} - ${currentUser.name}` : t("account"));
+    link.classList.toggle("is-active", Boolean(currentUser));
+  });
+}
+
+function fillCheckoutFromProfile() {
+  if (!checkoutForm || !currentUser?.address) return;
+  const address = currentUser.address;
+  const values = {
+    name: address.name || currentUser.name || "",
+    email: address.email || currentUser.email || "",
+    phone: address.phone || "",
+    address: address.address || "",
+    city: address.city || "",
+    province: address.province || "QC",
+    postal: address.postal || "",
+    notes: address.notes || "",
+  };
+  Object.entries(values).forEach(([name, value]) => {
+    const input = checkoutForm.elements[name];
+    if (input && !input.value) input.value = value;
+  });
+  const saveProfile = checkoutForm.elements.saveProfile;
+  if (saveProfile) saveProfile.checked = true;
 }
 
 function populateSetFilter() {
@@ -1569,6 +1650,106 @@ function renderContentPage(slug) {
   `;
 }
 
+function orderStatusLabel(status) {
+  return (
+    {
+      pending_payment: currentLang === "en" ? "Pending payment" : "Paiement en attente",
+      paid: currentLang === "en" ? "Paid" : "Payée",
+      admin_sale: currentLang === "en" ? "Manual sale" : "Vente manuelle",
+      cancelled: currentLang === "en" ? "Cancelled" : "Annulée",
+    }[status] || status || "-"
+  );
+}
+
+function renderAccount() {
+  if (!accountContent) return;
+  if (!currentUser) {
+    accountContent.innerHTML = `
+      <a class="back-link" href="/">${t("backShop")}</a>
+      <p class="eyebrow">${t("account")}</p>
+      <h1>${t("accountTitle")}</h1>
+      <p class="content-lead">${t("accountText")}</p>
+      <div class="account-auth-grid">
+        <form class="account-card account-form" data-account-login>
+          <h2>${t("login")}</h2>
+          <label>${t("email")} <input name="email" type="email" autocomplete="email" required /></label>
+          <label>${t("password")} <input name="password" type="password" autocomplete="current-password" required /></label>
+          <button class="button primary wide" type="submit">${t("login")}</button>
+          <p class="form-status" role="status"></p>
+        </form>
+        <form class="account-card account-form" data-account-signup>
+          <h2>${t("createAccount")}</h2>
+          <label>${t("fullName")} <input name="name" autocomplete="name" required /></label>
+          <label>${t("email")} <input name="email" type="email" autocomplete="email" required /></label>
+          <label>${t("password")} <input name="password" type="password" autocomplete="new-password" minlength="6" required /></label>
+          <button class="button secondary wide" type="submit">${t("createAccount")}</button>
+          <p class="form-status" role="status"></p>
+        </form>
+      </div>
+    `;
+    return;
+  }
+
+  const address = currentUser.address || {};
+  accountContent.innerHTML = `
+    <a class="back-link" href="/">${t("backShop")}</a>
+    <div class="account-heading">
+      <div>
+        <p class="eyebrow">${t("account")}</p>
+        <h1>${currentLang === "en" ? "Welcome" : "Bienvenue"}, ${escapeAttribute(currentUser.name)}</h1>
+      </div>
+      <button class="button secondary" type="button" data-account-logout>${t("logout")}</button>
+    </div>
+    <div class="account-layout">
+      <form class="account-card account-form" data-account-profile>
+        <h2>${currentLang === "en" ? "Shipping profile" : "Profil de livraison"}</h2>
+        <div class="form-row two">
+          <label>${t("fullName")} <input name="name" autocomplete="name" value="${escapeAttribute(address.name || currentUser.name || "")}" required /></label>
+          <label>${t("email")} <input name="email" type="email" value="${escapeAttribute(currentUser.email)}" disabled /></label>
+        </div>
+        <div class="form-row contact-row">
+          <label>${t("phone")} <input name="phone" autocomplete="tel" value="${escapeAttribute(address.phone || "")}" /></label>
+          <label>${t("address")} <input name="address" autocomplete="street-address" value="${escapeAttribute(address.address || "")}" /></label>
+        </div>
+        <div class="form-row location-row">
+          <label>${t("city")} <input name="city" autocomplete="address-level2" value="${escapeAttribute(address.city || "")}" /></label>
+          <label>${t("province")} <input name="province" autocomplete="address-level1" value="${escapeAttribute(address.province || "QC")}" /></label>
+          <label>${t("postal")} <input name="postal" autocomplete="postal-code" value="${escapeAttribute(address.postal || "")}" /></label>
+        </div>
+        <label>${t("deliveryNotes")} <input name="notes" value="${escapeAttribute(address.notes || "")}" /></label>
+        <button class="button primary" type="submit">${t("updateProfile")}</button>
+        <p class="form-status" role="status"></p>
+      </form>
+      <section class="account-card">
+        <h2>${t("orderHistory")}</h2>
+        <div class="account-orders">
+          ${
+            customerOrders.length
+              ? customerOrders
+                  .map(
+                    (order) => `
+                      <article class="account-order">
+                        <div>
+                          <strong>${escapeAttribute(order.id)}</strong>
+                          <span>${new Date(order.createdAt).toLocaleDateString(currentLang === "en" ? "en-CA" : "fr-CA")}</span>
+                        </div>
+                        <div>
+                          <span>${orderStatusLabel(order.status)}</span>
+                          <strong>${money.format(Number(order.totalAmount || 0))}</strong>
+                        </div>
+                        <p>${(order.items || []).map((item) => `${escapeAttribute(item.name)} x ${Number(item.quantity || 1)}`).join(" · ")}</p>
+                      </article>
+                    `
+                  )
+                  .join("")
+              : `<p class="account-empty">${t("noOrders")}</p>`
+          }
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 function selectCategory(category, shouldScroll = false) {
   const previousScrollY = window.scrollY;
   state.category = category;
@@ -1608,10 +1789,12 @@ function goToCategory(category, push = true) {
 function applyRoute() {
   const isAdmin = window.location.pathname === "/admin";
   const isCheckout = window.location.pathname === "/checkout";
+  const isAccount = window.location.pathname === "/compte";
   const productMatch = window.location.pathname.match(/^\/produit\/([^/]+)$/);
   const contentMatch = window.location.pathname.match(/^\/(vendre|livraison|faq|apropos)$/);
   document.body.classList.toggle("admin-mode", isAdmin);
   document.body.classList.toggle("checkout-mode", isCheckout);
+  document.body.classList.toggle("account-mode", isAccount);
   document.body.classList.toggle("product-mode", Boolean(productMatch));
   document.body.classList.toggle("content-mode", Boolean(contentMatch));
   if (isCheckout) {
@@ -1620,6 +1803,11 @@ function applyRoute() {
   }
   if (isAdmin) {
     renderAdmin();
+    return;
+  }
+  if (isAccount) {
+    renderAccount();
+    loadCustomerOrders().then(renderAccount);
     return;
   }
   if (productMatch) {
@@ -2746,6 +2934,7 @@ document.addEventListener("click", (event) => {
   const addCartButton = event.target.closest("[data-add-cart]");
   const backShopButton = event.target.closest("[data-back-shop]");
   const homeLink = event.target.closest("[data-home-link]");
+  const accountLink = event.target.closest("[data-account-link]");
   const cartQtyButton = event.target.closest("[data-cart-qty]");
   const cartRemoveButton = event.target.closest("[data-cart-remove]");
   const checkoutLink = event.target.closest("[data-checkout-link]");
@@ -2754,7 +2943,16 @@ document.addEventListener("click", (event) => {
   const galleryImage = event.target.closest("[data-gallery-image]");
   const languageButton = event.target.closest("[data-language]");
   const showAnchor = event.target.closest("[data-show-anchor]");
+  const accountLogout = event.target.closest("[data-account-logout]");
 
+  if (accountLogout) {
+    event.preventDefault();
+    api("/api/logout", { method: "POST", body: "{}" }).catch(() => {});
+    currentUser = null;
+    customerOrders = [];
+    updateAccountButtons();
+    renderAccount();
+  }
   if (languageButton) setLanguage(languageButton.dataset.language);
   if (showAnchor) {
     event.preventDefault();
@@ -2790,6 +2988,12 @@ document.addEventListener("click", (event) => {
     if (setFilterSelect) setFilterSelect.value = "all";
     applyRoute();
     requestAnimationFrame(() => document.querySelector("#top")?.scrollIntoView({ behavior: "smooth" }));
+  }
+  if (accountLink) {
+    event.preventDefault();
+    closeDrawers();
+    history.pushState({}, "", "/compte");
+    applyRoute();
   }
   if (adminCancelOrderButton) cancelPendingOrder(adminCancelOrderButton.dataset.adminCancelOrder, adminCancelOrderButton);
   if (adminPaidOrderButton) markPendingOrderPaid(adminPaidOrderButton.dataset.adminPaidOrder, adminPaidOrderButton);
@@ -2940,6 +3144,58 @@ document.addEventListener("submit", async (event) => {
   }
 });
 
+document.addEventListener("submit", async (event) => {
+  const loginForm = event.target.closest("[data-account-login]");
+  const signupForm = event.target.closest("[data-account-signup]");
+  const profileForm = event.target.closest("[data-account-profile]");
+  if (!loginForm && !signupForm && !profileForm) return;
+  event.preventDefault();
+  const formElement = loginForm || signupForm || profileForm;
+  const status = formElement.querySelector(".form-status");
+  const submitButton = formElement.querySelector('button[type="submit"]');
+  const form = new FormData(formElement);
+  if (submitButton) submitButton.disabled = true;
+  if (status) status.textContent = currentLang === "en" ? "One moment..." : "Un instant...";
+  try {
+    if (loginForm || signupForm) {
+      const endpoint = loginForm ? "/api/login" : "/api/signup";
+      const body = {
+        name: form.get("name") || "",
+        email: form.get("email"),
+        password: form.get("password"),
+      };
+      const payload = await api(endpoint, { method: "POST", body: JSON.stringify(body) });
+      currentUser = payload.user || null;
+      await loadCustomerOrders();
+      updateAccountButtons();
+      renderAccount();
+      fillCheckoutFromProfile();
+      return;
+    }
+    const body = {
+      name: form.get("name"),
+      address: {
+        phone: form.get("phone"),
+        address: form.get("address"),
+        city: form.get("city"),
+        province: form.get("province"),
+        postal: form.get("postal"),
+        notes: form.get("notes"),
+      },
+    };
+    const payload = await api("/api/profile", { method: "POST", body: JSON.stringify(body) });
+    currentUser = payload.user || null;
+    updateAccountButtons();
+    renderAccount();
+    const nextStatus = accountContent?.querySelector("[data-account-profile] .form-status");
+    if (nextStatus) nextStatus.textContent = currentLang === "en" ? "Profile updated." : "Profil mis à jour.";
+  } catch (error) {
+    if (status) status.textContent = error.message;
+  } finally {
+    if (submitButton) submitButton.disabled = false;
+  }
+});
+
 checkoutForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!cart.length) {
@@ -2966,6 +3222,7 @@ checkoutForm?.addEventListener("submit", async (event) => {
     shipping: "canada_post_manual",
     paymentMethod: { type: "square" },
     items: cart,
+    saveProfile: Boolean(form.get("saveProfile")),
   };
   const submitButtons = [...checkoutForm.querySelectorAll('button[type="submit"]')];
   submitButtons.forEach((button) => {
@@ -3237,7 +3494,7 @@ if (mobileShopQuery.addEventListener) {
 refreshAdminState();
 loadPokemonSets();
 applyTranslations();
-Promise.all([loadProducts(), loadCardShows(), loadReviews()]).then(() => {
+Promise.all([loadProducts(), loadCardShows(), loadReviews(), loadCurrentUser()]).then(() => {
   applyRoute();
   renderCardShows();
   renderReviews();

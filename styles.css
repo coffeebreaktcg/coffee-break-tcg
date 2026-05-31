@@ -39,6 +39,8 @@ body.admin-mode main,
 body.admin-mode .site-footer,
 body.checkout-mode main,
 body.checkout-mode .site-footer,
+body.account-mode main,
+body.account-mode .site-footer,
 body.product-mode main,
 body.product-mode .site-footer,
 body.content-mode main,
@@ -1915,6 +1917,20 @@ label select {
   margin: 0;
 }
 
+.save-profile-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--coffee);
+  text-transform: none;
+}
+
+.save-profile-option input {
+  width: auto;
+  min-height: auto;
+  margin: 0;
+}
+
 .shipping-options label:not(.save-check) {
   display: grid;
   align-items: start;
@@ -2614,13 +2630,15 @@ body.checkout-mode .checkout-page {
 }
 
 .product-detail-page,
-.content-page {
+.content-page,
+.account-page {
   display: none;
   padding: 52px 5vw 80px;
 }
 
 body.product-mode .product-detail-page,
-body.content-mode .content-page {
+body.content-mode .content-page,
+body.account-mode .account-page {
   display: block;
   animation: pageRise 520ms var(--ease-apple) both;
 }
@@ -2817,6 +2835,88 @@ body.admin-mode .admin-page {
 
 .content-shell {
   max-width: 1120px;
+}
+
+.account-shell {
+  display: grid;
+  gap: 26px;
+}
+
+.account-heading {
+  display: flex;
+  gap: 18px;
+  align-items: start;
+  justify-content: space-between;
+}
+
+.account-heading h1,
+.account-shell > h1 {
+  margin: 0;
+  color: var(--clay);
+  font-family: "Rubik One", Inter, sans-serif;
+  font-size: clamp(38px, 6vw, 78px);
+  font-weight: 400;
+  line-height: 0.92;
+  text-transform: uppercase;
+}
+
+.account-auth-grid,
+.account-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.account-card {
+  border: 1px solid var(--line);
+  background: #fffaf2;
+  padding: clamp(20px, 3vw, 30px);
+  box-shadow: var(--shadow);
+}
+
+.account-card h2 {
+  margin: 0 0 18px;
+  font-family: "Space Grotesk", Inter, sans-serif;
+  font-size: clamp(24px, 3vw, 36px);
+  line-height: 1;
+}
+
+.account-form,
+.account-orders {
+  display: grid;
+  gap: 16px;
+}
+
+.account-order {
+  display: grid;
+  gap: 9px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.account-order:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.account-order > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.account-order span,
+.account-order p,
+.account-empty {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.icon-button.is-active {
+  color: #fff8ec;
 }
 
 .content-lead {
@@ -3868,6 +3968,8 @@ body.admin-mode .admin-page {
   .curated-heading,
   .curated-row,
   .review-grid,
+  .account-auth-grid,
+  .account-layout,
   .checkout-page-layout {
     grid-template-columns: 1fr;
   }
@@ -3880,7 +3982,7 @@ body.admin-mode .admin-page {
 @media (max-width: 680px) {
   .site-header {
     display: grid;
-    grid-template-columns: 66px minmax(0, 1fr) 66px;
+    grid-template-columns: 86px minmax(0, 1fr) 86px;
     column-gap: 4px;
     min-height: 72px;
     padding: 0 12px;
@@ -3897,7 +3999,7 @@ body.admin-mode .admin-page {
   }
 
   .brand-logo-img {
-    width: clamp(140px, 38vw, 168px);
+    width: clamp(126px, 36vw, 150px);
     height: 54px;
   }
 
@@ -3928,7 +4030,7 @@ body.admin-mode .admin-page {
   }
 
   .header-actions {
-    gap: 3px;
+    gap: 1px;
     min-width: 0;
     justify-self: end;
   }
@@ -3950,13 +4052,13 @@ body.admin-mode .admin-page {
   }
 
   .icon-button {
-    width: 31px;
+    width: 28px;
     height: 31px;
   }
 
   .icon-button svg {
-    width: 19px;
-    height: 19px;
+    width: 18px;
+    height: 18px;
   }
 
   .cart-count {
@@ -4148,9 +4250,15 @@ body.admin-mode .admin-page {
   .product-detail-page,
   .content-page,
   .checkout-page,
+  .account-page,
   .admin-page {
     padding-left: 18px;
     padding-right: 18px;
+  }
+
+  .account-heading {
+    align-items: start;
+    flex-direction: column;
   }
 
   .product-detail-page {
