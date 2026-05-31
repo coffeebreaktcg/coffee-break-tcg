@@ -58,6 +58,7 @@ const googleDrivePrivateKey = (process.env.GOOGLE_DRIVE_PRIVATE_KEY || "").repla
 const cardImageSearchCache = new Map();
 const cardImageSearchCacheTtlMs = 1000 * 60 * 30;
 const adminLoginAttempts = new Map();
+const maxJsonBodyBytes = Number(process.env.MAX_JSON_BODY_BYTES || 8 * 1024 * 1024);
 let lastDbBackupAt = 0;
 let googleDriveBackupTimer = null;
 let googleDriveAccessToken = null;
@@ -89,6 +90,20 @@ const mimeTypes = {
   ".pdf": "application/pdf",
   ".zip": "application/zip",
 };
+
+const securityHeaders = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Content-Security-Policy":
+    "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self' https://api.resend.com https://connect.squareup.com https://connect.squareupsandbox.com https://api.pokemontcg.io https://images.pokemontcg.io https://images.scrydex.com https://ws1.postescanada-canadapost.ca; form-action 'self'; upgrade-insecure-requests",
+};
+
+if (process.env.NODE_ENV === "production") {
+  securityHeaders["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+}
 
 async function readDb() {
   await fs.mkdir(dataDir, { recursive: true });
@@ -405,6 +420,7 @@ function publicBackupStatus() {
 
 function jsonAttachment(res, filename, payload) {
   res.writeHead(200, {
+    ...securityHeaders,
     "Content-Type": "application/json; charset=utf-8",
     "Content-Disposition": `attachment; filename="${filename}"`,
   });
@@ -413,6 +429,7 @@ function jsonAttachment(res, filename, payload) {
 
 function zipAttachment(res, filename, buffer) {
   res.writeHead(200, {
+    ...securityHeaders,
     "Content-Type": "application/zip",
     "Content-Disposition": `attachment; filename="${filename}"`,
   });
@@ -784,6 +801,7 @@ function defaultExpenses() {
 
 function json(res, status, payload, extraHeaders = {}) {
   res.writeHead(status, {
+    ...securityHeaders,
     "Content-Type": "application/json; charset=utf-8",
     ...extraHeaders,
   });
@@ -793,6 +811,7 @@ function json(res, status, payload, extraHeaders = {}) {
 function csv(res, filename, rows) {
   const body = rows.map((row) => row.map(csvCell).join(",")).join("\n");
   res.writeHead(200, {
+    ...securityHeaders,
     "Content-Type": "text/csv; charset=utf-8",
     "Content-Disposition": `attachment; filename="${filename}"`,
   });
@@ -835,6 +854,16 @@ function adminPasswordMatches(password) {
   if (adminPasswordHash) return verifyPassword(password, adminPasswordHash);
   if (!adminPassword || password.length !== adminPassword.length) return false;
   return crypto.timingSafeEqual(Buffer.from(password), Buffer.from(adminPassword));
+}
+
+if (process.argv[2] === "hash-admin-password") {
+  const password = process.argv.slice(3).join(" ");
+  if (!password || password.length < 12) {
+    console.error('Usage: node server.js hash-admin-password "mot-de-passe-admin-long"');
+    process.exit(1);
+  }
+  console.log(hashPassword(password));
+  process.exit(0);
 }
 
 function requestIp(req) {
@@ -1935,7 +1964,16 @@ function verifySquareWebhookSignature(req, rawBody) {
 
 async function readRawBody(req) {
   const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
+  let total = 0;
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > maxJsonBodyBytes) {
+      const error = new Error("Requête trop volumineuse");
+      error.statusCode = 413;
+      throw error;
+    }
+    chunks.push(chunk);
+  }
   return Buffer.concat(chunks).toString("utf8");
 }
 
@@ -3130,10 +3168,11 @@ async function handleApi(req, res) {
 }
 
 function cookieHeader(sessionId) {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
   return {
     "Set-Cookie": `cb_session=${encodeURIComponent(
       sessionId
-    )}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`,
+    )}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800${secure}`,
   };
 }
 
@@ -3147,8 +3186,9 @@ function adminCookieHeader(sessionId) {
 }
 
 function clearAdminCookieHeader() {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
   return {
-    "Set-Cookie": "cb_admin=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
+    "Set-Cookie": `cb_admin=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}`,
   };
 }
 
@@ -3161,12 +3201,13 @@ async function serveStatic(req, res) {
   const filePath = isUploadAsset ? path.join(uploadDir, uploadFileName) : path.join(root, requested);
   const allowedRoot = isUploadAsset ? uploadDir : root;
   if (!filePath.startsWith(allowedRoot)) {
-    res.writeHead(403);
+    res.writeHead(403, securityHeaders);
     return res.end("Forbidden");
   }
   try {
     const file = await fs.readFile(filePath);
     res.writeHead(200, {
+      ...securityHeaders,
       "Content-Type": mimeTypes[path.extname(filePath)] || "application/octet-stream",
       "Cache-Control": ["html", ".js", ".css"].some((ext) => filePath.endsWith(ext)) ? "no-store" : "public, max-age=3600",
     });
@@ -3175,10 +3216,10 @@ async function serveStatic(req, res) {
     const acceptsHtml = (req.headers.accept || "").includes("text/html");
     if (acceptsHtml && !url.pathname.startsWith("/assets/")) {
       const file = await fs.readFile(path.join(root, "index.html"));
-      res.writeHead(200, { "Content-Type": mimeTypes[".html"] });
+      res.writeHead(200, { ...securityHeaders, "Content-Type": mimeTypes[".html"] });
       return res.end(file);
     }
-    res.writeHead(404);
+    res.writeHead(404, securityHeaders);
     res.end("Not found");
   }
 }
@@ -3188,7 +3229,8 @@ const server = http.createServer(async (req, res) => {
     if (req.url.startsWith("/api/")) return await handleApi(req, res);
     return await serveStatic(req, res);
   } catch (error) {
-    json(res, 500, { error: error.message || "Erreur serveur" });
+    const status = Number(error.statusCode || 500);
+    json(res, status, { error: error.message || "Erreur serveur" });
   }
 });
 
