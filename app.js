@@ -1575,6 +1575,14 @@ function scrollToShopItems(behavior = "smooth") {
   window.scrollTo({ top, behavior });
 }
 
+function scrollToProductDetailTop(behavior = "auto") {
+  const target = document.querySelector("#productDetailPage");
+  if (!target) return;
+  const headerHeight = document.querySelector(".site-header")?.getBoundingClientRect().height || 0;
+  const top = Math.max(0, target.getBoundingClientRect().top + window.scrollY - headerHeight);
+  window.scrollTo({ top, behavior });
+}
+
 function goToCategory(category, push = true) {
   const path = Object.entries(categoryRoutes).find(([, value]) => value === category)?.[0] || "/";
   state.category = category;
@@ -1603,6 +1611,7 @@ function applyRoute() {
   }
   if (productMatch) {
     renderProductDetail(productMatch[1]);
+    requestAnimationFrame(() => scrollToProductDetailTop("auto"));
     return;
   }
   if (contentMatch) {
