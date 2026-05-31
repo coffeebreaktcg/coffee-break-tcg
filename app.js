@@ -203,6 +203,7 @@ const money = new Intl.NumberFormat("fr-CA", {
 });
 
 const productGrid = document.querySelector("#productGrid");
+const trustStrip = document.querySelector(".trust-strip");
 const cartItems = document.querySelector("#cartItems");
 const cartTotals = document.querySelector("#cartTotals");
 const checkoutItems = document.querySelector("#checkoutItems");
@@ -1061,40 +1062,41 @@ function formatReviewDate(value) {
 }
 
 function renderReviews() {
-  if (!reviewSection) return;
-  const published = reviews.filter((review) => review.published !== false).slice(0, 3);
-  reviewSection.innerHTML = `
-    <section class="review-block reveal-section">
-      <div class="review-heading">
-        <div>
-          <p class="eyebrow">${t("reviewsEyebrow")}</p>
-          <h2>${t("reviewsTitle")}</h2>
-        </div>
-        ${t("reviewsText") ? `<p>${t("reviewsText")}</p>` : ""}
-      </div>
-      <div class="review-grid">
-        ${
-          published.length
-            ? published
-                .map(
-                  (review) => `
-                    <article class="review-card">
-                      <div class="review-stars" aria-label="${Number(review.rating || 5)} étoiles">${reviewStars(review.rating)}</div>
-                      <p>“${escapeAttribute(review.text)}”</p>
-                      <footer>
-                        <strong>${escapeAttribute(review.name)}</strong>
-                        <span>${escapeAttribute([review.city, review.product, formatReviewDate(review.date)].filter(Boolean).join(" - "))}</span>
-                      </footer>
-                    </article>
-                  `
-                )
-                .join("")
-            : `<p class="review-empty">${t("reviewsEmpty")}</p>`
-        }
-      </div>
-    </section>
+  if (reviewSection) reviewSection.innerHTML = "";
+  renderTrustStrip();
+}
+
+function trustMarqueeItems() {
+  const base = [
+    t("trustPhotos"),
+    t("trustShipping"),
+    t("trustPayment"),
+    t("trustReserve"),
+    t("trustLocal"),
+  ].map((text) => ({ text, review: false }));
+  const published = reviews
+    .filter((review) => review.published !== false && String(review.text || "").trim())
+    .slice(0, 4)
+    .map((review) => ({
+      review: true,
+      text: `${reviewStars(review.rating)} “${String(review.text || "").trim()}” — ${String(review.name || "Coffee Break").trim()}`,
+    }));
+  return [...base, ...published, ...base, ...published];
+}
+
+function renderTrustStrip() {
+  if (!trustStrip) return;
+  const items = trustMarqueeItems();
+  const track = items
+    .map(
+      (item) =>
+        `<span class="${item.review ? "trust-review-chip" : ""}">${escapeAttribute(item.text)}</span>`
+    )
+    .join("");
+  trustStrip.innerHTML = `
+    <div class="trust-track">${track}</div>
+    <div class="trust-track" aria-hidden="true">${track}</div>
   `;
-  observeDynamicElements();
 }
 
 function formatShowDate(value) {
