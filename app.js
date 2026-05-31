@@ -262,6 +262,7 @@ const marketSuggestStatus = document.querySelector("#marketSuggestStatus");
 const productDetailContent = document.querySelector("#productDetailContent");
 const contentPageContent = document.querySelector("#contentPageContent");
 const accountContent = document.querySelector("#accountContent");
+const accountModal = document.querySelector("#accountModal");
 const cardShowsGrid = document.querySelector("#cardShowsGrid");
 const featuredSections = document.querySelector("#featuredSections");
 const curatedSections = document.querySelector("#curatedSections");
@@ -328,6 +329,8 @@ const translations = {
     checkoutTitle: "Finaliser",
     accountTitle: "Mon compte",
     accountText: "Connecte-toi pour voir tes commandes, garder tes informations de livraison et accélérer tes prochains achats.",
+    accountPopupTitle: "Connexion client",
+    accountPopupText: "Connecte-toi pour voir tes commandes et garder tes informations de livraison.",
     backShop: "Retour boutique",
     summary: "Récapitulatif",
     shipping: "Livraison",
@@ -435,6 +438,8 @@ const translations = {
     checkoutTitle: "Checkout",
     accountTitle: "My account",
     accountText: "Sign in to view previous orders, keep your shipping details and make future purchases faster.",
+    accountPopupTitle: "Customer login",
+    accountPopupText: "Sign in to view your orders and keep your shipping details.",
     backShop: "Back to shop",
     summary: "Summary",
     shipping: "Shipping",
@@ -1104,6 +1109,19 @@ function fillCheckoutFromProfile() {
   if (saveProfile) saveProfile.checked = true;
 }
 
+function openAccountModal() {
+  if (!accountModal) return;
+  closeDrawers();
+  accountModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("account-modal-open");
+  requestAnimationFrame(() => accountModal.querySelector('input[name="email"]')?.focus());
+}
+
+function closeAccountModal() {
+  accountModal?.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("account-modal-open");
+}
+
 function populateSetFilter() {
   if (!setFilterSelect) return;
   const current = setFilterSelect.value || state.setFilter || "all";
@@ -1664,29 +1682,8 @@ function orderStatusLabel(status) {
 function renderAccount() {
   if (!accountContent) return;
   if (!currentUser) {
-    accountContent.innerHTML = `
-      <a class="back-link" href="/">${t("backShop")}</a>
-      <p class="eyebrow">${t("account")}</p>
-      <h1>${t("accountTitle")}</h1>
-      <p class="content-lead">${t("accountText")}</p>
-      <div class="account-auth-grid">
-        <form class="account-card account-form" data-account-login>
-          <h2>${t("login")}</h2>
-          <label>${t("email")} <input name="email" type="email" autocomplete="email" required /></label>
-          <label>${t("password")} <input name="password" type="password" autocomplete="current-password" required /></label>
-          <button class="button primary wide" type="submit">${t("login")}</button>
-          <p class="form-status" role="status"></p>
-        </form>
-        <form class="account-card account-form" data-account-signup>
-          <h2>${t("createAccount")}</h2>
-          <label>${t("fullName")} <input name="name" autocomplete="name" required /></label>
-          <label>${t("email")} <input name="email" type="email" autocomplete="email" required /></label>
-          <label>${t("password")} <input name="password" type="password" autocomplete="new-password" minlength="6" required /></label>
-          <button class="button secondary wide" type="submit">${t("createAccount")}</button>
-          <p class="form-status" role="status"></p>
-        </form>
-      </div>
-    `;
+    accountContent.innerHTML = "";
+    openAccountModal();
     return;
   }
 
@@ -1750,6 +1747,37 @@ function renderAccount() {
   `;
 }
 
+function renderCreateAccountPage() {
+  if (!accountContent) return;
+  accountContent.innerHTML = `
+    <a class="back-link" href="/" data-home-link>${t("backShop")}</a>
+    <p class="eyebrow">${t("account")}</p>
+    <h1>${t("createAccount")}</h1>
+    <p class="content-lead">${t("accountText")}</p>
+    <form class="account-card account-form account-create-form" data-account-signup>
+      <div class="form-row two">
+        <label>${t("fullName")} <input name="name" autocomplete="name" required /></label>
+        <label>${t("email")} <input name="email" type="email" autocomplete="email" required /></label>
+      </div>
+      <div class="form-row two">
+        <label>${t("password")} <input name="password" type="password" autocomplete="new-password" minlength="6" required /></label>
+        <label>${t("phone")} <input name="phone" autocomplete="tel" /></label>
+      </div>
+      <div class="form-row contact-row">
+        <label>${t("address")} <input name="address" autocomplete="street-address" /></label>
+        <label>${t("city")} <input name="city" autocomplete="address-level2" /></label>
+      </div>
+      <div class="form-row location-row">
+        <label>${t("province")} <input name="province" autocomplete="address-level1" value="QC" /></label>
+        <label>${t("postal")} <input name="postal" autocomplete="postal-code" /></label>
+        <label>${t("deliveryNotes")} <input name="notes" /></label>
+      </div>
+      <button class="button primary" type="submit">${t("createAccount")}</button>
+      <p class="form-status" role="status"></p>
+    </form>
+  `;
+}
+
 function selectCategory(category, shouldScroll = false) {
   const previousScrollY = window.scrollY;
   state.category = category;
@@ -1790,11 +1818,12 @@ function applyRoute() {
   const isAdmin = window.location.pathname === "/admin";
   const isCheckout = window.location.pathname === "/checkout";
   const isAccount = window.location.pathname === "/compte";
+  const isCreateAccount = window.location.pathname === "/creer-compte";
   const productMatch = window.location.pathname.match(/^\/produit\/([^/]+)$/);
   const contentMatch = window.location.pathname.match(/^\/(vendre|livraison|faq|apropos)$/);
   document.body.classList.toggle("admin-mode", isAdmin);
   document.body.classList.toggle("checkout-mode", isCheckout);
-  document.body.classList.toggle("account-mode", isAccount);
+  document.body.classList.toggle("account-mode", isAccount || isCreateAccount);
   document.body.classList.toggle("product-mode", Boolean(productMatch));
   document.body.classList.toggle("content-mode", Boolean(contentMatch));
   if (isCheckout) {
@@ -1803,6 +1832,11 @@ function applyRoute() {
   }
   if (isAdmin) {
     renderAdmin();
+    return;
+  }
+  if (isCreateAccount) {
+    closeAccountModal();
+    renderCreateAccountPage();
     return;
   }
   if (isAccount) {
@@ -2935,6 +2969,8 @@ document.addEventListener("click", (event) => {
   const backShopButton = event.target.closest("[data-back-shop]");
   const homeLink = event.target.closest("[data-home-link]");
   const accountLink = event.target.closest("[data-account-link]");
+  const closeAccountModalButton = event.target.closest("[data-close-account-modal]");
+  const createAccountLink = event.target.closest("[data-create-account-link]");
   const cartQtyButton = event.target.closest("[data-cart-qty]");
   const cartRemoveButton = event.target.closest("[data-cart-remove]");
   const checkoutLink = event.target.closest("[data-checkout-link]");
@@ -2945,6 +2981,20 @@ document.addEventListener("click", (event) => {
   const showAnchor = event.target.closest("[data-show-anchor]");
   const accountLogout = event.target.closest("[data-account-logout]");
 
+  if (closeAccountModalButton) {
+    event.preventDefault();
+    closeAccountModal();
+  }
+  if (createAccountLink) {
+    event.preventDefault();
+    closeAccountModal();
+    showTransitionLoader(t("createAccount"));
+    window.setTimeout(() => {
+      history.pushState({}, "", "/creer-compte");
+      applyRoute();
+      window.setTimeout(hideTransitionLoader, 220);
+    }, 340);
+  }
   if (accountLogout) {
     event.preventDefault();
     api("/api/logout", { method: "POST", body: "{}" }).catch(() => {});
@@ -2992,8 +3042,12 @@ document.addEventListener("click", (event) => {
   if (accountLink) {
     event.preventDefault();
     closeDrawers();
-    history.pushState({}, "", "/compte");
-    applyRoute();
+    if (!currentUser) {
+      openAccountModal();
+    } else {
+      history.pushState({}, "", "/compte");
+      applyRoute();
+    }
   }
   if (adminCancelOrderButton) cancelPendingOrder(adminCancelOrderButton.dataset.adminCancelOrder, adminCancelOrderButton);
   if (adminPaidOrderButton) markPendingOrderPaid(adminPaidOrderButton.dataset.adminPaidOrder, adminPaidOrderButton);
@@ -3166,8 +3220,27 @@ document.addEventListener("submit", async (event) => {
       };
       const payload = await api(endpoint, { method: "POST", body: JSON.stringify(body) });
       currentUser = payload.user || null;
+      if (signupForm && formElement.querySelector('[name="address"]')) {
+        const profilePayload = await api("/api/profile", {
+          method: "POST",
+          body: JSON.stringify({
+            name: form.get("name"),
+            address: {
+              phone: form.get("phone"),
+              address: form.get("address"),
+              city: form.get("city"),
+              province: form.get("province"),
+              postal: form.get("postal"),
+              notes: form.get("notes"),
+            },
+          }),
+        });
+        currentUser = profilePayload.user || currentUser;
+      }
       await loadCustomerOrders();
+      closeAccountModal();
       updateAccountButtons();
+      history.pushState({}, "", "/compte");
       renderAccount();
       fillCheckoutFromProfile();
       return;
@@ -3254,7 +3327,10 @@ checkoutForm?.addEventListener("submit", async (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeDrawers();
+  if (event.key === "Escape") {
+    closeDrawers();
+    closeAccountModal();
+  }
 });
 
 searchCardImageButton?.addEventListener("click", searchCardImage);
