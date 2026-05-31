@@ -46,6 +46,8 @@ const resendFromEmail = process.env.RESEND_FROM_EMAIL || "Coffee Break TCG <onbo
 const squareEnvironment = process.env.SQUARE_ENVIRONMENT || "sandbox";
 const squareAccessToken = process.env.SQUARE_ACCESS_TOKEN || "";
 const squareLocationId = process.env.SQUARE_LOCATION_ID || "";
+const squareWebhookSignatureKey = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY || "";
+const squareWebhookNotificationUrl = process.env.SQUARE_WEBHOOK_NOTIFICATION_URL || "";
 const googleDriveBackupFolderId = process.env.GOOGLE_DRIVE_BACKUP_FOLDER_ID || "";
 const googleDriveBackupFileId = process.env.GOOGLE_DRIVE_BACKUP_FILE_ID || "";
 const googleDriveBackupFileName = process.env.GOOGLE_DRIVE_BACKUP_FILE_NAME || "coffee-break-latest-backup.zip";
@@ -1580,9 +1582,7 @@ async function queueOrderEmails(db, order) {
 }
 
 async function readBody(req) {
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  const raw = Buffer.concat(chunks).toString("utf8");
+  const raw = await readRawBody(req);
   return raw ? JSON.parse(raw) : {};
 }
 
@@ -1876,6 +1876,160 @@ function squareJson(pathname, body) {
     request.write(payload);
     request.end();
   });
+}
+
+function squareRequest(pathname, method = "GET") {
+  if (!squareAccessToken) {
+    return Promise.reject(new Error("Configuration Square manquante"));
+  }
+  return new Promise((resolve, reject) => {
+    const request = https.request(
+      {
+        hostname: squareApiHost(),
+        path: pathname,
+        method,
+        headers: {
+          "Square-Version": "2026-01-22",
+          Authorization: `Bearer ${squareAccessToken}`,
+          "Content-Type": "application/json",
+        },
+      },
+      (response) => {
+        const chunks = [];
+        response.on("data", (chunk) => chunks.push(chunk));
+        response.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf8");
+          if (response.statusCode >= 400) return reject(new Error(`Square ${response.statusCode}: ${text.slice(0, 220)}`));
+          try {
+            resolve(JSON.parse(text));
+          } catch {
+            resolve({});
+          }
+        });
+      }
+    );
+    request.on("error", reject);
+    request.end();
+  });
+}
+
+async function getSquarePayment(paymentId) {
+  if (!paymentId) return null;
+  const payload = await squareRequest(`/v2/payments/${encodeURIComponent(paymentId)}`);
+  return payload.payment || null;
+}
+
+function verifySquareWebhookSignature(req, rawBody) {
+  if (!squareWebhookSignatureKey) return true;
+  const signature = String(req.headers["x-square-hmacsha256-signature"] || "");
+  if (!signature) return false;
+  const notificationUrl = squareWebhookNotificationUrl || `${publicOrigin(req)}/api/square/webhook`;
+  const expected = crypto
+    .createHmac("sha256", squareWebhookSignatureKey)
+    .update(notificationUrl + rawBody)
+    .digest("base64");
+  const expectedBuffer = Buffer.from(expected);
+  const signatureBuffer = Buffer.from(signature);
+  return expectedBuffer.length === signatureBuffer.length && crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
+}
+
+async function readRawBody(req) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+function markOrderPaidFromSquare(db, order, payment, eventType = "square_webhook") {
+  if (!order) return { changed: false, reason: "order_missing" };
+  if (order.status === "paid") return { changed: false, reason: "already_paid" };
+  if (order.status !== "pending_payment") return { changed: false, reason: `status_${order.status}` };
+  for (const item of order.items || []) {
+    const product = db.inventory.find((candidate) => candidate.id === item.id);
+    if (!product) continue;
+    const quantity = Math.max(1, Number(item.quantity || 1));
+    product.reservedQuantity = Math.max(0, Number(product.reservedQuantity || 0) - quantity);
+    if (Number(product.stock || 0) <= 0 && Number(product.reservedQuantity || 0) <= 0) {
+      product.status = "sold";
+    } else if (product.status === "reserved") {
+      product.status = product.category === "Preorder" ? "preorder" : "available";
+    }
+  }
+  order.status = "paid";
+  order.paidAt = new Date().toISOString();
+  order.paymentConfirmedBy = eventType;
+  order.squarePayment = {
+    id: payment?.id || order.squarePayment?.id || "",
+    status: payment?.status || order.squarePayment?.status || "COMPLETED",
+    orderId: payment?.order_id || order.squarePaymentLink?.orderId || "",
+    receiptUrl: payment?.receipt_url || "",
+    totalMoney: payment?.total_money || payment?.amount_money || null,
+    updatedAt: payment?.updated_at || "",
+  };
+  return { changed: true };
+}
+
+async function handleSquareWebhook(req, res, db) {
+  const rawBody = await readRawBody(req);
+  if (!verifySquareWebhookSignature(req, rawBody)) {
+    return json(res, 403, { error: "Signature Square invalide" });
+  }
+  let event;
+  try {
+    event = rawBody ? JSON.parse(rawBody) : {};
+  } catch {
+    return json(res, 400, { error: "Webhook Square JSON invalide" });
+  }
+
+  const eventType = event.type || "";
+  const eventPayment = event.data?.object?.payment || {};
+  const eventPaymentId = eventPayment.id || event.data?.id || "";
+  let payment = eventPayment;
+  if (eventPaymentId && (!payment.status || !payment.order_id)) {
+    try {
+      payment = await getSquarePayment(eventPaymentId);
+    } catch (error) {
+      db.emailOutbox.push({
+        id: `square-webhook-${event.event_id || Date.now()}`,
+        to: shopEmail,
+        subject: "Webhook Square à vérifier",
+        body: `Impossible de récupérer le paiement Square ${eventPaymentId}: ${error.message}`,
+        status: "prepared",
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  const paymentStatus = payment?.status || eventPayment.status || "";
+  const squareOrderId = payment?.order_id || eventPayment.order_id || "";
+  const paymentId = payment?.id || eventPaymentId;
+  const order = (db.orders || []).find(
+    (candidate) =>
+      candidate.squarePaymentLink?.orderId === squareOrderId ||
+      candidate.squarePayment?.id === paymentId ||
+      candidate.squarePaymentLink?.id === eventPayment.payment_link_id
+  );
+
+  const webhookRecord = {
+    eventId: event.event_id || crypto.randomBytes(8).toString("hex"),
+    type: eventType,
+    paymentId,
+    squareOrderId,
+    paymentStatus,
+    receivedAt: new Date().toISOString(),
+  };
+
+  if (eventType === "payment.updated" && paymentStatus === "COMPLETED" && order) {
+    const result = markOrderPaidFromSquare(db, order, payment, "square_webhook");
+    order.squareWebhookEvents = [...(order.squareWebhookEvents || []), webhookRecord].slice(-10);
+    await writeDb(db);
+    return json(res, 200, { ok: true, orderId: order.id, changed: result.changed, reason: result.reason || "" });
+  }
+
+  if (order) {
+    order.squareWebhookEvents = [...(order.squareWebhookEvents || []), webhookRecord].slice(-10);
+    await writeDb(db);
+  }
+  return json(res, 200, { ok: true, ignored: true, type: eventType, paymentStatus, orderId: order?.id || "" });
 }
 
 async function createSquarePaymentLink(order, req) {
@@ -2318,6 +2472,10 @@ async function handleApi(req, res) {
   const db = await readDb();
   const url = new URL(req.url, `http://${req.headers.host}`);
 
+  if (url.pathname === "/api/square/webhook" && req.method === "POST") {
+    return handleSquareWebhook(req, res, db);
+  }
+
   if (url.pathname === "/api/me" && req.method === "GET") {
     return json(res, 200, { user: publicUser(await getSessionUser(req, db)) });
   }
@@ -2590,19 +2748,7 @@ async function handleApi(req, res) {
     if (order.status !== "pending_payment") {
       return json(res, 400, { error: "Seules les commandes en attente de paiement peuvent être marquées comme payées" });
     }
-    for (const item of order.items || []) {
-      const product = db.inventory.find((candidate) => candidate.id === item.id);
-      if (!product) continue;
-      const quantity = Math.max(1, Number(item.quantity || 1));
-      product.reservedQuantity = Math.max(0, Number(product.reservedQuantity || 0) - quantity);
-      if (Number(product.stock || 0) <= 0 && Number(product.reservedQuantity || 0) <= 0) {
-        product.status = "sold";
-      } else if (product.status === "reserved") {
-        product.status = product.category === "Preorder" ? "preorder" : "available";
-      }
-    }
-    order.status = "paid";
-    order.paidAt = new Date().toISOString();
+    markOrderPaidFromSquare(db, order, { status: "COMPLETED" }, "admin");
     await writeDb(db);
     return json(res, 200, { order, summary: summarizeSales(db), inventory: db.inventory.map(publicProduct) });
   }

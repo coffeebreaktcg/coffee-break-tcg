@@ -31,6 +31,23 @@ NODE_ENV=production
 DATA_DIR=/var/data
 UPLOAD_DIR=/var/data/uploads
 SQUARE_ENVIRONMENT=production
+SQUARE_WEBHOOK_NOTIFICATION_URL=https://your-domain.ca/api/square/webhook
 ```
 
 Le fichier `data/seed.json` sert à initialiser le disque persistant au premier lancement sans publier les commandes, sessions ou données client locales.
+
+## Webhook Square
+
+Configurer dans Square Developer Console:
+
+```txt
+Notification URL: https://your-domain.ca/api/square/webhook
+Events: payment.updated
+```
+
+Ajouter ensuite dans Render:
+
+```txt
+SQUARE_WEBHOOK_SIGNATURE_KEY=...
+SQUARE_WEBHOOK_NOTIFICATION_URL=https://your-domain.ca/api/square/webhook
+```
