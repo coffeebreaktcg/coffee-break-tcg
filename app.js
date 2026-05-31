@@ -1067,21 +1067,26 @@ function renderReviews() {
 }
 
 function trustMarqueeItems() {
-  const base = [
-    t("trustPhotos"),
-    t("trustShipping"),
-    t("trustPayment"),
-    t("trustReserve"),
-    t("trustLocal"),
-  ].map((text) => ({ text, review: false }));
   const published = reviews
     .filter((review) => review.published !== false && String(review.text || "").trim())
-    .slice(0, 4)
+    .slice(0, 6)
     .map((review) => ({
-      review: true,
-      text: `${reviewStars(review.rating)} “${String(review.text || "").trim()}” — ${String(review.name || "Coffee Break").trim()}`,
+      name: String(review.name || "Coffee Break").trim(),
+      city: String(review.city || "").trim(),
+      product: String(review.product || "").trim(),
+      rating: Number(review.rating || 5),
+      text: String(review.text || "").trim(),
     }));
-  return [...base, ...published, ...base, ...published];
+  if (!published.length) {
+    published.push({
+      name: "Coffee Break TCG",
+      city: "Saint-Sauveur",
+      product: "",
+      rating: 5,
+      text: currentLang === "en" ? "Customer reviews will appear here soon." : "Les premiers avis clients apparaîtront ici bientôt.",
+    });
+  }
+  return [...published, ...published, ...published];
 }
 
 function renderTrustStrip() {
@@ -1089,8 +1094,14 @@ function renderTrustStrip() {
   const items = trustMarqueeItems();
   const track = items
     .map(
-      (item) =>
-        `<span class="${item.review ? "trust-review-chip" : ""}">${escapeAttribute(item.text)}</span>`
+      (item) => `
+        <span class="trust-review-chip">
+          <span class="trust-stars" aria-label="${Number(item.rating || 5)} étoiles">${reviewStars(item.rating)}</span>
+          <span class="trust-review-text">“${escapeAttribute(item.text)}”</span>
+          <strong>${escapeAttribute(item.name)}</strong>
+          ${item.city || item.product ? `<small>${escapeAttribute([item.city, item.product].filter(Boolean).join(" - "))}</small>` : ""}
+        </span>
+      `
     )
     .join("");
   trustStrip.innerHTML = `
