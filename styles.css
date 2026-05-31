@@ -2294,6 +2294,26 @@ body.cart-open .cart-drawer {
   padding: 0;
 }
 
+.drawer-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.drawer-language-toggle {
+  border-color: rgba(213, 116, 45, 0.28);
+  background: #fff4e5;
+}
+
+.drawer-language-toggle button {
+  color: var(--coffee);
+}
+
+.drawer-language-toggle button.active {
+  background: var(--clay);
+  color: #fff8ec;
+}
+
 .drawer-nav {
   display: grid;
   gap: 0;
@@ -3781,14 +3801,14 @@ body.admin-mode .admin-page {
 @media (max-width: 680px) {
   .site-header {
     display: grid;
-    grid-template-columns: 36px minmax(86px, 1fr) auto;
-    column-gap: 8px;
-    min-height: 66px;
+    grid-template-columns: 66px minmax(0, 1fr) 66px;
+    column-gap: 4px;
+    min-height: 72px;
     padding: 0 12px;
   }
 
   body.is-scrolled .site-header {
-    min-height: 60px;
+    min-height: 64px;
   }
 
   .brand {
@@ -3798,8 +3818,8 @@ body.admin-mode .admin-page {
   }
 
   .brand-logo-img {
-    width: clamp(88px, 26vw, 112px);
-    height: 40px;
+    width: clamp(140px, 38vw, 168px);
+    height: 54px;
   }
 
   .footer-logo .brand-logo-img,
@@ -3812,6 +3832,7 @@ body.admin-mode .admin-page {
     width: 34px;
     height: 38px;
     padding: 0;
+    justify-self: start;
   }
 
   .hamburger-button span {
@@ -3830,13 +3851,19 @@ body.admin-mode .admin-page {
   .header-actions {
     gap: 3px;
     min-width: 0;
+    justify-self: end;
   }
 
-  .language-toggle {
-    border-color: rgba(255, 248, 236, 0.34);
+  .drawer-head {
+    align-items: center;
+    gap: 12px;
   }
 
-  .language-toggle button {
+  .drawer-head-actions {
+    gap: 8px;
+  }
+
+  .drawer-language-toggle button {
     min-width: 27px;
     min-height: 30px;
     padding: 0;

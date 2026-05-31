@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&family=Space+Grotesk:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=mobile-polish-20260531" />
+    <link rel="stylesheet" href="/styles.css?v=mobile-header-logo-20260531" />
   </head>
   <body>
     <header class="site-header">
@@ -34,10 +34,6 @@
         <a href="/apropos" data-content-route="apropos" data-i18n="navAbout">À propos</a>
       </nav>
       <div class="header-actions">
-        <div class="language-toggle" aria-label="Langue">
-          <button type="button" data-language="fr">FR</button>
-          <button type="button" data-language="en">EN</button>
-        </div>
         <button class="icon-button" type="button" data-open-search aria-label="Rechercher" data-i18n-aria="search">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="11" cy="11" r="7"></circle>
@@ -756,7 +752,13 @@
         <a class="brand drawer-brand" href="/" data-home-link aria-label="Coffee Break TCG">
           <img class="brand-logo-img brand-logo-transparent" src="/assets/coffee-break-logo-cbtcg-wordmark-transparent.png?v=cbtcg-transparent-20260531" alt="Coffee Break TCG" />
         </a>
-        <button class="modal-close" type="button" data-close-drawers aria-label="Fermer">x</button>
+        <div class="drawer-head-actions">
+          <div class="language-toggle drawer-language-toggle" aria-label="Langue">
+            <button type="button" data-language="fr">FR</button>
+            <button type="button" data-language="en">EN</button>
+          </div>
+          <button class="modal-close" type="button" data-close-drawers aria-label="Fermer">x</button>
+        </div>
       </div>
       <nav class="drawer-nav">
         <details class="drawer-group">
@@ -785,6 +787,6 @@
       </nav>
     </aside>
 
-    <script src="/app.js?v=mobile-polish-20260531"></script>
+    <script src="/app.js?v=mobile-header-logo-20260531"></script>
   </body>
 </html>
