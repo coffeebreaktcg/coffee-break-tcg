@@ -59,6 +59,21 @@ const cardImageSearchCache = new Map();
 const cardImageSearchCacheTtlMs = 1000 * 60 * 30;
 const adminLoginAttempts = new Map();
 const maxJsonBodyBytes = Number(process.env.MAX_JSON_BODY_BYTES || 8 * 1024 * 1024);
+const starterInventoryIds = new Set([
+  "pikachu-ar",
+  "umbreon-vmax",
+  "sv-151-box",
+  "gengar-holo",
+  "charizard-ex",
+  "pokemon-mega-preorder",
+  "slab-guard",
+  "mewtwo-masterball",
+  "lost-origin-bb",
+  "snorlax-151-ir",
+  "lugia-v-psa9",
+  "twilight-masquerade-bundle",
+  "surging-sparks-pack",
+]);
 let lastDbBackupAt = 0;
 let googleDriveBackupTimer = null;
 let googleDriveAccessToken = null;
@@ -120,6 +135,9 @@ async function readDb() {
     if (!Array.isArray(db.newsletter)) db.newsletter = [];
     if (!db.sessions) db.sessions = {};
     if (!db.adminSessions) db.adminSessions = {};
+    const inventoryCountBeforeStarterCleanup = db.inventory.length;
+    db.inventory = db.inventory.filter((item) => !starterInventoryIds.has(item.id));
+    if (db.inventory.length !== inventoryCountBeforeStarterCleanup) await writeDb(db);
     return db;
   } catch {
     const seedPath = path.join(root, "data", "seed.json");
