@@ -277,6 +277,7 @@ let reviews = [];
 let expenses = [];
 let currentUser = null;
 let customerOrders = [];
+let profileEditMode = false;
 let currentLang = localStorage.getItem("coffeeBreakLang") || "fr";
 
 if ("scrollRestoration" in history) {
@@ -292,14 +293,14 @@ const translations = {
     navAbout: "À propos",
     heroEyebrow: "Pokémon TCG - Coffee Break",
     heroTitle: "Produits Pokémon choisis avec soin.",
-    heroText: "Singles, graded et sealed choisis pour les collectionneurs. Photos réelles, paiement simple et livraison suivie le jour même depuis Saint-Sauveur.",
+    heroText: "Singles, graded et sealed choisis pour les collectionneurs. Photos réelles, paiement simple et livraison suivie le jour même depuis Laval.",
     shopNow: "Magasiner",
     seeOptions: "Voir les options",
     trustPhotos: "Photos réelles",
     trustShipping: "Livraison suivie le jour même",
     trustPayment: "Paiement Square",
     trustReserve: "Réservation 1 h",
-    trustLocal: "Basé à Saint-Sauveur",
+    trustLocal: "Basé à Laval",
     searchCard: "Rechercher une carte",
     sortProducts: "Trier les produits",
     sortFeatured: "En vedette",
@@ -314,10 +315,13 @@ const translations = {
     sortNameAsc: "Nom: A-Z",
     sortNameDesc: "Nom: Z-A",
     all: "Tout",
+    newCategory: "Nouveauté",
+    saleCategory: "Rabais",
     inventory: "Vitrine",
     availableCards: "Produits disponibles",
     shopEmpty: "Aucun produit ne correspond à ta recherche.",
     details: "Voir détails",
+    addToCartShort: "+ Ajouter au panier",
     reserved: "RÉSERVÉ",
     cart: "Panier",
     cartEmpty: "Ton panier est vide.",
@@ -347,6 +351,10 @@ const translations = {
     login: "Connexion",
     createAccount: "Créer un compte",
     password: "Mot de passe",
+    confirmPassword: "Confirmer le mot de passe",
+    editProfile: "Modifier le profil",
+    profileSaved: "Profil mis à jour.",
+    marketingOptIn: "Recevoir les offres exclusives et les prochains drops à l’avance.",
     updateProfile: "Mettre à jour mes informations",
     orderHistory: "Commandes précédentes",
     noOrders: "Aucune commande pour le moment.",
@@ -385,12 +393,12 @@ const translations = {
     buyCardsCardText: "Soumets ta collection de 1 000 $ et plus avec un résumé clair, les cartes importantes et des photos nettes.",
     submitCollection: "Soumettre une collection",
     shippingCardTitle: "Livraison claire",
-    shippingCardText: "Livraison depuis Saint-Sauveur, suivi inclus, avec protection adaptée pour singles, sealed et slabs.",
+    shippingCardText: "Livraison depuis Laval, suivi inclus, avec protection adaptée pour singles, sealed et slabs.",
     viewShipping: "Voir la livraison",
     eventsEyebrow: "Événements",
     upcomingShows: "Prochains card shows",
     upcomingShowsShort: "Prochains shows",
-    footerLocation: "Saint-Sauveur, Québec",
+    footerLocation: "Laval, Québec",
     pokemonCategory: "Pokémon",
   },
   en: {
@@ -401,14 +409,14 @@ const translations = {
     navAbout: "About",
     heroEyebrow: "Pokemon TCG - Coffee Break",
     heroTitle: "Carefully selected Pokemon products.",
-    heroText: "Singles, graded and sealed products chosen for collectors. Real photos, simple payment and same-day tracked shipping from Saint-Sauveur.",
+    heroText: "Singles, graded and sealed products chosen for collectors. Real photos, simple payment and same-day tracked shipping from Laval.",
     shopNow: "Shop now",
     seeOptions: "See options",
     trustPhotos: "Real photos",
     trustShipping: "Same-day tracked shipping",
     trustPayment: "Square payment",
     trustReserve: "1-hour reservation",
-    trustLocal: "Based in Saint-Sauveur",
+    trustLocal: "Based in Laval",
     searchCard: "Search for a card",
     sortProducts: "Sort products",
     sortFeatured: "Featured",
@@ -423,10 +431,13 @@ const translations = {
     sortNameAsc: "Name: A-Z",
     sortNameDesc: "Name: Z-A",
     all: "All",
+    newCategory: "New",
+    saleCategory: "Sale",
     inventory: "Showcase",
     availableCards: "Available products",
     shopEmpty: "No products match your search.",
     details: "View details",
+    addToCartShort: "+ Add to cart",
     reserved: "RESERVED",
     cart: "Cart",
     cartEmpty: "Your cart is empty.",
@@ -456,13 +467,17 @@ const translations = {
     login: "Sign in",
     createAccount: "Create account",
     password: "Password",
+    confirmPassword: "Confirm password",
+    editProfile: "Edit profile",
+    profileSaved: "Profile updated.",
+    marketingOptIn: "Get exclusive offers and early access to upcoming drops.",
     updateProfile: "Update my information",
     orderHistory: "Previous orders",
     noOrders: "No orders yet.",
     logout: "Sign out",
     saveProfile: "Save these details to my account",
     or: "or",
-    sellCards: "We buy cards",
+    sellCards: "We buy your cards",
     stayTuned: "Get early notice of upcoming drops!",
     emailPlaceholder: "Your email",
     curatedEyebrow: "Coffee Break picks",
@@ -494,18 +509,40 @@ const translations = {
     buyCardsCardText: "Submit your collection of $1,000 and up with a clear summary, key cards and sharp photos.",
     submitCollection: "Submit a collection",
     shippingCardTitle: "Clear shipping",
-    shippingCardText: "Shipping from Saint-Sauveur, tracking included, with protection adapted to singles, sealed products and slabs.",
+    shippingCardText: "Shipping from Laval, tracking included, with protection adapted to singles, sealed products and slabs.",
     viewShipping: "View shipping",
     eventsEyebrow: "Events",
     upcomingShows: "Upcoming card shows",
     upcomingShowsShort: "Upcoming shows",
-    footerLocation: "Saint-Sauveur, Quebec",
+    footerLocation: "Laval, Quebec",
     pokemonCategory: "Pokemon",
   },
 };
 
 function t(key) {
   return translations[currentLang]?.[key] ?? translations.fr[key] ?? key;
+}
+
+const provinceCodes = ["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"];
+
+function provinceOptions(selected = "QC") {
+  return provinceCodes
+    .map((code) => `<option value="${code}" ${code === selected ? "selected" : ""}>${code}</option>`)
+    .join("");
+}
+
+function passwordInput(name, label, autocomplete = "new-password") {
+  return `
+    <label class="password-field">
+      ${label}
+      <input name="${name}" type="password" autocomplete="${autocomplete}" minlength="6" required />
+      <button type="button" data-toggle-password aria-label="Afficher le mot de passe">👁</button>
+    </label>
+  `;
+}
+
+function isSaleProduct(product) {
+  return Number(product.compareAtPrice || 0) > Number(product.price || 0);
 }
 
 const categoryRoutes = {
@@ -517,6 +554,8 @@ const categoryRoutes = {
 
 const categoryLabels = {
   all: () => t("availableCards"),
+  new: () => t("newCategory"),
+  sale: () => t("saleCategory"),
   Singles: "Singles",
   Sealed: "Sealed",
   Graded: "Graded",
@@ -700,7 +739,11 @@ function originalOrder(a, b) {
 function getProducts() {
   let products = inventory.filter((product) => {
     if (["Preorder", "Accessories"].includes(product.category)) return false;
-    const matchesCategory = state.category === "all" || product.category === state.category;
+    const matchesCategory =
+      state.category === "all" ||
+      product.category === state.category ||
+      (state.category === "new" && isRecentProduct(product)) ||
+      (state.category === "sale" && isSaleProduct(product));
     const matchesType = state.typeFilter === "all" || product.kind === state.typeFilter || product.visual === state.typeFilter;
     const matchesSet = state.setFilter === "all" || product.setId === state.setFilter || product.setName === state.setFilter;
     const conditionCode = cardConditionCode(product);
@@ -1179,7 +1222,7 @@ function trustMarqueeItems() {
   if (!published.length) {
     published.push({
       name: "Coffee Break TCG",
-      city: "Saint-Sauveur",
+      city: "Laval",
       product: "",
       rating: 5,
       text: currentLang === "en" ? "Customer reviews will appear here soon." : "Les premiers avis clients apparaîtront ici bientôt.",
@@ -1265,7 +1308,7 @@ function updateCategoryHeading() {
   const label = categoryLabels[state.category];
   if (categoryTitle) categoryTitle.textContent = typeof label === "function" ? label() : label || t("availableCards");
   if (categoryEyebrow) {
-    categoryEyebrow.textContent = state.category === "all" ? t("inventory") : productCategoryLabel({ category: state.category });
+    categoryEyebrow.textContent = state.category === "all" ? t("inventory") : typeof label === "function" ? label() : productCategoryLabel({ category: state.category });
   }
 }
 
@@ -1314,11 +1357,11 @@ function renderProducts() {
             <div class="price-line">
               ${priceMarkup(product)}
               ${pills ? `<span class="feature-pills">${pills}</span>` : ""}
+              <button class="detail-link add-cart-link" type="button" data-add-cart="${product.id}" ${status === "sold" || isReserved || limit <= 0 ? "disabled" : ""}>${isReserved ? t("reserved") : t("addToCartShort")}</button>
             </div>
           </div>
           <div class="card-actions">
             <a class="detail-link" href="${productDetailPath(product)}" data-view-product="${product.id}">${t("details")}</a>
-            <button class="detail-link add-cart-link" type="button" data-add-cart="${product.id}" ${status === "sold" || isReserved || limit <= 0 ? "disabled" : ""}>${isReserved ? t("reserved") : "+"}</button>
           </div>
         </article>
       `;
@@ -1363,8 +1406,7 @@ function renderMobileMore(visible) {
     productGrid.insertAdjacentElement("beforeend", block);
   }
   block.innerHTML = `
-    <img class="more-card-logo" src="/assets/coffee-cup-mark-hero-orange.png?v=cup-hero-orange-20260525" alt="" aria-hidden="true" />
-    <div>
+    <div class="mobile-more-title">
       <strong>${t("mobileMoreTitle")}</strong>
       <p>${t("mobileMoreText")}</p>
     </div>
@@ -1512,7 +1554,7 @@ function renderProductDetail(id) {
           ${features.length ? detailSpec("Spécifications", features.join(" - ")) : ""}
           <div><dt>Prix</dt><dd>${money.format(product.price)}</dd></div>
           <div><dt>Protection</dt><dd>Sleeve, team bag et emballage rigide inclus.</dd></div>
-          <div><dt>Expédition</dt><dd>Livraison depuis Saint-Sauveur, suivi inclus.</dd></div>
+          <div><dt>Expédition</dt><dd>Livraison depuis Laval, suivi inclus.</dd></div>
         </dl>
       </div>
     </div>
@@ -1532,6 +1574,70 @@ function selectGalleryImage(button) {
   });
 }
 
+function fillProvinceSelects(scope = document) {
+  scope.querySelectorAll('select[name="province"]').forEach((select) => {
+    const current = select.value || "QC";
+    select.innerHTML = provinceOptions(current);
+  });
+}
+
+function setFormField(form, name, value) {
+  const field = form?.elements?.[name];
+  if (field && value !== undefined && value !== null) field.value = value;
+}
+
+function wireAddressAutocomplete(scope = document) {
+  scope.querySelectorAll('input[name="address"]').forEach((input) => {
+    if (input.dataset.addressAutocomplete === "ready") return;
+    input.dataset.addressAutocomplete = "ready";
+    const label = input.closest("label");
+    if (label) label.classList.add("address-field");
+    const suggestions = document.createElement("div");
+    suggestions.className = "address-suggestions";
+    input.insertAdjacentElement("afterend", suggestions);
+    let requestId = 0;
+    input.addEventListener("input", async () => {
+      const query = input.value.trim();
+      const currentRequest = ++requestId;
+      if (query.length < 3) {
+        suggestions.classList.remove("is-open");
+        suggestions.innerHTML = "";
+        return;
+      }
+      try {
+        const payload = await api(`/api/address/find?q=${encodeURIComponent(query)}`);
+        if (currentRequest !== requestId) return;
+        const results = (payload.suggestions || payload.results || []).slice(0, 6);
+        suggestions.innerHTML = results
+          .map(
+            (item) =>
+              `<button type="button" data-address-id="${escapeAttribute(item.id)}" data-address-provider="${escapeAttribute(item.provider || "")}">${escapeAttribute([item.text, item.description || item.label].filter(Boolean).join(", "))}</button>`
+          )
+          .join("");
+        suggestions.classList.toggle("is-open", results.length > 0);
+      } catch {
+        suggestions.classList.remove("is-open");
+      }
+    });
+    suggestions.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-address-id]");
+      if (!button) return;
+      try {
+        const payload = await api(`/api/address/retrieve?id=${encodeURIComponent(button.dataset.addressId)}&provider=${encodeURIComponent(button.dataset.addressProvider || "")}`);
+        const address = payload.address || {};
+        const form = input.closest("form");
+        setFormField(form, "address", address.address);
+        setFormField(form, "city", address.city);
+        setFormField(form, "province", address.province);
+        setFormField(form, "postal", address.postal);
+        suggestions.classList.remove("is-open");
+      } catch {
+        suggestions.classList.remove("is-open");
+      }
+    });
+  });
+}
+
 const contentPages = {
   vendre: {
     eyebrow: "Achat de collections",
@@ -1547,7 +1653,7 @@ const contentPages = {
   },
   livraison: {
     eyebrow: "Livraison",
-    title: "Livraison suivie depuis Saint-Sauveur.",
+    title: "Livraison suivie depuis Laval.",
     text:
       "Chaque commande est protégée selon le type d’item. Le suivi est inclus et l’emballage est préparé avec soin.",
     cards: [
@@ -1562,7 +1668,7 @@ const contentPages = {
     text:
       "Coffee Break TCG est nouveau, mais nous sommes réellement investis. Nous adorons ce que nous faisons, nous emballons chaque commande avec soin et nous voulons bâtir une relation de confiance avec les collectionneurs.",
     cards: [
-      ["Livraison", "Nous expédions depuis Saint-Sauveur avec suivi. La livraison est gratuite à partir de 100 $, sinon elle est de 6,99 $."],
+      ["Livraison", "Nous expédions depuis Laval avec suivi. La livraison est gratuite à partir de 100 $, sinon elle est de 6,99 $."],
       ["Protection des cartes", "Les singles sont envoyés en sleeve, top loader ou card saver, puis protégés dans un emballage rigide."],
       ["Slabs et sealed", "Les slabs et produits sealed sont emballés avec rembourrage et boîte solide pour limiter les mouvements pendant le transport."],
       ["Paiement", "Le paiement Square est en intégration. Les commandes peuvent être confirmées avant le paiement lorsque nécessaire."],
@@ -1574,12 +1680,12 @@ const contentPages = {
   },
   apropos: {
     eyebrow: "À propos",
-    title: "Coffee Break TCG, basé à Saint-Sauveur.",
+    title: "Coffee Break TCG, basé à Laval.",
     text:
       "Nous sommes une jeune boutique Pokémon TCG bâtie autour d’une idée simple: prendre le temps de bien faire les choses, une carte, une commande et une rencontre à la fois.",
     cards: [
       ["Notre approche", "Chaque item est choisi, photographié, décrit et emballé avec attention. On veut que le collectionneur sache exactement ce qu’il regarde et reçoive quelque chose préparé avec soin."],
-      ["Pour l’instant en ligne", "Nous faisons seulement de l’expédition pour le moment, avec une boutique physique visée à Saint-Sauveur en 2027, on l’espère 🤞."],
+      ["Pour l’instant en ligne", "Nous faisons seulement de l’expédition pour le moment, avec une boutique physique visée à Laval en 2027, on l’espère 🤞."],
       ["Ce qu’on aime", "Les belles collections, les trouvailles qui racontent une histoire, les échanges entre passionnés et l’idée de faire prospérer une communauté locale autour du hobby."],
       ["Notre promesse", "Porter attention aux détails, protéger les cartes sans rien laisser au hasard et répondre avec sérieux quand tu as une question."],
     ],
@@ -1601,7 +1707,7 @@ const contentPagesEn = {
   },
   livraison: {
     eyebrow: "Shipping",
-    title: "Tracked shipping from Saint-Sauveur.",
+    title: "Tracked shipping from Laval.",
     text: "Each order is protected based on the item type. Tracking is included and packaging is prepared with care.",
     cards: [
       ["Singles", "Sleeve, top loader or card saver, team bag and rigid mailer."],
@@ -1615,7 +1721,7 @@ const contentPagesEn = {
     text:
       "Coffee Break TCG is new, but we are genuinely invested. We love what we do, package every order carefully and want to build trust with collectors.",
     cards: [
-      ["Shipping", "We ship from Saint-Sauveur with tracking. Free shipping starts at $100, otherwise shipping is $6.99."],
+      ["Shipping", "We ship from Laval with tracking. Free shipping starts at $100, otherwise shipping is $6.99."],
       ["Card protection", "Singles are shipped in a sleeve, top loader or card saver, then protected in rigid packaging."],
       ["Slabs and sealed", "Slabs and sealed products are packed with padding and a solid box."],
       ["Payment", "Square payment is being integrated. Orders can be confirmed before payment when needed."],
@@ -1627,12 +1733,12 @@ const contentPagesEn = {
   },
   apropos: {
     eyebrow: "About",
-    title: "Coffee Break TCG, based in Saint-Sauveur.",
+    title: "Coffee Break TCG, based in Laval.",
     text:
       "We are a young Pokemon TCG shop built around a simple idea: taking the time to do things properly, one card, one order and one conversation at a time.",
     cards: [
       ["Our approach", "Every item is chosen, photographed, described and packed with attention. We want collectors to know exactly what they are looking at and receive something prepared with care."],
-      ["Online for now", "We only ship for now, with a physical Saint-Sauveur shop targeted for 2027, fingers crossed 🤞."],
+      ["Online for now", "We only ship for now, with a physical Laval shop targeted for 2027, fingers crossed 🤞."],
       ["What we love", "Beautiful collections, finds with a story, conversations between collectors and the idea of helping a local hobby community grow."],
       ["Our promise", "Pay attention to the details, protect cards carefully and answer seriously when you have a question."],
     ],
@@ -1688,6 +1794,50 @@ function renderAccount() {
   }
 
   const address = currentUser.address || {};
+  const hasProfile = Boolean(address.address || address.city || address.postal || address.phone);
+  const profileSummary = `
+    <section class="account-card profile-summary-card">
+      <div class="account-card-title">
+        <h2>${currentLang === "en" ? "Shipping profile" : "Profil de livraison"}</h2>
+        <button class="icon-action" type="button" data-edit-profile aria-label="${t("editProfile")}">✎</button>
+      </div>
+      ${
+        hasProfile
+          ? `<div class="profile-summary">
+              <strong>${escapeAttribute(address.name || currentUser.name || "")}</strong>
+              <span>${escapeAttribute(currentUser.email)}</span>
+              ${address.phone ? `<span>${escapeAttribute(address.phone)}</span>` : ""}
+              <span>${escapeAttribute(address.address || "")}</span>
+              <span>${[address.city, address.province, address.postal].filter(Boolean).map(escapeAttribute).join(" ")}</span>
+              ${address.notes ? `<small>${escapeAttribute(address.notes)}</small>` : ""}
+            </div>`
+          : `<p class="account-empty">${currentLang === "en" ? "Add your shipping details to speed up checkout." : "Ajoute tes informations de livraison pour accélérer la commande."}</p>`
+      }
+    </section>
+  `;
+  const profileForm = `
+    <form class="account-card account-form" data-account-profile>
+      <div class="account-card-title">
+        <h2>${currentLang === "en" ? "Shipping profile" : "Profil de livraison"}</h2>
+      </div>
+      <div class="form-row two">
+        <label>${t("fullName")} <input name="name" autocomplete="name" value="${escapeAttribute(address.name || currentUser.name || "")}" required /></label>
+        <label>${t("email")} <input name="email" type="email" value="${escapeAttribute(currentUser.email)}" disabled /></label>
+      </div>
+      <div class="form-row contact-row">
+        <label>${t("phone")} <input name="phone" autocomplete="tel" value="${escapeAttribute(address.phone || "")}" /></label>
+        <label>${t("address")} <input name="address" autocomplete="street-address" value="${escapeAttribute(address.address || "")}" /></label>
+      </div>
+      <div class="form-row location-row">
+        <label>${t("city")} <input name="city" autocomplete="address-level2" value="${escapeAttribute(address.city || "")}" /></label>
+        <label>${t("province")} <select name="province" autocomplete="address-level1">${provinceOptions(address.province || "QC")}</select></label>
+        <label>${t("postal")} <input name="postal" autocomplete="postal-code" value="${escapeAttribute(address.postal || "")}" /></label>
+      </div>
+      <label>${t("deliveryNotes")} <input name="notes" value="${escapeAttribute(address.notes || "")}" /></label>
+      <button class="button primary" type="submit">${t("updateProfile")}</button>
+      <p class="form-status" role="status"></p>
+    </form>
+  `;
   accountContent.innerHTML = `
     <a class="back-link" href="/">${t("backShop")}</a>
     <div class="account-heading">
@@ -1698,25 +1848,7 @@ function renderAccount() {
       <button class="button secondary" type="button" data-account-logout>${t("logout")}</button>
     </div>
     <div class="account-layout">
-      <form class="account-card account-form" data-account-profile>
-        <h2>${currentLang === "en" ? "Shipping profile" : "Profil de livraison"}</h2>
-        <div class="form-row two">
-          <label>${t("fullName")} <input name="name" autocomplete="name" value="${escapeAttribute(address.name || currentUser.name || "")}" required /></label>
-          <label>${t("email")} <input name="email" type="email" value="${escapeAttribute(currentUser.email)}" disabled /></label>
-        </div>
-        <div class="form-row contact-row">
-          <label>${t("phone")} <input name="phone" autocomplete="tel" value="${escapeAttribute(address.phone || "")}" /></label>
-          <label>${t("address")} <input name="address" autocomplete="street-address" value="${escapeAttribute(address.address || "")}" /></label>
-        </div>
-        <div class="form-row location-row">
-          <label>${t("city")} <input name="city" autocomplete="address-level2" value="${escapeAttribute(address.city || "")}" /></label>
-          <label>${t("province")} <input name="province" autocomplete="address-level1" value="${escapeAttribute(address.province || "QC")}" /></label>
-          <label>${t("postal")} <input name="postal" autocomplete="postal-code" value="${escapeAttribute(address.postal || "")}" /></label>
-        </div>
-        <label>${t("deliveryNotes")} <input name="notes" value="${escapeAttribute(address.notes || "")}" /></label>
-        <button class="button primary" type="submit">${t("updateProfile")}</button>
-        <p class="form-status" role="status"></p>
-      </form>
+      ${profileEditMode || !hasProfile ? profileForm : profileSummary}
       <section class="account-card">
         <h2>${t("orderHistory")}</h2>
         <div class="account-orders">
@@ -1745,6 +1877,7 @@ function renderAccount() {
       </section>
     </div>
   `;
+  wireAddressAutocomplete(accountContent);
 }
 
 function renderCreateAccountPage() {
@@ -1760,15 +1893,19 @@ function renderCreateAccountPage() {
         <label>${t("email")} <input name="email" type="email" autocomplete="email" required /></label>
       </div>
       <div class="form-row two">
-        <label>${t("password")} <input name="password" type="password" autocomplete="new-password" minlength="6" required /></label>
+        ${passwordInput("password", t("password"))}
+        ${passwordInput("passwordConfirm", t("confirmPassword"))}
+      </div>
+      <div class="form-row two">
         <label>${t("phone")} <input name="phone" autocomplete="tel" /></label>
+        <span></span>
       </div>
       <div class="form-row contact-row">
         <label>${t("address")} <input name="address" autocomplete="street-address" /></label>
         <label>${t("city")} <input name="city" autocomplete="address-level2" /></label>
       </div>
       <div class="form-row location-row">
-        <label>${t("province")} <input name="province" autocomplete="address-level1" value="QC" /></label>
+        <label>${t("province")} <select name="province" autocomplete="address-level1">${provinceOptions("QC")}</select></label>
         <label>${t("postal")} <input name="postal" autocomplete="postal-code" /></label>
         <label>${t("deliveryNotes")} <input name="notes" /></label>
       </div>
@@ -1776,6 +1913,7 @@ function renderCreateAccountPage() {
       <p class="form-status" role="status"></p>
     </form>
   `;
+  wireAddressAutocomplete(accountContent);
 }
 
 function selectCategory(category, shouldScroll = false) {
@@ -2980,6 +3118,19 @@ document.addEventListener("click", (event) => {
   const languageButton = event.target.closest("[data-language]");
   const showAnchor = event.target.closest("[data-show-anchor]");
   const accountLogout = event.target.closest("[data-account-logout]");
+  const passwordToggle = event.target.closest("[data-toggle-password]");
+  const editProfileButton = event.target.closest("[data-edit-profile]");
+
+  if (passwordToggle) {
+    event.preventDefault();
+    const input = passwordToggle.parentElement?.querySelector("input");
+    if (input) input.type = input.type === "password" ? "text" : "password";
+  }
+  if (editProfileButton) {
+    event.preventDefault();
+    profileEditMode = true;
+    renderAccount();
+  }
 
   if (closeAccountModalButton) {
     event.preventDefault();
@@ -3000,6 +3151,7 @@ document.addEventListener("click", (event) => {
     api("/api/logout", { method: "POST", body: "{}" }).catch(() => {});
     currentUser = null;
     customerOrders = [];
+    profileEditMode = false;
     updateAccountButtons();
     renderAccount();
   }
@@ -3194,6 +3346,7 @@ document.addEventListener("submit", async (event) => {
   } catch (error) {
     if (status) status.textContent = error.message;
   } finally {
+    if (signupForm) setTimeout(hideTransitionLoader, 220);
     if (submitButton) submitButton.disabled = false;
   }
 });
@@ -3212,6 +3365,10 @@ document.addEventListener("submit", async (event) => {
   if (status) status.textContent = currentLang === "en" ? "One moment..." : "Un instant...";
   try {
     if (loginForm || signupForm) {
+      if (signupForm && form.get("password") !== form.get("passwordConfirm")) {
+        throw new Error(currentLang === "en" ? "Passwords do not match." : "Les mots de passe ne correspondent pas.");
+      }
+      if (signupForm) showTransitionLoader(t("createAccount"));
       const endpoint = loginForm ? "/api/login" : "/api/signup";
       const body = {
         name: form.get("name") || "",
@@ -3239,6 +3396,7 @@ document.addEventListener("submit", async (event) => {
       }
       await loadCustomerOrders();
       closeAccountModal();
+      profileEditMode = false;
       updateAccountButtons();
       history.pushState({}, "", "/compte");
       renderAccount();
@@ -3258,10 +3416,11 @@ document.addEventListener("submit", async (event) => {
     };
     const payload = await api("/api/profile", { method: "POST", body: JSON.stringify(body) });
     currentUser = payload.user || null;
+    profileEditMode = false;
     updateAccountButtons();
     renderAccount();
-    const nextStatus = accountContent?.querySelector("[data-account-profile] .form-status");
-    if (nextStatus) nextStatus.textContent = currentLang === "en" ? "Profile updated." : "Profil mis à jour.";
+    const nextStatus = accountContent?.querySelector(".form-status");
+    if (nextStatus) nextStatus.textContent = t("profileSaved");
   } catch (error) {
     if (status) status.textContent = error.message;
   } finally {
@@ -3296,6 +3455,7 @@ checkoutForm?.addEventListener("submit", async (event) => {
     paymentMethod: { type: "square" },
     items: cart,
     saveProfile: Boolean(form.get("saveProfile")),
+    marketingOptIn: Boolean(form.get("marketingOptIn")),
   };
   const submitButtons = [...checkoutForm.querySelectorAll('button[type="submit"]')];
   submitButtons.forEach((button) => {
@@ -3570,6 +3730,8 @@ if (mobileShopQuery.addEventListener) {
 refreshAdminState();
 loadPokemonSets();
 applyTranslations();
+fillProvinceSelects();
+wireAddressAutocomplete();
 Promise.all([loadProducts(), loadCardShows(), loadReviews(), loadCurrentUser()]).then(() => {
   applyRoute();
   renderCardShows();

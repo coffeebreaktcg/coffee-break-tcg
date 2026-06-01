@@ -116,12 +116,13 @@ async function readDb() {
     if (!Array.isArray(db.reviews)) db.reviews = defaultReviews();
     if (!Array.isArray(db.expenses)) db.expenses = defaultExpenses();
     if (!Array.isArray(db.users)) db.users = [];
+    if (!Array.isArray(db.newsletter)) db.newsletter = [];
     if (!db.sessions) db.sessions = {};
     if (!db.adminSessions) db.adminSessions = {};
     return db;
   } catch {
     const seedPath = path.join(root, "data", "seed.json");
-    let empty = { users: [], sessions: {}, adminSessions: {}, orders: [], emailOutbox: [], cardShows: [], reviews: defaultReviews(), expenses: defaultExpenses(), inventory: defaultInventory() };
+    let empty = { users: [], sessions: {}, adminSessions: {}, orders: [], emailOutbox: [], newsletter: [], cardShows: [], reviews: defaultReviews(), expenses: defaultExpenses(), inventory: defaultInventory() };
     try {
       const seed = JSON.parse(await fs.readFile(seedPath, "utf8"));
       empty = {
@@ -1289,7 +1290,7 @@ function orderEmailLines(order) {
     "",
     `Paiement: ${order.paymentMethod?.label || "Carte avec Square"}`,
     order.paymentMethod?.instructions || "",
-    "Expédition: Livraison depuis Saint-Sauveur, suivi inclus.",
+    "Expédition: Livraison depuis Laval, suivi inclus.",
   ].filter((line) => line !== "");
 }
 
@@ -1806,24 +1807,24 @@ async function getSessionUser(req, db) {
 
 const localAddresses = [
   {
-    id: "local-st-sauveur-main",
+    id: "local-laval-centre",
     provider: "local",
-    text: "75 Avenue de la Gare",
-    description: "Saint-Sauveur QC J0R 1R6",
-    address: "75 Avenue de la Gare",
-    city: "Saint-Sauveur",
+    text: "3030 Boulevard le Carrefour",
+    description: "Laval QC H7T 2P5",
+    address: "3030 Boulevard le Carrefour",
+    city: "Laval",
     province: "QC",
-    postal: "J0R 1R6",
+    postal: "H7T 2P5",
   },
   {
-    id: "local-st-sauveur-principale",
+    id: "local-laval-concorde",
     provider: "local",
-    text: "220 Rue Principale",
-    description: "Saint-Sauveur QC J0R 1R0",
-    address: "220 Rue Principale",
-    city: "Saint-Sauveur",
+    text: "1600 Boulevard de la Concorde Ouest",
+    description: "Laval QC H7N 6N6",
+    address: "1600 Boulevard de la Concorde Ouest",
+    city: "Laval",
     province: "QC",
-    postal: "J0R 1R0",
+    postal: "H7N 6N6",
   },
   {
     id: "local-quebec",
@@ -3177,6 +3178,7 @@ async function handleApi(req, res) {
       tvqAmount: taxes.tvq,
       totalAmount: taxes.total,
       address: body.address,
+      marketingOptIn: Boolean(body.marketingOptIn),
       paymentMethod,
       status: "pending_payment",
       reservationExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
@@ -3186,6 +3188,17 @@ async function handleApi(req, res) {
         : `Récapitulatif préparé pour ${shopEmail} et pour le client.`,
       createdAt: new Date().toISOString(),
     };
+    if (order.marketingOptIn) {
+      const email = String(order.customer?.email || order.address?.email || "").trim().toLowerCase();
+      if (email && !db.newsletter.some((entry) => entry.email === email)) {
+        db.newsletter.push({
+          email,
+          name: order.customer?.name || order.address?.name || "",
+          source: "checkout",
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
     if (requestedPaymentType === "square") {
       try {
         order.squarePaymentLink = await createSquarePaymentLink(order, req);

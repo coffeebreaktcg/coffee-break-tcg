@@ -538,9 +538,9 @@ body.language-loading .language-loader {
 }
 
 .trust-review-text {
-  max-width: min(64vw, 520px);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .trust-review-chip strong {
@@ -866,22 +866,21 @@ select {
   gap: 14px;
   min-height: 100%;
   border: 1px solid var(--line);
+  border-radius: 10px;
   background: #fffaf2;
   padding: 18px;
   overflow: hidden;
 }
 
-.more-card-logo {
+.mobile-more-title {
   align-self: center;
   justify-self: center;
-  width: min(42%, 118px);
-  opacity: 1;
-  object-fit: contain;
+  text-align: center;
 }
 
 .mobile-more-block strong {
   color: var(--clay);
-  font-family: "Space Grotesk", Inter, sans-serif;
+  font-family: "Rubik One", "Space Grotesk", Inter, sans-serif;
   font-size: clamp(22px, 2.5vw, 30px);
   line-height: 1;
   text-transform: uppercase;
@@ -1270,11 +1269,11 @@ select {
   color: var(--muted);
   font-weight: 800;
   text-decoration: line-through;
-  text-decoration-thickness: 2px;
+  text-decoration-thickness: 1px;
 }
 
 .old-price {
-  font-size: 0.82em;
+  font-size: 0.95em;
 }
 
 .current-price {
@@ -1517,11 +1516,16 @@ select {
 
 .card-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 
 .add-cart-link {
+  flex: 0 0 auto;
+  min-width: 132px;
+  border-color: rgba(213, 116, 45, 0.45);
+  background: rgba(213, 116, 45, 0.13);
+  color: var(--clay-dark);
   cursor: pointer;
 }
 
@@ -2323,19 +2327,19 @@ body.cart-open .drawer-backdrop {
 
 .menu-drawer-close {
   position: absolute;
-  top: 50%;
-  right: -21px;
+  top: 118px;
+  right: 18px;
   z-index: 2;
   display: grid;
-  width: 42px;
-  height: 54px;
+  width: 38px;
+  height: 38px;
   place-items: center;
   border: 1px solid rgba(213, 116, 45, 0.26);
-  border-left-color: rgba(255, 250, 242, 0.92);
-  background: rgba(255, 250, 242, 0.94);
-  color: var(--clay-dark);
+  border-radius: 999px;
+  background: var(--clay);
+  color: #fff8ec;
   cursor: pointer;
-  transform: translateY(-50%);
+  transform: none;
   transition:
     transform 260ms var(--ease-apple),
     background 260ms var(--ease-apple),
@@ -2343,9 +2347,9 @@ body.cart-open .drawer-backdrop {
 }
 
 .menu-drawer-close:hover {
-  background: #fffaf2;
+  background: var(--clay-dark);
   box-shadow: 0 12px 26px rgba(61, 42, 29, 0.12);
-  transform: translateY(-50%) translateX(2px);
+  transform: translateX(-2px);
 }
 
 .menu-drawer-close svg {
@@ -2957,6 +2961,67 @@ body.admin-mode .admin-page {
   font-family: "Space Grotesk", Inter, sans-serif;
   font-size: clamp(24px, 3vw, 36px);
   line-height: 1;
+}
+
+.account-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.account-card-title h2 {
+  margin: 0;
+}
+
+.icon-action {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid rgba(213, 116, 45, 0.28);
+  border-radius: 999px;
+  background: rgba(213, 116, 45, 0.12);
+  color: var(--clay-dark);
+  cursor: pointer;
+}
+
+.profile-summary {
+  display: grid;
+  gap: 8px;
+  color: var(--coffee);
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.profile-summary span,
+.profile-summary small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 44px;
+}
+
+.password-field button {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(213, 116, 45, 0.12);
+  color: var(--coffee);
+  cursor: pointer;
 }
 
 .account-create-form {
@@ -4223,8 +4288,8 @@ body.admin-mode .admin-page {
   }
 
   .price-line {
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: center;
+    flex-direction: row;
     gap: 6px;
   }
 
@@ -4241,7 +4306,7 @@ body.admin-mode .admin-page {
   }
 
   .card-actions {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
   }
 
   .detail-link,
@@ -4249,6 +4314,14 @@ body.admin-mode .admin-page {
     min-height: 34px;
     padding: 0 8px;
     font-size: 10px;
+  }
+
+  .add-cart-link {
+    min-width: 82px;
+    background: var(--clay);
+    color: #fff8ec;
+    white-space: normal;
+    line-height: 1.05;
   }
 
   .mobile-more-block {
@@ -4263,7 +4336,7 @@ body.admin-mode .admin-page {
 
   .mobile-more-block strong {
     color: var(--clay);
-    font-family: "Space Grotesk", Inter, sans-serif;
+    font-family: "Rubik One", "Space Grotesk", Inter, sans-serif;
     font-size: 24px;
     line-height: 1;
     text-transform: uppercase;
@@ -4286,16 +4359,20 @@ body.admin-mode .admin-page {
 
   .show-card {
     grid-template-columns: 1fr;
+    overflow: visible;
   }
 
   .show-card img {
+    display: block;
     order: -1;
     width: 100%;
     height: auto;
-    min-height: 180px;
+    min-height: 220px;
     max-height: none;
     aspect-ratio: 16 / 9;
     object-fit: contain;
+    background: #fffaf2;
+    padding: 10px;
   }
 
   .admin-heading {

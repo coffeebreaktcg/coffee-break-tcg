@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&family=Space+Grotesk:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=account-modal-signup-20260531" />
+    <link rel="stylesheet" href="/styles.css?v=account-mobile-store-20260531" />
   </head>
   <body>
     <header class="site-header">
@@ -64,7 +64,7 @@
           <p class="eyebrow" data-i18n="heroEyebrow">Pokémon TCG - Coffee Break</p>
           <h1 data-i18n="heroTitle">Produits Pokémon choisis avec soin.</h1>
           <p data-i18n="heroText">
-            Singles, graded et sealed choisis pour les collectionneurs. Photos réelles, paiement simple et livraison suivie le jour même depuis Saint-Sauveur.
+            Singles, graded et sealed choisis pour les collectionneurs. Photos réelles, paiement simple et livraison suivie le jour même depuis Laval.
           </p>
           <div class="hero-actions">
             <a class="button primary" href="#shop" data-i18n="shopNow">Magasiner</a>
@@ -82,24 +82,24 @@
           <span data-i18n="trustShipping">Livraison suivie le jour même</span>
           <span data-i18n="trustPayment">Paiement Square</span>
           <span data-i18n="trustReserve">Réservation 1 h</span>
-          <span data-i18n="trustLocal">Basé à Saint-Sauveur</span>
+          <span data-i18n="trustLocal">Basé à Laval</span>
           <span data-i18n="trustPhotos">Photos réelles</span>
           <span data-i18n="trustShipping">Livraison suivie le jour même</span>
           <span data-i18n="trustPayment">Paiement Square</span>
           <span data-i18n="trustReserve">Réservation 1 h</span>
-          <span data-i18n="trustLocal">Basé à Saint-Sauveur</span>
+          <span data-i18n="trustLocal">Basé à Laval</span>
         </div>
         <div class="trust-track" aria-hidden="true">
           <span data-i18n="trustPhotos">Photos réelles</span>
           <span data-i18n="trustShipping">Livraison suivie le jour même</span>
           <span data-i18n="trustPayment">Paiement Square</span>
           <span data-i18n="trustReserve">Réservation 1 h</span>
-          <span data-i18n="trustLocal">Basé à Saint-Sauveur</span>
+          <span data-i18n="trustLocal">Basé à Laval</span>
           <span data-i18n="trustPhotos">Photos réelles</span>
           <span data-i18n="trustShipping">Livraison suivie le jour même</span>
           <span data-i18n="trustPayment">Paiement Square</span>
           <span data-i18n="trustReserve">Réservation 1 h</span>
-          <span data-i18n="trustLocal">Basé à Saint-Sauveur</span>
+          <span data-i18n="trustLocal">Basé à Laval</span>
         </div>
       </section>
 
@@ -108,6 +108,8 @@
 
         <div class="category-tabs" role="tablist" aria-label="Categories">
           <button class="tab active" type="button" data-category="all" data-i18n="all">Tout</button>
+          <button class="tab" type="button" data-category="new" data-i18n="newCategory">Nouveauté</button>
+          <button class="tab" type="button" data-category="sale" data-i18n="saleCategory">Rabais</button>
           <button class="tab" type="button" data-category="Singles">Singles</button>
           <button class="tab" type="button" data-category="Graded">Graded</button>
           <button class="tab" type="button" data-category="Sealed">Sealed</button>
@@ -161,7 +163,7 @@
           <article class="sell-priority-card">
             <span>02</span>
             <h3 data-i18n="shippingCardTitle">Livraison claire</h3>
-            <p data-i18n="shippingCardText">Livraison depuis Saint-Sauveur, suivi inclus, avec protection adaptée pour singles, sealed et slabs.</p>
+            <p data-i18n="shippingCardText">Livraison depuis Laval, suivi inclus, avec protection adaptée pour singles, sealed et slabs.</p>
             <a href="/livraison" data-content-route="livraison" data-i18n="viewShipping">Voir la livraison</a>
           </article>
         </div>
@@ -210,10 +212,14 @@
           </div>
           <div class="form-row location-row">
             <label><span data-i18n="city">Ville</span> <input name="city" autocomplete="address-level2" required /></label>
-            <label><span data-i18n="province">Province</span> <input name="province" autocomplete="address-level1" value="QC" required /></label>
+            <label><span data-i18n="province">Province</span> <select name="province" autocomplete="address-level1" required></select></label>
             <label><span data-i18n="postal">Code postal</span> <input name="postal" autocomplete="postal-code" required /></label>
           </div>
           <label><span data-i18n="deliveryNotes">Notes de livraison</span> <input name="notes" placeholder="Appartement, instructions, etc." data-i18n-placeholder="deliveryNotesPlaceholder" /></label>
+          <label class="save-profile-option">
+            <input name="marketingOptIn" type="checkbox" />
+            <span data-i18n="marketingOptIn">Recevoir les offres exclusives et les prochains drops à l’avance.</span>
+          </label>
           <label class="save-profile-option">
             <input name="saveProfile" type="checkbox" />
             <span data-i18n="saveProfile">Sauvegarder ces informations dans mon compte</span>
@@ -679,7 +685,7 @@
           </div>
           <div class="form-row three">
             <label>Emplacement <input name="location" placeholder="Ex. Centre communautaire" /></label>
-            <label>Ville <input name="city" placeholder="Ex. Saint-Sauveur" /></label>
+            <label>Ville <input name="city" placeholder="Ex. Laval" /></label>
             <label>Heure <input name="time" placeholder="Ex. 10 h à 16 h" /></label>
           </div>
           <div class="form-row three">
@@ -720,7 +726,7 @@
         <a class="brand footer-logo" href="/" data-home-link aria-label="Coffee Break TCG">
           <img class="brand-logo-img brand-logo-transparent" src="/assets/coffee-break-logo-cbtcg-wordmark-transparent.png?v=cbtcg-transparent-20260531" alt="Coffee Break TCG" />
         </a>
-        <p data-i18n="footerLocation">Saint-Sauveur, Québec</p>
+        <p data-i18n="footerLocation">Laval, Québec</p>
       </div>
       <nav aria-label="Pied de page">
         <a href="#shop" data-i18n="shopNow">Magasiner</a>
@@ -757,7 +763,11 @@
         <p data-i18n="accountPopupText">Connecte-toi pour voir tes commandes et garder tes informations de livraison.</p>
         <form class="account-form" data-account-login>
           <label><span data-i18n="email">Courriel</span> <input name="email" type="email" autocomplete="email" required /></label>
-          <label><span data-i18n="password">Mot de passe</span> <input name="password" type="password" autocomplete="current-password" required /></label>
+          <label class="password-field">
+            <span data-i18n="password">Mot de passe</span>
+            <input name="password" type="password" autocomplete="current-password" required />
+            <button type="button" data-toggle-password aria-label="Afficher le mot de passe">👁</button>
+          </label>
           <button class="button primary wide" type="submit" data-i18n="login">Connexion</button>
           <p class="form-status" role="status"></p>
         </form>
@@ -816,13 +826,13 @@
         </details>
         <a href="/vendre" data-content-route="vendre" data-i18n="sellCards">On achète vos cartes</a>
         <a href="/#cardshows" data-show-anchor data-i18n="upcomingShowsShort">Prochains shows</a>
-        <a href="/compte" data-account-link data-i18n="account">Compte</a>
         <a href="/faq" data-content-route="faq">FAQ</a>
         <a href="/apropos" data-content-route="apropos" data-i18n="navAbout">À propos</a>
+        <a href="/compte" data-account-link data-i18n="account">Compte</a>
         <a href="/admin" data-admin-link hidden>Admin inventaire</a>
       </nav>
     </aside>
 
-    <script src="/app.js?v=account-modal-signup-20260531"></script>
+    <script src="/app.js?v=account-mobile-store-20260531"></script>
   </body>
 </html>
