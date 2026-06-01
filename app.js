@@ -1,191 +1,4 @@
-let inventory = [
-  {
-    id: "pikachu-ar",
-    name: "Pikachu AR",
-    category: "Singles",
-    kind: "single",
-    status: "available",
-    sku: "CB-SIN-001",
-    condition: "VSTAR Universe - Near Mint",
-    price: 89.99,
-    market: 96,
-    stock: 4,
-    accent: "#e4b43f",
-    visual: "single",
-  },
-  {
-    id: "umbreon-vmax",
-    name: "Umbreon VMAX Alt Art",
-    category: "Graded",
-    kind: "slab",
-    status: "available",
-    sku: "CB-SLB-001",
-    condition: "PSA 10",
-    price: 1299.99,
-    market: 1210,
-    stock: 1,
-    accent: "#282332",
-    visual: "graded",
-  },
-  {
-    id: "sv-151-box",
-    name: "Scarlet & Violet 151",
-    category: "Sealed",
-    kind: "etb",
-    status: "available",
-    sku: "CB-ETB-151",
-    condition: "Elite Trainer Box",
-    price: 89.99,
-    market: 84,
-    stock: 8,
-    maxPerCart: 2,
-    accent: "#4f9b8b",
-    visual: "boxed",
-  },
-  {
-    id: "gengar-holo",
-    name: "Gengar Holo",
-    category: "Graded",
-    kind: "slab",
-    status: "available",
-    sku: "CB-SLB-002",
-    condition: "Fossil - PSA 9",
-    price: 399.99,
-    market: 430,
-    stock: 2,
-    accent: "#67409b",
-    visual: "graded",
-  },
-  {
-    id: "charizard-ex",
-    name: "Eevee ex",
-    category: "Singles",
-    kind: "single",
-    status: "available",
-    sku: "CB-SIN-002",
-    condition: "Prismatic Evolutions - Mint",
-    price: 54.99,
-    market: 51,
-    stock: 6,
-    accent: "#d68b4d",
-    visual: "single",
-  },
-  {
-    id: "pokemon-mega-preorder",
-    name: "Pokemon Mega Evolution",
-    category: "Preorder",
-    kind: "etb",
-    status: "preorder",
-    sku: "CB-PRE-001",
-    condition: "Pre-commande - Elite Trainer Box",
-    price: 89.99,
-    market: 89.99,
-    stock: 24,
-    maxPerCart: 2,
-    accent: "#d37a35",
-    visual: "boxed",
-  },
-  {
-    id: "slab-guard",
-    name: "Slab Guard Clear",
-    category: "Accessories",
-    kind: "accessory",
-    status: "available",
-    sku: "CB-ACC-001",
-    condition: "Paquet de 10 protecteurs",
-    price: 18.99,
-    market: 21,
-    stock: 15,
-    accent: "#9aa6a6",
-    visual: "boxed",
-  },
-  {
-    id: "mewtwo-masterball",
-    name: "Mewtwo Master Ball",
-    category: "Singles",
-    kind: "single",
-    status: "available",
-    sku: "CB-SIN-003",
-    condition: "Japanese 151 - Near Mint",
-    price: 74.99,
-    market: 82,
-    stock: 3,
-    accent: "#b875c5",
-    visual: "single",
-  },
-  {
-    id: "lost-origin-bb",
-    name: "Lost Origin",
-    category: "Sealed",
-    kind: "booster-box",
-    status: "available",
-    sku: "CB-BBX-001",
-    condition: "Booster Box scellee",
-    price: 249.99,
-    market: 238,
-    stock: 2,
-    accent: "#9b5a38",
-    visual: "boxed",
-  },
-  {
-    id: "snorlax-151-ir",
-    name: "Snorlax IR",
-    category: "Singles",
-    kind: "single",
-    status: "available",
-    sku: "CB-SIN-004",
-    condition: "Pokemon 151 - Near Mint",
-    price: 39.99,
-    market: 42,
-    stock: 5,
-    accent: "#6f8f77",
-    visual: "single",
-  },
-  {
-    id: "lugia-v-psa9",
-    name: "Lugia V Alt Art",
-    category: "Graded",
-    kind: "slab",
-    status: "available",
-    sku: "CB-SLB-003",
-    condition: "Silver Tempest - PSA 9",
-    price: 279.99,
-    market: 295,
-    stock: 1,
-    accent: "#7e9bb8",
-    visual: "graded",
-  },
-  {
-    id: "twilight-masquerade-bundle",
-    name: "Twilight Masquerade",
-    category: "Sealed",
-    kind: "booster-bundle",
-    status: "available",
-    sku: "CB-BND-001",
-    condition: "Booster Bundle scelle",
-    price: 49.99,
-    market: 54,
-    stock: 10,
-    maxPerCart: 4,
-    accent: "#8c6a9e",
-    visual: "boxed",
-  },
-  {
-    id: "surging-sparks-pack",
-    name: "Surging Sparks",
-    category: "Sealed",
-    kind: "pack",
-    status: "available",
-    sku: "CB-PCK-001",
-    condition: "Booster pack scelle",
-    price: 8.99,
-    market: 9.5,
-    stock: 18,
-    maxPerCart: 6,
-    accent: "#d6973f",
-    visual: "boxed",
-  },
-];
+let inventory = [];
 
 const state = {
   category: "all",
@@ -246,6 +59,10 @@ const searchCardImageButton = document.querySelector("#searchCardImageButton");
 const selectedCardImageUrl = document.querySelector("#selectedCardImageUrl");
 const selectedGalleryImageUrls = document.querySelector("#selectedGalleryImageUrls");
 const editingProductId = document.querySelector("#editingProductId");
+const editingProductStatus = document.querySelector("#editingProductStatus");
+const draftInventoryCount = document.querySelector("#draftInventoryCount");
+const publishDraftProductsButton = document.querySelector("#publishDraftProductsButton");
+const publishDraftStatus = document.querySelector("#publishDraftStatus");
 const imageSearchPreview = document.querySelector("#imageSearchPreview");
 const imageSearchStatus = document.querySelector("#imageSearchStatus");
 const suggestMarketButton = document.querySelector("#suggestMarketButton");
@@ -2271,12 +2088,20 @@ async function renderAdmin() {
     ["Inventaire payé", adminMoney(summary.inventoryValue)],
     ["Valeur marché", adminMoney(summary.marketValue)],
     ["Profit potentiel", adminMoney(summary.potentialProfit)],
+    ["En session", summary.draftItems || 0],
   ]
     .map(([label, value]) => `<div class="metric-card"><span>${label}</span><strong>${value}</strong></div>`)
     .join("");
 
   if (adminPriceSync) adminPriceSync.textContent = "";
   renderAccounting(accounting);
+  const draftItems = adminInventoryCache.filter((item) => item.status === "draft");
+  if (draftInventoryCount) {
+    draftInventoryCount.textContent = `${draftItems.length} item${draftItems.length > 1 ? "s" : ""} en attente`;
+  }
+  if (publishDraftProductsButton) {
+    publishDraftProductsButton.disabled = draftItems.length === 0;
+  }
 
   if (adminCardShowRows) {
     adminCardShowRows.innerHTML = cardShows.length
@@ -2378,6 +2203,7 @@ async function renderAdmin() {
                 ]
                   .filter(Boolean)
                   .join(" - ")}</span>
+                ${item.status === "draft" ? `<span class="draft-status-pill">En session</span>` : ""}
               </div>
             </div>
           </td>
@@ -2553,6 +2379,29 @@ async function applyAdminDiscount(id, button) {
     if (adminPriceSync) adminPriceSync.textContent = error.message;
     button.disabled = false;
     button.textContent = "Baisser prix";
+  }
+}
+
+async function publishDraftProducts() {
+  if (!publishDraftProductsButton) return;
+  publishDraftProductsButton.disabled = true;
+  publishDraftProductsButton.textContent = "Publication...";
+  if (publishDraftStatus) publishDraftStatus.textContent = "";
+  try {
+    const payload = await api("/api/admin/products/publish-drafts", { method: "POST", body: "{}" });
+    inventory = payload.inventory || inventory;
+    adminInventoryCache = payload.inventory || adminInventoryCache;
+    await loadProducts();
+    renderProducts();
+    await renderAdmin();
+    if (publishDraftStatus) {
+      publishDraftStatus.textContent = `${payload.published || 0} item${payload.published > 1 ? "s" : ""} publié${payload.published > 1 ? "s" : ""} sur le site.`;
+    }
+  } catch (error) {
+    if (publishDraftStatus) publishDraftStatus.textContent = error.message;
+  } finally {
+    publishDraftProductsButton.textContent = "LET'S GO - mettre sur le site";
+    publishDraftProductsButton.disabled = adminInventoryCache.filter((item) => item.status === "draft").length === 0;
   }
 }
 
@@ -2746,6 +2595,7 @@ function editAdminItem(id) {
   setAdminField("cardNumber", item.cardNumber);
   setAdminField("gradingCompany", item.gradingCompany);
   setAdminField("grade", item.grade);
+  setAdminField("status", item.status);
   setAdminField("cost", item.cost);
   setAdminField("market", item.market);
   setAdminField("price", item.price);
@@ -2791,6 +2641,7 @@ function resetCardLookupDetails() {
   if (!adminProductForm) return;
   resetImageSearch();
   if (editingProductId) editingProductId.value = "";
+  if (editingProductStatus) editingProductStatus.value = "";
   setAdminField("cardNumber", "");
   setAdminField("rarity", "");
   setAdminField("setId", "");
@@ -3459,6 +3310,7 @@ imageSearchPreview?.addEventListener("click", (event) => {
 });
 suggestMarketButton?.addEventListener("click", suggestMarketPrice);
 adminProductForm?.querySelector('select[name="gradingCompany"]')?.addEventListener("change", applySlabMode);
+publishDraftProductsButton?.addEventListener("click", publishDraftProducts);
 toggleSoldCardsButton?.addEventListener("click", () => {
   const isHidden = soldCardsWrap?.classList.toggle("hidden");
   toggleSoldCardsButton.textContent = isHidden ? "Afficher les ventes" : "Masquer les ventes";
@@ -3570,6 +3422,7 @@ adminProductForm?.addEventListener("submit", async (event) => {
     setName: selectedSetOption?.dataset.name || selectedSetOption?.textContent?.replace(/\s+-\s+\d{4}\/\d{2}\/\d{2}$/, "") || "",
     category: form.get("category"),
     kind: form.get("kind"),
+    status: form.get("status"),
     rarity: form.get("rarity"),
     cardNumber: form.get("cardNumber"),
     condition: form.get("condition"),
@@ -3589,9 +3442,10 @@ adminProductForm?.addEventListener("submit", async (event) => {
   };
   try {
     await api("/api/admin/products", { method: "POST", body: JSON.stringify(body) });
-    status.textContent = body.id ? "Item mis à jour." : "Item sauvegardé.";
+    status.textContent = body.id ? "Item mis à jour." : "Item ajouté à la session. Il sera invisible jusqu’au LET’S GO.";
     adminProductForm.reset();
     if (editingProductId) editingProductId.value = "";
+    if (editingProductStatus) editingProductStatus.value = "";
     resetImageSearch();
     document.querySelectorAll("[data-feature-checkbox]").forEach((box) => {
       box.disabled = false;

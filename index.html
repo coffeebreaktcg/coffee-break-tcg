@@ -284,6 +284,15 @@
       <div class="admin-sections">
         <details class="admin-card admin-accordion admin-product-section" open>
           <summary>Ajouter un item dans la boutique</summary>
+          <div class="draft-launch-panel">
+            <div>
+              <span>Session de mise en ligne</span>
+              <strong id="draftInventoryCount">0 item en attente</strong>
+              <p>Ajoute ton stock tranquillement. Rien n'apparaît sur la boutique avant de cliquer sur LET'S GO.</p>
+            </div>
+            <button class="button primary" type="button" id="publishDraftProductsButton">LET'S GO - mettre sur le site</button>
+          </div>
+          <p class="admin-status" id="publishDraftStatus" role="status"></p>
           <form class="admin-form" id="adminProductForm">
           <fieldset class="admin-form-section">
             <legend>Ajout rapide</legend>
@@ -357,6 +366,7 @@
             <input type="hidden" name="imageUrl" id="selectedCardImageUrl" />
             <input type="hidden" name="galleryImageUrls" id="selectedGalleryImageUrls" />
             <input type="hidden" name="id" id="editingProductId" />
+            <input type="hidden" name="status" id="editingProductStatus" />
             <div class="image-search-preview hidden" id="imageSearchPreview"></div>
             <p class="image-search-status" id="imageSearchStatus" role="status"></p>
           </div>
@@ -369,7 +379,7 @@
             <label>Prix marché <input name="market" type="number" min="0" step="0.01" /></label>
             <label>Prix affiché <input name="price" type="number" min="0" step="0.01" required /></label>
           </div>
-          <button class="button primary wide" type="submit">Sauvegarder l'item</button>
+          <button class="button primary wide" type="submit">Ajouter à la session</button>
           <p class="admin-status" role="status"></p>
           </fieldset>
           <details class="admin-form-section advanced-form-section">
@@ -432,7 +442,7 @@
             <label><input type="checkbox" name="features" value="Low pop" data-feature-checkbox /> Low pop</label>
             <label><input type="checkbox" name="features" value="Miscut" data-feature-checkbox /> Miscut</label>
           </fieldset>
-          <button class="button primary wide" type="submit">Sauvegarder l'item</button>
+          <button class="button primary wide" type="submit">Ajouter à la session</button>
           </form>
         </details>
 

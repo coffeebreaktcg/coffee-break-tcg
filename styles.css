@@ -1368,9 +1368,9 @@ select {
 }
 
 .price-line {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
   margin-top: 4px;
 }
@@ -1640,15 +1640,20 @@ select {
 }
 
 .add-cart-link {
-  flex: 0 0 auto;
-  min-width: 0;
-  width: 38px;
-  height: 38px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
   padding: 0;
   border-color: rgba(213, 116, 45, 0.45);
   background: rgba(213, 116, 45, 0.13);
   color: var(--clay-dark);
   font-size: 18px;
+  line-height: 1;
+  text-align: center;
   cursor: pointer;
 }
 
@@ -1756,7 +1761,8 @@ select {
 .feature-pills {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  grid-column: 1 / -1;
+  justify-content: flex-start;
   gap: 6px;
 }
 
@@ -3516,6 +3522,49 @@ body.admin-mode .admin-page {
   font-size: 24px;
 }
 
+.draft-launch-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid rgba(213, 116, 45, 0.22);
+  background: #fff4e5;
+  margin: 0 0 18px;
+  padding: 16px;
+}
+
+.draft-launch-panel span,
+.draft-status-pill {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.draft-launch-panel strong {
+  display: block;
+  margin: 4px 0;
+  color: var(--coffee);
+  font-family: "Space Grotesk", Inter, sans-serif;
+  font-size: 24px;
+}
+
+.draft-launch-panel p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.draft-status-pill {
+  display: inline-flex;
+  width: max-content;
+  margin-top: 5px;
+  border: 1px solid rgba(213, 116, 45, 0.28);
+  background: #fbead8;
+  color: var(--clay-dark);
+  padding: 4px 7px;
+}
+
 .admin-layout,
 .admin-sections {
   display: grid;
@@ -4298,7 +4347,8 @@ body.admin-mode .admin-page {
   .review-grid,
   .account-auth-grid,
   .account-layout,
-  .checkout-page-layout {
+  .checkout-page-layout,
+  .draft-launch-panel {
     grid-template-columns: 1fr;
   }
 
@@ -4488,7 +4538,7 @@ body.admin-mode .admin-page {
 
   .price-line {
     align-items: center;
-    flex-direction: row;
+    grid-template-columns: minmax(0, 1fr) 34px;
     gap: 6px;
   }
 
@@ -4516,9 +4566,12 @@ body.admin-mode .admin-page {
   }
 
   .add-cart-link {
-    min-width: 0;
+    display: grid;
+    place-items: center;
+    min-width: 34px;
     width: 34px;
     height: 34px;
+    min-height: 34px;
     background: var(--clay);
     color: #fff8ec;
     white-space: nowrap;

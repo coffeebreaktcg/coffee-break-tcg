@@ -509,199 +509,7 @@ function createZip(files) {
 }
 
 function defaultInventory() {
-  return [
-    {
-      id: "pikachu-ar",
-      name: "Pikachu AR",
-      category: "Singles",
-      kind: "single",
-      status: "available",
-      sku: "CB-SIN-001",
-      condition: "VSTAR Universe - Near Mint",
-      cost: 62,
-      price: 89.99,
-      market: 96,
-      stock: 4,
-      accent: "#e4b43f",
-      visual: "single",
-      features: ["Moderne"],
-      createdAt: "2026-05-19T00:00:00.000Z",
-    },
-    {
-      id: "umbreon-vmax",
-      name: "Umbreon VMAX Alt Art",
-      category: "Graded",
-      kind: "slab",
-      status: "available",
-      sku: "CB-SLB-001",
-      condition: "PSA 10",
-      cost: 980,
-      price: 1299.99,
-      market: 1210,
-      stock: 1,
-      accent: "#282332",
-      visual: "graded",
-      features: ["Grail", "Low pop"],
-      createdAt: "2026-05-19T00:00:00.000Z",
-    },
-    {
-      id: "sv-151-box",
-      name: "Scarlet & Violet 151",
-      category: "Sealed",
-      kind: "etb",
-      status: "available",
-      sku: "CB-ETB-151",
-      condition: "Elite Trainer Box",
-      cost: 68,
-      price: 89.99,
-      market: 84,
-      stock: 8,
-      maxPerCart: 2,
-      accent: "#4f9b8b",
-      visual: "boxed",
-      features: ["Moderne"],
-      createdAt: "2026-05-19T00:00:00.000Z",
-    },
-    {
-      id: "gengar-holo",
-      name: "Gengar Holo",
-      category: "Graded",
-      kind: "slab",
-      status: "available",
-      sku: "CB-SLB-002",
-      condition: "Fossil - PSA 9",
-      cost: 310,
-      price: 399.99,
-      market: 430,
-      stock: 2,
-      accent: "#67409b",
-      visual: "graded",
-      features: ["Vintage", "Swirl"],
-      createdAt: "2026-05-19T00:00:00.000Z",
-    },
-    {
-      id: "eevee-ex",
-      name: "Eevee ex",
-      category: "Singles",
-      kind: "single",
-      status: "available",
-      sku: "CB-SIN-002",
-      condition: "Prismatic Evolutions - Mint",
-      cost: 38,
-      price: 54.99,
-      market: 51,
-      stock: 6,
-      accent: "#d68b4d",
-      visual: "single",
-      features: ["Moderne"],
-      createdAt: "2026-05-19T00:00:00.000Z",
-    },
-    {
-      id: "pokemon-mega-preorder",
-      name: "Pokemon Mega Evolution",
-      category: "Preorder",
-      kind: "etb",
-      status: "preorder",
-      sku: "CB-PRE-001",
-      condition: "Pre-commande - Elite Trainer Box",
-      cost: 64,
-      price: 89.99,
-      market: 89.99,
-      stock: 24,
-      maxPerCart: 2,
-      accent: "#d37a35",
-      visual: "boxed",
-      features: ["Moderne"],
-      createdAt: "2026-05-19T00:00:00.000Z",
-    },
-    {
-      id: "slab-guard",
-      name: "Slab Guard Clear",
-      category: "Accessories",
-      kind: "accessory",
-      status: "available",
-      sku: "CB-ACC-001",
-      condition: "Paquet de 10 protecteurs",
-      cost: 9,
-      price: 18.99,
-      market: 21,
-      stock: 15,
-      accent: "#9aa6a6",
-      visual: "boxed",
-      features: [],
-      createdAt: "2026-05-19T00:00:00.000Z",
-    },
-    {
-      id: "snorlax-151-ir",
-      name: "Snorlax IR",
-      category: "Singles",
-      kind: "single",
-      status: "available",
-      sku: "CB-SIN-004",
-      condition: "Pokemon 151 - Near Mint",
-      cost: 22,
-      price: 39.99,
-      market: 42,
-      stock: 5,
-      accent: "#6f8f77",
-      visual: "single",
-      features: ["Moderne"],
-      createdAt: "2026-05-20T09:00:00.000Z",
-    },
-    {
-      id: "lugia-v-psa9",
-      name: "Lugia V Alt Art",
-      category: "Graded",
-      kind: "slab",
-      status: "available",
-      sku: "CB-SLB-003",
-      condition: "Silver Tempest - PSA 9",
-      cost: 210,
-      price: 279.99,
-      market: 295,
-      stock: 1,
-      accent: "#7e9bb8",
-      visual: "graded",
-      features: ["Grail", "Moderne"],
-      createdAt: "2026-05-20T09:05:00.000Z",
-    },
-    {
-      id: "twilight-masquerade-bundle",
-      name: "Twilight Masquerade",
-      category: "Sealed",
-      kind: "booster-bundle",
-      status: "available",
-      sku: "CB-BND-001",
-      condition: "Booster Bundle scelle",
-      cost: 34,
-      price: 49.99,
-      market: 54,
-      stock: 10,
-      maxPerCart: 4,
-      accent: "#8c6a9e",
-      visual: "boxed",
-      features: ["Moderne"],
-      createdAt: "2026-05-20T09:10:00.000Z",
-    },
-    {
-      id: "surging-sparks-pack",
-      name: "Surging Sparks",
-      category: "Sealed",
-      kind: "pack",
-      status: "available",
-      sku: "CB-PCK-001",
-      condition: "Booster pack scelle",
-      cost: 5.25,
-      price: 8.99,
-      market: 9.5,
-      stock: 18,
-      maxPerCart: 6,
-      accent: "#d6973f",
-      visual: "boxed",
-      features: ["Moderne"],
-      createdAt: "2026-05-20T09:15:00.000Z",
-    },
-  ];
+  return [];
 }
 
 function defaultReviews() {
@@ -888,12 +696,13 @@ function publicAdmin(session) {
 function publicProduct(product) {
   const reservedQuantity = Number(product.reservedQuantity || 0);
   const stock = Number(product.stock || 0);
+  const baseStatus = product.status || (product.category === "Preorder" ? "preorder" : "available");
   return {
     id: product.id,
     name: product.name,
     category: product.category,
     kind: product.kind || product.visual || "single",
-    status: stock <= 0 && reservedQuantity > 0 ? "reserved" : product.status || (product.category === "Preorder" ? "preorder" : "available"),
+    status: baseStatus === "draft" ? "draft" : stock <= 0 && reservedQuantity > 0 ? "reserved" : baseStatus,
     sku: product.sku || product.id,
     condition: product.condition,
     setId: product.setId || "",
@@ -1634,6 +1443,7 @@ function summarizeSales(db) {
     listedValue,
     potentialProfit: listedValue - inventoryValue,
     activeItems: inventory.filter((item) => Number(item.stock || 0) > 0).length,
+    draftItems: inventory.filter((item) => item.status === "draft").length,
     reservedUnits,
     pendingOrders: (db.orders || []).filter((order) => order.status === "pending_payment").length,
   };
@@ -2502,7 +2312,7 @@ async function handleApi(req, res) {
   }
 
   if (url.pathname === "/api/products" && req.method === "GET") {
-    return json(res, 200, { products: db.inventory.map(publicProduct) });
+    return json(res, 200, { products: db.inventory.filter((product) => product.status !== "draft").map(publicProduct) });
   }
 
   if (url.pathname === "/api/card-shows" && req.method === "GET") {
@@ -2800,12 +2610,15 @@ async function handleApi(req, res) {
     const features = Array.isArray(body.features)
       ? body.features.map((feature) => String(feature).trim()).filter(Boolean).slice(0, 2)
       : [];
+    const category = body.category || "Singles";
+    const publishedStatus = category === "Preorder" ? "preorder" : "available";
+    const productStatus = existingProduct ? String(body.status || existingProduct.status || publishedStatus) : "draft";
     const product = {
       id,
       name: String(body.name || "").trim(),
-      category: body.category || "Singles",
+      category,
       kind: body.kind || "single",
-      status: body.category === "Preorder" ? "preorder" : "available",
+      status: productStatus,
       sku: String(body.sku || id).trim(),
       condition: body.condition || "",
       setId: String(body.setId || "").trim(),
@@ -2846,6 +2659,22 @@ async function handleApi(req, res) {
     else db.inventory.push(product);
     await writeDb(db);
     return json(res, 201, { product });
+  }
+
+  if (url.pathname === "/api/admin/products/publish-drafts" && req.method === "POST") {
+    let published = 0;
+    for (const product of db.inventory || []) {
+      if (product.status !== "draft") continue;
+      product.status = product.category === "Preorder" ? "preorder" : "available";
+      product.updatedAt = new Date().toISOString();
+      published += 1;
+    }
+    await writeDb(db);
+    return json(res, 200, {
+      published,
+      summary: summarizeSales(db),
+      inventory: db.inventory.map(publicProduct),
+    });
   }
 
   if (url.pathname === "/api/admin/card-shows" && req.method === "POST") {
