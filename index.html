@@ -267,32 +267,6 @@
       <div class="admin-metrics" id="adminMetrics"></div>
       <p class="admin-price-sync hidden" id="adminPriceSync"></p>
 
-      <details class="admin-card admin-accordion admin-security-panel">
-        <summary>Sécurité & sauvegarde</summary>
-        <div class="security-grid">
-          <article>
-            <span>Accès admin</span>
-            <strong>Session privée avec expiration</strong>
-            <p>L’accès admin expire automatiquement. Après plusieurs mauvais essais, la connexion se bloque temporairement.</p>
-          </article>
-          <article>
-            <span>Sauvegarde locale + Drive</span>
-            <strong>Données + références fichiers</strong>
-            <p>Une copie locale est créée automatiquement. Google Drive peut remplacer le fichier de sauvegarde attitré après chaque changement.</p>
-          </article>
-          <article>
-            <span>Google Drive</span>
-            <strong id="driveBackupState">Non configuré</strong>
-            <p id="driveBackupMessage">Ajoute le dossier Google Drive et les identifiants pour activer la synchronisation.</p>
-          </article>
-        </div>
-        <div class="show-admin-actions">
-          <a class="button primary" href="/api/admin/backup.zip" download="coffee-break-backup.zip" data-backup-download>Télécharger la sauvegarde ZIP</a>
-          <button class="button secondary" type="button" id="syncDriveBackupButton">Synchroniser Google Drive</button>
-        </div>
-        <p class="admin-status" id="backupStatus" role="status"></p>
-      </details>
-
       <div class="admin-sections">
         <details class="admin-card admin-accordion admin-product-section" open>
           <summary>Ajouter un item dans la boutique</summary>
@@ -337,22 +311,24 @@
                 <option value="PSA">PSA</option>
                 <option value="Beckett">Beckett</option>
                 <option value="TAG">TAG</option>
+                <option value="CGC">CGC</option>
+                <option value="SGC">SGC</option>
               </select>
             </label>
             <label>
               Note slab
               <select name="grade">
                 <option value="">Aucune</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-                <option value="7">7</option>
-                <option value="8">8</option>
-                <option value="9">9</option>
                 <option value="10">10</option>
+                <option value="9">9</option>
+                <option value="8">8</option>
+                <option value="7">7</option>
+                <option value="6">6</option>
+                <option value="5">5</option>
+                <option value="4">4</option>
+                <option value="3">3</option>
+                <option value="2">2</option>
+                <option value="1">1</option>
               </select>
             </label>
           </div>
@@ -488,26 +464,6 @@
         </details>
       </div>
 
-      <details class="admin-card admin-accordion" open>
-        <summary>Réservations en attente</summary>
-        <p class="accordion-help">Si le paiement n’arrive pas, clique sur “Remettre en vitrine” pour remettre les cartes en stock.</p>
-        <div class="admin-table-wrap">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Demande</th>
-                <th>Date</th>
-                <th>Client</th>
-                <th>Carte</th>
-                <th>Total</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="adminPendingOrderRows"></tbody>
-          </table>
-        </div>
-      </details>
-
       <details class="admin-card admin-accordion">
         <summary>Cartes vendues</summary>
         <div class="admin-table-wrap sold-cards-wrap" id="soldCardsWrap">
@@ -530,70 +486,12 @@
       <details class="admin-card admin-accordion">
         <summary>Comptabilité</summary>
         <p class="accordion-help">
-          Reprise du modèle comptable Coffee Break: ventes, dépenses, taxes et résumé mensuel. Les TPS/TVQ de dépenses sont calculées automatiquement à partir du montant total.
+          Suivi des ventes par catégorie, du revenu brut, du coût payé pour les items et du revenu net.
         </p>
         <div class="accounting-dashboard" id="accountingDashboard"></div>
-        <form class="admin-show-form expense-form" id="adminExpenseForm">
-          <input type="hidden" name="id" />
-          <input type="hidden" name="receiptUrl" />
-          <div class="form-row four">
-            <label>Date <input name="date" type="date" required /></label>
-            <label>Fournisseur <input name="supplier" required placeholder="Ex. Amazon" /></label>
-            <label>
-              Catégorie
-              <select name="category">
-                <option value="Packaging">Packaging</option>
-                <option value="Équipement">Équipement</option>
-                <option value="Frais de plateforme">Frais de plateforme</option>
-                <option value="Shipping">Shipping</option>
-                <option value="Marketing">Marketing</option>
-                <option value="Autre">Autre</option>
-              </select>
-            </label>
-            <label>Montant total <input name="total" type="number" min="0" step="0.01" required /></label>
-          </div>
-          <div class="form-row two">
-            <label>Description <input name="description" placeholder="Ex. Papier bulle, enveloppes" /></label>
-            <label>Payé par <input name="paidBy" placeholder="Ex. Maxime" /></label>
-          </div>
-          <div class="form-row">
-            <label class="receipt-dropzone" id="receiptDropzone">
-              <span>Facture PDF</span>
-              <strong>Glisse le PDF ici</strong>
-              <small id="receiptDropzoneText">ou clique pour choisir un fichier</small>
-              <input name="receiptFile" type="file" accept="application/pdf" />
-            </label>
-          </div>
-          <div class="show-admin-actions">
-            <button class="button primary" type="submit">Sauvegarder la dépense</button>
-            <button class="button secondary" type="reset">Effacer le formulaire</button>
-          </div>
-          <p class="admin-status" id="expenseStatus" role="status"></p>
-        </form>
-        <details class="expense-list-panel" open>
-          <summary>8 dernières dépenses</summary>
-          <div class="admin-table-wrap">
-            <table class="admin-table accounting-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Fournisseur</th>
-                  <th>Catégorie</th>
-                  <th>Description</th>
-                  <th>Montant total</th>
-                  <th>TPS</th>
-                  <th>TVQ</th>
-                  <th>Facture</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="adminExpenseRows"></tbody>
-            </table>
-          </div>
-        </details>
         <div class="reports-divider">
           <span>Rapports téléchargeables</span>
-          <p>Résumé, ventes, réservations, dépenses et taxes pour la comptable.</p>
+          <p>Résumé, ventes et taxes pour la comptable.</p>
         </div>
         <div class="report-grid">
           <a class="report-card" href="/api/admin/reports/sales.csv" download="coffee-break-ventes.csv" data-report-download="coffee-break-ventes.csv">
@@ -606,20 +504,10 @@
             <strong>Résumé comptable CSV</strong>
             <em>Revenus, dépenses, profit net et marge par mois.</em>
           </a>
-          <a class="report-card" href="/api/admin/reports/pending.csv" download="coffee-break-reservations.csv" data-report-download="coffee-break-reservations.csv">
-            <span>Réservations</span>
-            <strong>Commandes en attente CSV</strong>
-            <em>Cartes réservées, clients et expiration.</em>
-          </a>
-          <a class="report-card" href="/api/admin/reports/expenses.csv" download="coffee-break-depenses.csv" data-report-download="coffee-break-depenses.csv">
-            <span>Dépenses</span>
-            <strong>Dépenses CSV</strong>
-            <em>Fournisseurs, catégories, TPS et TVQ calculées.</em>
-          </a>
           <a class="report-card" href="/api/admin/reports/taxes.csv" download="coffee-break-taxes.csv" data-report-download="coffee-break-taxes.csv">
             <span>Taxes</span>
             <strong>Taxes CSV</strong>
-            <em>TPS/TVQ collectées, dépensées et nettes.</em>
+            <em>TPS/TVQ collectées sur les ventes.</em>
           </a>
         </div>
         <p class="admin-status" id="reportStatus" role="status"></p>
@@ -646,6 +534,9 @@
           <div class="form-row two">
             <label>Produit acheté <input name="product" placeholder="Ex. Deerling IR" /></label>
             <label>Date <input name="date" type="date" /></label>
+          </div>
+          <div class="form-row">
+            <label>Photo du client <input name="photoFile" type="file" accept="image/*" /></label>
           </div>
           <label>Commentaire <textarea name="text" rows="4" required placeholder="Ex. Carte impeccable, très bien protégée."></textarea></label>
           <label class="save-check">

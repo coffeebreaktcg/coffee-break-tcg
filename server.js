@@ -116,7 +116,6 @@ async function readDb() {
     if (!Array.isArray(db.emailOutbox)) db.emailOutbox = [];
     if (!Array.isArray(db.cardShows)) db.cardShows = [];
     if (!Array.isArray(db.reviews)) db.reviews = defaultReviews();
-    if (!Array.isArray(db.expenses)) db.expenses = defaultExpenses();
     if (!Array.isArray(db.users)) db.users = [];
     if (!Array.isArray(db.newsletter)) db.newsletter = [];
     if (!db.sessions) db.sessions = {};
@@ -124,7 +123,7 @@ async function readDb() {
     return db;
   } catch {
     const seedPath = path.join(root, "data", "seed.json");
-    let empty = { users: [], sessions: {}, adminSessions: {}, orders: [], emailOutbox: [], newsletter: [], cardShows: [], reviews: defaultReviews(), expenses: defaultExpenses(), inventory: defaultInventory() };
+    let empty = { users: [], sessions: {}, adminSessions: {}, orders: [], emailOutbox: [], newsletter: [], cardShows: [], reviews: defaultReviews(), inventory: defaultInventory() };
     try {
       const seed = JSON.parse(await fs.readFile(seedPath, "utf8"));
       empty = {
@@ -135,7 +134,6 @@ async function readDb() {
         adminSessions: {},
         orders: [],
         emailOutbox: [],
-        expenses: [],
       };
     } catch {}
     await writeDb(empty);
@@ -747,61 +745,6 @@ function defaultReviews() {
   ];
 }
 
-function defaultExpenses() {
-  return [
-    {
-      id: "exp-namecheap-domain",
-      date: "2026-05-25",
-      supplier: "Namecheap",
-      category: "Autre",
-      description: "Domaine du site web",
-      total: 11.58,
-      paidBy: "Maxime",
-      createdAt: "2026-05-25T12:00:00.000Z",
-    },
-    {
-      id: "exp-amazon-bubble-mailers",
-      date: "2026-05-26",
-      supplier: "Amazon",
-      category: "Packaging",
-      description: "Papier bulle, enveloppes",
-      total: 79.31,
-      paidBy: "Maxime",
-      createdAt: "2026-05-26T12:00:00.000Z",
-    },
-    {
-      id: "exp-amazon-top-loader",
-      date: "2026-05-27",
-      supplier: "Amazon",
-      category: "Packaging",
-      description: "Top loader",
-      total: 26.43,
-      paidBy: "Maxime",
-      createdAt: "2026-05-27T12:00:00.000Z",
-    },
-    {
-      id: "exp-amazon-binder",
-      date: "2026-05-28",
-      supplier: "Amazon",
-      category: "Équipement",
-      description: "Binder",
-      total: 50.58,
-      paidBy: "Maxime",
-      createdAt: "2026-05-28T12:00:00.000Z",
-    },
-    {
-      id: "exp-amazon-packaging",
-      date: "2026-05-29",
-      supplier: "Amazon",
-      category: "Packaging",
-      description: "",
-      total: 29.76,
-      paidBy: "Maxime",
-      createdAt: "2026-05-29T12:00:00.000Z",
-    },
-  ].map(normalizeExpense);
-}
-
 function json(res, status, payload, extraHeaders = {}) {
   res.writeHead(status, {
     ...securityHeaders,
@@ -988,6 +931,7 @@ function publicReview(review) {
     rating: Math.max(1, Math.min(5, Number(review.rating || 5))),
     product: String(review.product || "").trim(),
     text: String(review.text || "").trim(),
+    photoUrl: String(review.photoUrl || "").trim(),
     date: String(review.date || "").trim(),
     published: review.published !== false,
     createdAt: review.createdAt || "",
@@ -1071,27 +1015,6 @@ function orderCustomer(order) {
   return order.customer || order.address || {};
 }
 
-function normalizeExpense(expense) {
-  const total = roundMoney(expense.total ?? expense.amount ?? 0);
-  const tps = roundMoney(expense.tps ?? (total * TPS_RATE) / TAX_INCLUDED_DIVISOR);
-  const tvq = roundMoney(expense.tvq ?? (total * TVQ_RATE) / TAX_INCLUDED_DIVISOR);
-  return {
-    id: expense.id || `exp_${crypto.randomBytes(8).toString("hex")}`,
-    date: expense.date || reportDate(expense.createdAt) || reportDate(new Date()),
-    supplier: String(expense.supplier || "").trim() || "Non sélectionné",
-    category: String(expense.category || "").trim() || "Autre",
-    description: String(expense.description || "").trim(),
-    total,
-    tps,
-    tvq,
-    paidBy: String(expense.paidBy || "").trim(),
-    receiptUrl: String(expense.receiptUrl || "").trim(),
-    receiptName: String(expense.receiptName || "").trim(),
-    createdAt: expense.createdAt || new Date().toISOString(),
-    updatedAt: expense.updatedAt || new Date().toISOString(),
-  };
-}
-
 function paidOrders(db) {
   return (db.orders || []).filter((order) => ["paid", "admin_sale"].includes(order.status));
 }
@@ -1103,14 +1026,19 @@ function saleCategoryLabel(category) {
 }
 
 function accountingSummary(db, year = new Date().getFullYear()) {
-  const expenses = (db.expenses || []).map(normalizeExpense);
   const rows = Array.from({ length: 12 }, (_, index) => {
     const key = `${year}-${String(index + 1).padStart(2, "0")}`;
     const monthOrders = paidOrders(db).filter((order) => reportMonth(order.createdAt) === key);
-    const monthExpenses = expenses.filter((expense) => reportMonth(expense.date) === key);
     const revenue = roundMoney(monthOrders.reduce((sum, order) => sum + orderItemsTotal(order), 0));
-    const expenseTotal = roundMoney(monthExpenses.reduce((sum, expense) => sum + Number(expense.total || 0), 0));
-    const netProfit = roundMoney(revenue - expenseTotal);
+    const cost = roundMoney(
+      monthOrders.reduce(
+        (sum, order) =>
+          sum +
+          (order.items || []).reduce((lineSum, item) => lineSum + Number(item.cost || 0) * Math.max(1, Number(item.quantity || 1)), 0),
+        0
+      )
+    );
+    const netProfit = roundMoney(revenue - cost);
     const categories = { Singles: 0, Slabs: 0, Scellé: 0 };
     for (const order of monthOrders) {
       for (const item of order.items || []) {
@@ -1122,13 +1050,11 @@ function accountingSummary(db, year = new Date().getFullYear()) {
     }
     const tpsCollected = roundMoney(monthOrders.reduce((sum, order) => sum + Number(order.tpsAmount || order.taxBreakdown?.tps || 0), 0));
     const tvqCollected = roundMoney(monthOrders.reduce((sum, order) => sum + Number(order.tvqAmount || order.taxBreakdown?.tvq || 0), 0));
-    const tpsSpent = roundMoney(monthExpenses.reduce((sum, expense) => sum + Number(expense.tps || 0), 0));
-    const tvqSpent = roundMoney(monthExpenses.reduce((sum, expense) => sum + Number(expense.tvq || 0), 0));
     return {
       month: monthNameFr(index),
       key,
       revenue,
-      expenses: expenseTotal,
+      cost,
       netProfit,
       singles: roundMoney(categories.Singles),
       slabs: roundMoney(categories.Slabs),
@@ -1136,10 +1062,8 @@ function accountingSummary(db, year = new Date().getFullYear()) {
       margin: revenue > 0 ? roundMoney(netProfit / revenue) : 0,
       tpsCollected,
       tvqCollected,
-      tpsSpent,
-      tvqSpent,
-      netTps: roundMoney(tpsCollected - tpsSpent),
-      netTvq: roundMoney(tvqCollected - tvqSpent),
+      netTps: tpsCollected,
+      netTvq: tvqCollected,
     };
   });
   return {
@@ -1147,12 +1071,10 @@ function accountingSummary(db, year = new Date().getFullYear()) {
     rows,
     totals: {
       revenue: roundMoney(rows.reduce((sum, row) => sum + row.revenue, 0)),
-      expenses: roundMoney(rows.reduce((sum, row) => sum + row.expenses, 0)),
+      cost: roundMoney(rows.reduce((sum, row) => sum + row.cost, 0)),
       netProfit: roundMoney(rows.reduce((sum, row) => sum + row.netProfit, 0)),
       tpsCollected: roundMoney(rows.reduce((sum, row) => sum + row.tpsCollected, 0)),
       tvqCollected: roundMoney(rows.reduce((sum, row) => sum + row.tvqCollected, 0)),
-      tpsSpent: roundMoney(rows.reduce((sum, row) => sum + row.tpsSpent, 0)),
-      tvqSpent: roundMoney(rows.reduce((sum, row) => sum + row.tvqSpent, 0)),
       netTps: roundMoney(rows.reduce((sum, row) => sum + row.netTps, 0)),
       netTvq: roundMoney(rows.reduce((sum, row) => sum + row.netTvq, 0)),
     },
@@ -1212,33 +1134,16 @@ function salesReportRows(db) {
 function monthlyReportRows(db) {
   const summary = accountingSummary(db);
   return [
-    ["Mois", "Revenus", "Dépenses", "Profit Net", "Singles", "Slabs", "Scellé", "Marge %"],
-    ...summary.rows.map((row) => [row.month, row.revenue, row.expenses, row.netProfit, row.singles, row.slabs, row.sealed, row.margin]),
-  ];
-}
-
-function expensesReportRows(db) {
-  return [
-    ["Date", "Fournisseur", "Catégorie", "Description", "Montant total", "TPS", "TVQ", "Payé par", "Facture PDF"],
-    ...(db.expenses || []).map(normalizeExpense).map((expense) => [
-      expense.date,
-      expense.supplier,
-      expense.category,
-      expense.description,
-      expense.total,
-      expense.tps,
-      expense.tvq,
-      expense.paidBy,
-      expense.receiptUrl,
-    ]),
+    ["Mois", "Revenu brut", "Coût des items", "Revenu net", "Singles", "Slabs", "Scellé", "Marge %"],
+    ...summary.rows.map((row) => [row.month, row.revenue, row.cost, row.netProfit, row.singles, row.slabs, row.sealed, row.margin]),
   ];
 }
 
 function taxesReportRows(db) {
   const summary = accountingSummary(db);
   return [
-    ["Mois", "TPS Collectée", "TVQ Collectée", "TPS Dépensée", "TVQ Dépensée", "Net TPS", "Net TVQ"],
-    ...summary.rows.map((row) => [row.month, row.tpsCollected, row.tvqCollected, row.tpsSpent, row.tvqSpent, row.netTps, row.netTvq]),
+    ["Mois", "TPS collectée", "TVQ collectée"],
+    ...summary.rows.map((row) => [row.month, row.tpsCollected, row.tvqCollected]),
   ];
 }
 
@@ -1678,17 +1583,6 @@ async function saveImageData(imageData, id) {
   const filename = `${id}.${ext}`;
   await fs.mkdir(uploadDir, { recursive: true });
   await fs.writeFile(path.join(uploadDir, filename), Buffer.from(match[2], "base64"));
-  return `/assets/uploads/${filename}`;
-}
-
-async function savePdfData(pdfData, id) {
-  if (!pdfData || !String(pdfData).startsWith("data:application/pdf")) return "";
-  const match = String(pdfData).match(/^data:application\/pdf;base64,(.+)$/);
-  if (!match) return "";
-  const safeId = String(id || crypto.randomBytes(8).toString("hex")).replace(/[^a-z0-9_-]/gi, "-").toLowerCase();
-  const filename = `${safeId}.pdf`;
-  await fs.mkdir(uploadDir, { recursive: true });
-  await fs.writeFile(path.join(uploadDir, filename), Buffer.from(match[1], "base64"));
   return `/assets/uploads/${filename}`;
 }
 
@@ -2690,10 +2584,6 @@ async function handleApi(req, res) {
     return csv(res, "coffee-break-reservations.csv", pendingReportRows(db));
   }
 
-  if (url.pathname === "/api/admin/reports/expenses.csv" && req.method === "GET") {
-    return csv(res, "coffee-break-depenses.csv", expensesReportRows(db));
-  }
-
   if (url.pathname === "/api/admin/reports/taxes.csv" && req.method === "GET") {
     return csv(res, "coffee-break-taxes.csv", taxesReportRows(db));
   }
@@ -2727,44 +2617,12 @@ async function handleApi(req, res) {
       summary: summarizeSales(db),
       inventory: db.inventory,
       orders: db.orders,
-      expenses: (db.expenses || []).map(normalizeExpense),
       accounting: accountingSummary(db),
       backup: publicBackupStatus(),
       cardShows: db.cardShows || [],
       reviews: (db.reviews || []).map(publicReview),
       priceSync: db.priceSync || null,
     });
-  }
-
-  if (url.pathname === "/api/admin/expenses" && req.method === "POST") {
-    const body = await readBody(req);
-    const existingExpense = (db.expenses || []).find((candidate) => candidate.id === body.id);
-    const receiptUrl =
-      (await savePdfData(body.receiptData, body.id ? `${body.id}-facture` : `expense-${Date.now()}-facture`)) ||
-      body.receiptUrl ||
-      existingExpense?.receiptUrl ||
-      "";
-    const expense = normalizeExpense(body);
-    expense.receiptUrl = receiptUrl;
-    expense.receiptName = receiptUrl ? body.receiptName || existingExpense?.receiptName || "Facture PDF" : "";
-    if (!Array.isArray(db.expenses)) db.expenses = [];
-    const index = db.expenses.findIndex((candidate) => candidate.id === expense.id);
-    if (index >= 0) {
-      db.expenses[index] = { ...db.expenses[index], ...expense, updatedAt: new Date().toISOString() };
-    } else {
-      db.expenses.push(expense);
-    }
-    await writeDb(db);
-    return json(res, 200, { expense: index >= 0 ? db.expenses[index] : expense, accounting: accountingSummary(db) });
-  }
-
-  if (url.pathname.startsWith("/api/admin/expenses/") && req.method === "DELETE") {
-    const id = decodeURIComponent(url.pathname.split("/").pop() || "");
-    const before = (db.expenses || []).length;
-    db.expenses = (db.expenses || []).filter((expense) => expense.id !== id);
-    if (db.expenses.length === before) return json(res, 404, { error: "Dépense introuvable" });
-    await writeDb(db);
-    return json(res, 200, { ok: true, accounting: accountingSummary(db) });
   }
 
   if (url.pathname === "/api/admin/prices/sync" && req.method === "POST") {
@@ -3044,6 +2902,7 @@ async function handleApi(req, res) {
         .replace(/^-|-$/g, "")}-${Date.now().toString(36)}`;
     const existingIndex = (db.reviews || []).findIndex((review) => review.id === id);
     const existingReview = existingIndex >= 0 ? db.reviews[existingIndex] : null;
+    const photoUrl = (await saveImageData(body.photoData, `review-${id}`)) || String(body.photoUrl || existingReview?.photoUrl || "").trim();
     const review = {
       id,
       name: String(body.name || "").trim(),
@@ -3051,6 +2910,7 @@ async function handleApi(req, res) {
       rating: Math.max(1, Math.min(5, Number(body.rating || 5))),
       product: String(body.product || "").trim(),
       text: String(body.text || "").trim(),
+      photoUrl,
       date: String(body.date || "").trim(),
       published: body.published !== false,
       createdAt: existingReview?.createdAt || new Date().toISOString(),

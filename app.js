@@ -225,15 +225,10 @@ const adminLogoutButton = document.querySelector("#adminLogoutButton");
 const adminMetrics = document.querySelector("#adminMetrics");
 const adminPriceSync = document.querySelector("#adminPriceSync");
 const syncPricesButton = document.querySelector("#syncPricesButton");
-const backupStatus = document.querySelector("#backupStatus");
-const driveBackupState = document.querySelector("#driveBackupState");
-const driveBackupMessage = document.querySelector("#driveBackupMessage");
-const syncDriveBackupButton = document.querySelector("#syncDriveBackupButton");
 const adminInventoryRows = document.querySelector("#adminInventoryRows");
 const adminInventorySearch = document.querySelector("#adminInventorySearch");
 const adminInventoryCategory = document.querySelector("#adminInventoryCategory");
 const adminInventorySort = document.querySelector("#adminInventorySort");
-const adminPendingOrderRows = document.querySelector("#adminPendingOrderRows");
 const adminOrderRows = document.querySelector("#adminOrderRows");
 const adminCardShowForm = document.querySelector("#adminCardShowForm");
 const adminCardShowRows = document.querySelector("#adminCardShowRows");
@@ -242,11 +237,6 @@ const adminReviewForm = document.querySelector("#adminReviewForm");
 const adminReviewRows = document.querySelector("#adminReviewRows");
 const reviewStatus = document.querySelector("#reviewStatus");
 const accountingDashboard = document.querySelector("#accountingDashboard");
-const adminExpenseForm = document.querySelector("#adminExpenseForm");
-const adminExpenseRows = document.querySelector("#adminExpenseRows");
-const expenseStatus = document.querySelector("#expenseStatus");
-const receiptDropzone = document.querySelector("#receiptDropzone");
-const receiptDropzoneText = document.querySelector("#receiptDropzoneText");
 const reportStatus = document.querySelector("#reportStatus");
 const adminProductForm = document.querySelector("#adminProductForm");
 const pokemonSetSelect = document.querySelector("#pokemonSetSelect");
@@ -276,7 +266,6 @@ let cart = JSON.parse(localStorage.getItem("coffeeBreakCart") || "[]");
 let lastShopView = JSON.parse(sessionStorage.getItem("coffeeBreakLastShopView") || "null");
 let cardShows = [];
 let reviews = [];
-let expenses = [];
 let currentUser = null;
 let customerOrders = [];
 let profileEditMode = false;
@@ -802,6 +791,8 @@ function slabCompanyClass(product) {
   const company = String(product.gradingCompany || "PSA").toLowerCase();
   if (company.includes("beckett") || company.includes("bgs")) return "slab-beckett";
   if (company.includes("tag")) return "slab-tag";
+  if (company.includes("cgc")) return "slab-cgc";
+  if (company.includes("sgc")) return "slab-sgc";
   return "slab-psa";
 }
 
@@ -1311,6 +1302,7 @@ function trustMarqueeItems() {
       product: String(review.product || "").trim(),
       rating: Number(review.rating || 5),
       text: String(review.text || "").trim(),
+      photoUrl: String(review.photoUrl || "").trim(),
     }));
   if (!published.length) {
     published.push({
@@ -1331,6 +1323,11 @@ function renderTrustStrip() {
     .map(
       (item) => `
         <span class="trust-review-chip">
+          ${
+            item.photoUrl
+              ? `<img class="trust-review-photo" src="${escapeAttribute(item.photoUrl)}" alt="${escapeAttribute(item.name)}" />`
+              : `<span class="trust-review-photo trust-review-initial">${escapeAttribute(item.name.slice(0, 1) || "C")}</span>`
+          }
           <span class="trust-stars" aria-label="${Number(item.rating || 5)} étoiles">${reviewStars(item.rating)}</span>
           <span class="trust-review-text">“${escapeAttribute(item.text)}”</span>
           <strong>${escapeAttribute(item.name)}</strong>
@@ -2153,10 +2150,10 @@ function percentText(value) {
   return new Intl.NumberFormat(currentLang === "en" ? "en-CA" : "fr-CA", { style: "percent", maximumFractionDigits: 1 }).format(Number(value || 0));
 }
 
-function renderAccounting(accounting, expenses = []) {
+function renderAccounting(accounting) {
   if (accountingDashboard && accounting) {
     const rows = accounting.rows || [];
-    const activeRows = rows.filter((row) => row.revenue || row.expenses || row.netProfit);
+    const activeRows = rows.filter((row) => row.revenue || row.cost || row.netProfit);
     const bestCategory = activeRows.reduce(
       (best, row) => {
         const entries = [
@@ -2172,11 +2169,11 @@ function renderAccounting(accounting, expenses = []) {
     const totals = accounting.totals || {};
     accountingDashboard.innerHTML = `
       <div class="accounting-kpis">
-        <div><span>Revenus</span><strong>${adminMoney(totals.revenue)}</strong></div>
-        <div><span>Dépenses</span><strong>${adminMoney(totals.expenses)}</strong></div>
-        <div><span>Profit net</span><strong>${adminMoney(totals.netProfit)}</strong></div>
-        <div><span>TPS nette</span><strong>${adminMoney(totals.netTps)}</strong></div>
-        <div><span>TVQ nette</span><strong>${adminMoney(totals.netTvq)}</strong></div>
+        <div><span>Revenu brut</span><strong>${adminMoney(totals.revenue)}</strong></div>
+        <div><span>Coût des items</span><strong>${adminMoney(totals.cost)}</strong></div>
+        <div><span>Revenu net</span><strong>${adminMoney(totals.netProfit)}</strong></div>
+        <div><span>TPS collectée</span><strong>${adminMoney(totals.tpsCollected)}</strong></div>
+        <div><span>TVQ collectée</span><strong>${adminMoney(totals.tvqCollected)}</strong></div>
         <div><span>Meilleure catégorie</span><strong>${escapeAttribute(bestCategory.label)}</strong></div>
       </div>
       <div class="admin-table-wrap">
@@ -2184,9 +2181,9 @@ function renderAccounting(accounting, expenses = []) {
           <thead>
             <tr>
               <th>Mois</th>
-              <th>Revenus</th>
-              <th>Dépenses</th>
-              <th>Profit Net</th>
+              <th>Revenu brut</th>
+              <th>Coût items</th>
+              <th>Revenu net</th>
               <th>Singles</th>
               <th>Slabs</th>
               <th>Scellé</th>
@@ -2200,7 +2197,7 @@ function renderAccounting(accounting, expenses = []) {
                   <tr>
                     <td>${escapeAttribute(row.month)}</td>
                     <td>${adminMoney(row.revenue)}</td>
-                    <td>${adminMoney(row.expenses)}</td>
+                    <td>${adminMoney(row.cost)}</td>
                     <td>${adminMoney(row.netProfit)}</td>
                     <td>${adminMoney(row.singles)}</td>
                     <td>${adminMoney(row.slabs)}</td>
@@ -2214,53 +2211,6 @@ function renderAccounting(accounting, expenses = []) {
         </table>
       </div>
     `;
-  }
-
-  if (adminExpenseRows) {
-    const sorted = (expenses || []).slice().sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 8);
-    adminExpenseRows.innerHTML = sorted.length
-      ? sorted
-          .map(
-            (expense) => `
-              <tr>
-                <td>${escapeAttribute(expense.date || "-")}</td>
-                <td><strong>${escapeAttribute(expense.supplier || "-")}</strong></td>
-                <td>${escapeAttribute(expense.category || "-")}</td>
-                <td>${escapeAttribute(expense.description || "")}</td>
-                <td>${adminMoney(expense.total)}</td>
-                <td>${adminMoney(expense.tps)}</td>
-                <td>${adminMoney(expense.tvq)}</td>
-                <td>${expense.receiptUrl ? `<a class="receipt-link" href="${escapeAttribute(expense.receiptUrl)}" target="_blank" rel="noopener">Ouvrir</a>` : "-"}</td>
-                <td>
-                  <div class="sale-inline">
-                    <button class="sale-button edit-button" type="button" data-edit-expense="${escapeAttribute(expense.id)}">Modifier</button>
-                    <button class="sale-button" type="button" data-delete-expense="${escapeAttribute(expense.id)}">Enlever</button>
-                  </div>
-                </td>
-              </tr>
-            `
-          )
-          .join("")
-      : `<tr><td colspan="9">Aucune dépense pour le moment.</td></tr>`;
-  }
-}
-
-function renderBackupStatus(backup) {
-  if (!backup) return;
-  if (driveBackupState) {
-    driveBackupState.textContent = backup.configured
-      ? backup.state === "synced"
-        ? "Synchronisé"
-        : backup.state === "error"
-        ? "Erreur Drive"
-        : backup.state === "needs-file"
-        ? "Fichier à créer"
-        : "Configuré"
-      : "Non configuré";
-  }
-  if (driveBackupMessage) {
-    const when = backup.lastRunAt ? ` Dernière tentative: ${new Date(backup.lastRunAt).toLocaleString("fr-CA")}.` : "";
-    driveBackupMessage.textContent = `${backup.message || "Google Drive n’est pas configuré."}${when}`;
   }
 }
 
@@ -2309,11 +2259,10 @@ async function renderAdmin() {
     return;
   }
   showAdminContent();
-  const { summary, inventory: adminInventory, orders, expenses: adminExpenses = [], accounting, backup, priceSync, cardShows: adminCardShows = [], reviews: adminReviews = [] } = payload;
+  const { summary, inventory: adminInventory, orders, accounting, priceSync, cardShows: adminCardShows = [], reviews: adminReviews = [] } = payload;
   adminInventoryCache = adminInventory || [];
   cardShows = adminCardShows || [];
   reviews = adminReviews || [];
-  expenses = adminExpenses || [];
   adminMetrics.innerHTML = [
     ["Ventes", summary.orders],
     ["Unités vendues", summary.unitsSold],
@@ -2322,14 +2271,12 @@ async function renderAdmin() {
     ["Inventaire payé", adminMoney(summary.inventoryValue)],
     ["Valeur marché", adminMoney(summary.marketValue)],
     ["Profit potentiel", adminMoney(summary.potentialProfit)],
-    ["Réservé", summary.reservedUnits],
   ]
     .map(([label, value]) => `<div class="metric-card"><span>${label}</span><strong>${value}</strong></div>`)
     .join("");
 
   if (adminPriceSync) adminPriceSync.textContent = "";
-  renderBackupStatus(backup);
-  renderAccounting(accounting, adminExpenses);
+  renderAccounting(accounting);
 
   if (adminCardShowRows) {
     adminCardShowRows.innerHTML = cardShows.length
@@ -2374,8 +2321,17 @@ async function renderAdmin() {
             (review) => `
               <tr>
                 <td>
-                  <strong>${escapeAttribute(review.name)}</strong><br />
-                  <span>${escapeAttribute(review.city || "-")}</span>
+                  <div class="admin-review-client">
+                    ${
+                      review.photoUrl
+                        ? `<img class="admin-review-photo" src="${escapeAttribute(review.photoUrl)}" alt="" />`
+                        : `<span class="admin-review-photo admin-review-initial">${escapeAttribute(String(review.name || "C").slice(0, 1))}</span>`
+                    }
+                    <div>
+                      <strong>${escapeAttribute(review.name)}</strong><br />
+                      <span>${escapeAttribute(review.city || "-")}</span>
+                    </div>
+                  </div>
                 </td>
                 <td>
                   <strong>${escapeAttribute(review.product || "Avis général")}</strong><br />
@@ -2450,35 +2406,6 @@ async function renderAdmin() {
     )
     .join("")
     : `<tr><td colspan="8">Aucun item ne correspond à la recherche.</td></tr>`;
-
-  const pendingOrders = orders.filter((order) => order.status === "pending_payment");
-  if (adminPendingOrderRows) {
-    adminPendingOrderRows.innerHTML = pendingOrders.length
-      ? pendingOrders
-          .slice()
-          .reverse()
-          .map((order) => `
-            <tr>
-              <td><strong>${order.id}</strong></td>
-              <td>${new Date(order.createdAt).toLocaleDateString("fr-CA")}</td>
-              <td>
-                <strong>${order.customer?.name || order.address?.name || "Client"}</strong><br />
-                <span>${order.customer?.email || order.address?.email || ""}</span><br />
-                <span>${order.customer?.phone || order.address?.phone || ""}</span>
-              </td>
-              <td>${orderItemsMarkup(order)}</td>
-              <td>${adminMoney(orderRevenue(order))}</td>
-              <td>
-                <div class="sale-inline">
-                  <button class="sale-button" type="button" data-admin-paid-order="${order.id}">Paiement reçu</button>
-                  <button class="sale-button edit-button" type="button" data-admin-cancel-order="${order.id}">Remettre en vitrine</button>
-                </div>
-              </td>
-            </tr>
-          `)
-          .join("")
-      : `<tr><td colspan="6">Aucune réservation en attente pour le moment.</td></tr>`;
-  }
 
   const soldOrders = orders.filter((order) => ["paid", "admin_sale"].includes(order.status));
   adminOrderRows.innerHTML = soldOrders.length
@@ -2555,49 +2482,6 @@ async function downloadAdminReport(link) {
     if (reportStatus) reportStatus.textContent = `Rapport prêt: ${filename}`;
   } catch (error) {
     if (reportStatus) reportStatus.textContent = error.message;
-  }
-}
-
-async function downloadAdminBackup(link) {
-  if (!link) return;
-  if (backupStatus) backupStatus.textContent = "Préparation de la sauvegarde...";
-  try {
-    const response = await fetch(link.href, { credentials: "include" });
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(payload.error || "Sauvegarde impossible pour le moment.");
-    }
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const filename = `coffee-break-backup-${new Date().toISOString().slice(0, 10)}.zip`;
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.style.display = "none";
-    document.body.appendChild(anchor);
-    anchor.click();
-    setTimeout(() => {
-      anchor.remove();
-      URL.revokeObjectURL(url);
-    }, 1500);
-    if (backupStatus) backupStatus.textContent = `Sauvegarde prête: ${filename}`;
-  } catch (error) {
-    if (backupStatus) backupStatus.textContent = error.message;
-  }
-}
-
-async function syncGoogleDriveBackup() {
-  if (!syncDriveBackupButton) return;
-  syncDriveBackupButton.disabled = true;
-  if (backupStatus) backupStatus.textContent = "Synchronisation Google Drive...";
-  try {
-    const payload = await api("/api/admin/backup/google-drive", { method: "POST", body: "{}" });
-    renderBackupStatus(payload.backup);
-    if (backupStatus) backupStatus.textContent = payload.backup?.message || "Sauvegarde Google Drive à jour.";
-  } catch (error) {
-    if (backupStatus) backupStatus.textContent = error.message;
-  } finally {
-    syncDriveBackupButton.disabled = false;
   }
 }
 
@@ -2734,27 +2618,6 @@ function fileToDataUrl(file) {
   });
 }
 
-function pdfFileToDataUrl(file) {
-  if (!file || !file.size) return Promise.resolve("");
-  if (file.type !== "application/pdf") return Promise.reject(new Error("La facture doit être un PDF."));
-  return fileToDataUrl(file);
-}
-
-function setReceiptFile(file) {
-  const input = adminExpenseForm?.querySelector('input[name="receiptFile"]');
-  if (!input || !file) return;
-  if (file.type !== "application/pdf") {
-    if (expenseStatus) expenseStatus.textContent = "La facture doit être un PDF.";
-    return;
-  }
-  const transfer = new DataTransfer();
-  transfer.items.add(file);
-  input.files = transfer.files;
-  if (receiptDropzoneText) receiptDropzoneText.textContent = file.name;
-  receiptDropzone?.classList.add("has-file");
-  if (expenseStatus) expenseStatus.textContent = "Facture PDF prête à sauvegarder.";
-}
-
 async function filesToDataUrls(fileList, limit = 4) {
   const files = [...(fileList || [])].filter((file) => file && file.size).slice(0, limit);
   return Promise.all(files.map((file) => fileToDataUrl(file)));
@@ -2793,17 +2656,6 @@ function editReview(id) {
   adminReviewForm.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-function editExpense(id) {
-  const expense = expenses.find((item) => item.id === id);
-  if (!expense || !adminExpenseForm) return;
-  ["id", "date", "supplier", "category", "description", "total", "paidBy", "receiptUrl"].forEach((field) => {
-    const input = adminExpenseForm.querySelector(`[name="${field}"]`);
-    if (input) input.value = expense[field] || "";
-  });
-  if (expenseStatus) expenseStatus.textContent = `Modification de la dépense ${expense.supplier}.`;
-  adminExpenseForm.scrollIntoView({ behavior: "smooth", block: "center" });
-}
-
 async function deleteCardShow(id) {
   if (!id) return;
   try {
@@ -2827,17 +2679,6 @@ async function deleteReview(id) {
     renderAdmin();
   } catch (error) {
     if (reviewStatus) reviewStatus.textContent = error.message;
-  }
-}
-
-async function deleteExpense(id) {
-  if (!id) return;
-  try {
-    await api(`/api/admin/expenses/${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (expenseStatus) expenseStatus.textContent = "Dépense enlevée.";
-    renderAdmin();
-  } catch (error) {
-    if (expenseStatus) expenseStatus.textContent = error.message;
   }
 }
 
@@ -3204,8 +3045,6 @@ document.addEventListener("click", (event) => {
   const deleteShowButton = event.target.closest("[data-delete-show]");
   const editReviewButton = event.target.closest("[data-edit-review]");
   const deleteReviewButton = event.target.closest("[data-delete-review]");
-  const editExpenseButton = event.target.closest("[data-edit-expense]");
-  const deleteExpenseButton = event.target.closest("[data-delete-expense]");
   const adminCancelOrderButton = event.target.closest("[data-admin-cancel-order]");
   const adminPaidOrderButton = event.target.closest("[data-admin-paid-order]");
   const addCartButton = event.target.closest("[data-add-cart]");
@@ -3218,7 +3057,6 @@ document.addEventListener("click", (event) => {
   const cartRemoveButton = event.target.closest("[data-cart-remove]");
   const checkoutLink = event.target.closest("[data-checkout-link]");
   const reportDownload = event.target.closest("[data-report-download]");
-  const backupDownload = event.target.closest("[data-backup-download]");
   const galleryImage = event.target.closest("[data-gallery-image]");
   const languageButton = event.target.closest("[data-language]");
   const showAnchor = event.target.closest("[data-show-anchor]");
@@ -3273,10 +3111,6 @@ document.addEventListener("click", (event) => {
     event.preventDefault();
     downloadAdminReport(reportDownload);
   }
-  if (backupDownload) {
-    event.preventDefault();
-    downloadAdminBackup(backupDownload);
-  }
   if (addCartButton) addToCart(addCartButton.dataset.addCart);
   if (backShopButton) {
     event.preventDefault();
@@ -3319,8 +3153,6 @@ document.addEventListener("click", (event) => {
   if (deleteShowButton) deleteCardShow(deleteShowButton.dataset.deleteShow);
   if (editReviewButton) editReview(editReviewButton.dataset.editReview);
   if (deleteReviewButton) deleteReview(deleteReviewButton.dataset.deleteReview);
-  if (editExpenseButton) editExpense(editExpenseButton.dataset.editExpense);
-  if (deleteExpenseButton) deleteExpense(deleteExpenseButton.dataset.deleteExpense);
   if (adminSaleButton) registerAdminSale(adminSaleButton.dataset.adminSale, adminSaleButton);
   if (tabButton) selectCategory(tabButton.dataset.category);
   if (routeCategory) {
@@ -3670,8 +3502,6 @@ adminLogoutButton?.addEventListener("click", async () => {
   applyRoute();
 });
 
-syncDriveBackupButton?.addEventListener("click", syncGoogleDriveBackup);
-
 adminCardShowForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = new FormData(adminCardShowForm);
@@ -3712,6 +3542,7 @@ adminReviewForm?.addEventListener("submit", async (event) => {
     date: form.get("date"),
     text: form.get("text"),
     published: Boolean(form.get("published")),
+    photoData: await fileToDataUrl(form.get("photoFile")),
   };
   try {
     await api("/api/admin/reviews", { method: "POST", body: JSON.stringify(body) });
@@ -3725,52 +3556,6 @@ adminReviewForm?.addEventListener("submit", async (event) => {
   } catch (error) {
     if (reviewStatus) reviewStatus.textContent = error.message;
   }
-});
-
-adminExpenseForm?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const form = new FormData(adminExpenseForm);
-  const body = {
-    id: form.get("id") || "",
-    date: form.get("date"),
-    supplier: form.get("supplier"),
-    category: form.get("category"),
-    description: form.get("description"),
-    total: form.get("total"),
-    paidBy: form.get("paidBy"),
-    receiptUrl: form.get("receiptUrl") || "",
-    receiptName: form.get("receiptFile")?.name || "",
-    receiptData: await pdfFileToDataUrl(form.get("receiptFile")),
-  };
-  try {
-    await api("/api/admin/expenses", { method: "POST", body: JSON.stringify(body) });
-    if (expenseStatus) expenseStatus.textContent = body.id ? "Dépense mise à jour." : "Dépense sauvegardée.";
-    adminExpenseForm.reset();
-    receiptDropzone?.classList.remove("has-file", "is-dragging");
-    if (receiptDropzoneText) receiptDropzoneText.textContent = "ou clique pour choisir un fichier";
-    await renderAdmin();
-  } catch (error) {
-    if (expenseStatus) expenseStatus.textContent = error.message;
-  }
-});
-
-receiptDropzone?.addEventListener("dragover", (event) => {
-  event.preventDefault();
-  receiptDropzone.classList.add("is-dragging");
-});
-
-receiptDropzone?.addEventListener("dragleave", () => {
-  receiptDropzone.classList.remove("is-dragging");
-});
-
-receiptDropzone?.addEventListener("drop", (event) => {
-  event.preventDefault();
-  receiptDropzone.classList.remove("is-dragging");
-  setReceiptFile(event.dataTransfer?.files?.[0]);
-});
-
-adminExpenseForm?.querySelector('input[name="receiptFile"]')?.addEventListener("change", (event) => {
-  setReceiptFile(event.target.files?.[0]);
 });
 
 adminProductForm?.addEventListener("submit", async (event) => {
