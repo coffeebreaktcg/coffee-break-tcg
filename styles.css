@@ -3132,6 +3132,60 @@ body.admin-mode .admin-page {
   box-shadow: var(--shadow);
 }
 
+.coffee-bucks-box {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(213, 116, 45, 0.24);
+  background: rgba(251, 234, 216, 0.46);
+  padding: 16px;
+}
+
+.coffee-bucks-box:empty {
+  display: none;
+}
+
+.coffee-bucks-box > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.coffee-bucks-box strong,
+.coffee-bucks-account strong {
+  color: var(--clay);
+}
+
+.coffee-bucks-box span,
+.coffee-bucks-box small,
+.coffee-bucks-account {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.coffee-bucks-box label {
+  display: grid;
+  gap: 7px;
+}
+
+.coffee-bucks-box input {
+  border: 1px solid var(--line);
+  background: #fffaf2;
+  padding: 10px 12px;
+  color: var(--coffee);
+  font: inherit;
+  font-weight: 800;
+}
+
+.coffee-bucks-earn {
+  display: block;
+  margin-top: 10px;
+  color: var(--muted);
+  font-weight: 800;
+  text-align: right;
+}
+
 .square-pay-button {
   display: inline-flex;
   width: 100%;
