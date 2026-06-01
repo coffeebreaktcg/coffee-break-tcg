@@ -2426,13 +2426,11 @@ body.cart-open .drawer-backdrop {
 }
 
 .menu-drawer-close {
-  position: absolute;
-  top: 118px;
-  right: 18px;
-  z-index: 2;
+  position: static;
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
   place-items: center;
   border: 1px solid rgba(213, 116, 45, 0.26);
   border-radius: 999px;
@@ -2449,7 +2447,7 @@ body.cart-open .drawer-backdrop {
 .menu-drawer-close:hover {
   background: var(--clay-dark);
   box-shadow: 0 12px 26px rgba(61, 42, 29, 0.12);
-  transform: translateX(-2px);
+  transform: translateX(-1px);
 }
 
 .menu-drawer-close svg {
@@ -2476,9 +2474,9 @@ body.cart-open .cart-drawer {
 
 .drawer-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 14px;
   margin-bottom: 26px;
 }
 
@@ -2487,6 +2485,13 @@ body.cart-open .cart-drawer {
   font-family: "Rubik One", Inter, sans-serif;
   font-size: 34px;
   font-weight: 400;
+}
+
+.drawer-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
 }
 
 .drawer-brand {
