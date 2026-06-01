@@ -269,6 +269,7 @@ const featuredSections = document.querySelector("#featuredSections");
 const curatedSections = document.querySelector("#curatedSections");
 const reviewSection = document.querySelector("#reviewSection");
 const languageLoader = document.querySelector("#languageLoader");
+const welcomeToast = document.querySelector("#welcomeToast");
 let adminInventoryCache = [];
 let adminInventoryView = { search: "", category: "all", sort: "recent" };
 let cart = JSON.parse(localStorage.getItem("coffeeBreakCart") || "[]");
@@ -1002,7 +1003,7 @@ function cartTotal() {
   }, 0);
 }
 
-const coffeeBucksEarnRate = 10;
+const coffeeBucksEarnRate = 4;
 const coffeeBucksRedeemRate = 100;
 
 function roundMoney(value) {
@@ -1203,6 +1204,24 @@ function updateAccountButtons() {
     link.setAttribute("aria-label", currentUser ? `${t("account")} - ${currentUser.name}` : t("account"));
     link.classList.toggle("is-active", Boolean(currentUser));
   });
+  document.querySelectorAll("[data-coffee-bucks-header]").forEach((badge) => {
+    const balance = Math.max(0, Number(currentUser?.coffeeBucks || 0));
+    badge.hidden = !currentUser;
+    const count = badge.querySelector("[data-coffee-bucks-count]");
+    if (count) count.textContent = String(balance);
+  });
+}
+
+function showWelcomeToast(user) {
+  if (!welcomeToast || !user) return;
+  const name = user.name || user.email || "";
+  const label = welcomeToast.querySelector("strong");
+  if (label) label.textContent = `${currentLang === "en" ? "Welcome" : "Bienvenue"} ${name}`;
+  welcomeToast.setAttribute("aria-hidden", "false");
+  window.clearTimeout(showWelcomeToast.timeoutId);
+  showWelcomeToast.timeoutId = window.setTimeout(() => {
+    welcomeToast.setAttribute("aria-hidden", "true");
+  }, 2600);
 }
 
 function fillCheckoutFromProfile() {
@@ -1917,7 +1936,14 @@ function renderAccount() {
       <div>
         <p class="eyebrow">${t("account")}</p>
         <h1>${currentLang === "en" ? "Welcome" : "Bienvenue"}, ${escapeAttribute(currentUser.name)}</h1>
-        <p class="coffee-bucks-account">${t("coffeeBucksBalance")}: <strong>${coffeeBucksBalance}</strong> Coffee Bucks</p>
+        <div class="coffee-bucks-profile-card">
+          <span class="coffee-bucks-mark large" aria-hidden="true"></span>
+          <div>
+            <span>${t("coffeeBucksBalance")}</span>
+            <strong>${coffeeBucksBalance}</strong>
+            <small>100 Coffee Bucks = ${money.format(1)} · ${currentLang === "en" ? "Earn about 4% back after payment." : "Environ 4 % remis après paiement."}</small>
+          </div>
+        </div>
       </div>
       <button class="button secondary" type="button" data-account-logout>${t("logout")}</button>
     </div>
@@ -3463,6 +3489,7 @@ document.addEventListener("submit", async (event) => {
       };
       const payload = await api(endpoint, { method: "POST", body: JSON.stringify(body) });
       currentUser = payload.user || null;
+      const shouldWelcome = Boolean(currentUser);
       if (signupForm && formElement.querySelector('[name="address"]')) {
         const profilePayload = await api("/api/profile", {
           method: "POST",
@@ -3484,6 +3511,7 @@ document.addEventListener("submit", async (event) => {
       closeAccountModal();
       profileEditMode = false;
       updateAccountButtons();
+      if (shouldWelcome) showWelcomeToast(currentUser);
       history.pushState({}, "", "/compte");
       renderAccount();
       fillCheckoutFromProfile();

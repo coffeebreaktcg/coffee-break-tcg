@@ -202,6 +202,23 @@ body.is-scrolled .site-header {
   gap: 12px;
 }
 
+.coffee-bucks-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  border: 1px solid rgba(255, 248, 236, 0.32);
+  background: rgba(255, 248, 236, 0.13);
+  padding: 4px 9px 4px 5px;
+  color: #fff8ec;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.coffee-bucks-header[hidden] {
+  display: none;
+}
+
 .language-toggle {
   display: inline-flex;
   border: 1px solid rgba(255, 248, 236, 0.42);
@@ -281,6 +298,53 @@ body.language-loading .language-loader {
   animation: language-loader-dots 1s steps(4, end) infinite;
 }
 
+.welcome-toast {
+  position: fixed;
+  right: 22px;
+  top: 96px;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(360px, calc(100vw - 32px));
+  border: 1px solid rgba(213, 116, 45, 0.22);
+  background: rgba(255, 250, 242, 0.96);
+  padding: 14px 16px 14px 12px;
+  color: var(--coffee);
+  box-shadow: 0 24px 70px rgba(61, 42, 29, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-12px) scale(0.98);
+  transition:
+    opacity 260ms var(--ease-apple),
+    transform 260ms var(--ease-apple);
+}
+
+.welcome-toast[aria-hidden="false"] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.welcome-toast strong {
+  display: block;
+  color: var(--clay);
+  font-family: "Rubik One", Inter, sans-serif;
+  font-size: clamp(20px, 4vw, 32px);
+  font-weight: 400;
+  line-height: 0.96;
+  text-transform: uppercase;
+}
+
+.welcome-toast small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 @keyframes language-loader-rise {
   from {
     opacity: 0;
@@ -328,6 +392,64 @@ body.language-loading .language-loader {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.8;
+}
+
+.coffee-bucks-mark {
+  position: relative;
+  display: inline-grid;
+  width: 29px;
+  height: 29px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 2px solid #f4d089;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 36%, #fff6dc 0 19%, transparent 20%),
+    linear-gradient(135deg, #d5742d, #9c5527);
+  box-shadow: inset 0 0 0 3px rgba(255, 248, 236, 0.26), 0 8px 18px rgba(61, 42, 29, 0.18);
+}
+
+.coffee-bucks-mark::before {
+  content: "";
+  width: 12px;
+  height: 9px;
+  border: 2px solid #fff8ec;
+  border-top: 0;
+  border-radius: 3px 3px 8px 8px;
+  transform: translateY(2px);
+}
+
+.coffee-bucks-mark::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  top: 12px;
+  width: 6px;
+  height: 6px;
+  border: 2px solid #fff8ec;
+  border-left: 0;
+  border-radius: 0 6px 6px 0;
+}
+
+.coffee-bucks-mark.large {
+  width: 62px;
+  height: 62px;
+  border-width: 3px;
+}
+
+.coffee-bucks-mark.large::before {
+  width: 25px;
+  height: 18px;
+  border-width: 3px;
+  border-radius: 5px 5px 13px 13px;
+}
+
+.coffee-bucks-mark.large::after {
+  right: 12px;
+  top: 26px;
+  width: 12px;
+  height: 12px;
+  border-width: 3px;
 }
 
 .cart-count {
@@ -3005,6 +3127,47 @@ body.admin-mode .admin-page {
   font-weight: 700;
 }
 
+.coffee-bucks-profile-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+  border: 1px solid rgba(213, 116, 45, 0.22);
+  background:
+    radial-gradient(circle at 0 0, rgba(255, 248, 236, 0.95), transparent 42%),
+    rgba(251, 234, 216, 0.56);
+  padding: 14px 18px 14px 14px;
+  box-shadow: 0 16px 38px rgba(61, 42, 29, 0.08);
+}
+
+.coffee-bucks-profile-card span:not(.coffee-bucks-mark) {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.coffee-bucks-profile-card strong {
+  display: block;
+  color: var(--clay);
+  font-family: "Rubik One", Inter, sans-serif;
+  font-size: clamp(34px, 5vw, 56px);
+  font-weight: 400;
+  line-height: 0.92;
+}
+
+.coffee-bucks-profile-card small {
+  display: block;
+  max-width: 320px;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .password-field {
   position: relative;
 }
@@ -4237,6 +4400,23 @@ body.admin-mode .admin-page {
     gap: 1px;
     min-width: 0;
     justify-self: end;
+  }
+
+  .coffee-bucks-header {
+    gap: 4px;
+    min-height: 30px;
+    padding: 3px 6px 3px 4px;
+    font-size: 10px;
+  }
+
+  .coffee-bucks-header .coffee-bucks-mark {
+    width: 23px;
+    height: 23px;
+  }
+
+  .welcome-toast {
+    top: 82px;
+    right: 12px;
   }
 
   .drawer-head {

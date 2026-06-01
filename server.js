@@ -76,7 +76,7 @@ const adminSessionMs = 8 * 60 * 60 * 1000;
 const TPS_RATE = 0.05;
 const TVQ_RATE = 0.09975;
 const TAX_INCLUDED_DIVISOR = 1 + TPS_RATE + TVQ_RATE;
-const COFFEE_BUCKS_EARN_RATE = 10;
+const COFFEE_BUCKS_EARN_RATE = 4;
 const COFFEE_BUCKS_REDEEM_RATE = 100;
 
 const mimeTypes = {
