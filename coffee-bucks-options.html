@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Coffee Bucks - Options</title>
+    <style>
+      body {
+        margin: 0;
+        background: #fff8ec;
+        color: #3d2a1d;
+        font-family: Inter, Arial, sans-serif;
+      }
+
+      main {
+        display: grid;
+        gap: 28px;
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: 44px 22px;
+      }
+
+      h1 {
+        margin: 0;
+        color: #d5742d;
+        font-family: Arial Black, Arial, sans-serif;
+        font-size: clamp(34px, 6vw, 74px);
+        line-height: 0.92;
+        text-transform: uppercase;
+      }
+
+      p {
+        max-width: 620px;
+        margin: -10px 0 0;
+        color: #806452;
+        font-weight: 800;
+        line-height: 1.5;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 320px);
+        gap: 18px;
+      }
+
+      article {
+        display: grid;
+        gap: 12px;
+        border: 1px solid #ead8c6;
+        background: #fbead8;
+        padding: 18px;
+      }
+
+      img {
+        width: 100%;
+        aspect-ratio: 1;
+        object-fit: contain;
+        background: #fff8ec;
+      }
+
+      strong {
+        color: #d5742d;
+        font-family: Arial Black, Arial, sans-serif;
+        font-size: 22px;
+        text-transform: uppercase;
+      }
+
+      .small-row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        border-top: 1px solid #ead8c6;
+        padding-top: 12px;
+      }
+
+      .small-row img {
+        width: 42px;
+        background: transparent;
+      }
+
+      @media (max-width: 780px) {
+        .grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Coffee Bucks</h1>
+      <p>Version exacte fournie: sceau rond Coffee Bucks, tasse au centre, texte autour. Rendu en grand et en petit badge.</p>
+      <section class="grid">
+        <article>
+          <img src="/assets/coffee-bucks-logo.png?v=coffee-bucks-exact-20260601" alt="Coffee Bucks" />
+          <strong>Version finale</strong>
+          <div class="small-row"><img src="/assets/coffee-bucks-logo.png?v=coffee-bucks-exact-20260601" alt="" /><span>Badge compact</span></div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

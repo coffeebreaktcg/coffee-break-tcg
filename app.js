@@ -1941,7 +1941,6 @@ function renderAccount() {
           <div>
             <span>${t("coffeeBucksBalance")}</span>
             <strong>${coffeeBucksBalance}</strong>
-            <small>100 Coffee Bucks = ${money.format(1)} · ${currentLang === "en" ? "Earn about 4% back after payment." : "Environ 4 % remis après paiement."}</small>
           </div>
         </div>
       </div>
