@@ -500,7 +500,7 @@ body.language-loading .language-loader {
   gap: clamp(16px, 2vw, 28px);
   min-width: max-content;
   padding-right: clamp(16px, 2vw, 28px);
-  animation: trust-marquee 64s linear infinite;
+  animation: trust-marquee 92s linear infinite;
 }
 
 .trust-strip span {
@@ -1522,10 +1522,14 @@ select {
 
 .add-cart-link {
   flex: 0 0 auto;
-  min-width: 132px;
+  min-width: 0;
+  width: 38px;
+  height: 38px;
+  padding: 0;
   border-color: rgba(213, 116, 45, 0.45);
   background: rgba(213, 116, 45, 0.13);
   color: var(--clay-dark);
+  font-size: 18px;
   cursor: pointer;
 }
 
@@ -4317,11 +4321,13 @@ body.admin-mode .admin-page {
   }
 
   .add-cart-link {
-    min-width: 82px;
+    min-width: 0;
+    width: 34px;
+    height: 34px;
     background: var(--clay);
     color: #fff8ec;
-    white-space: normal;
-    line-height: 1.05;
+    white-space: nowrap;
+    line-height: 1;
   }
 
   .mobile-more-block {

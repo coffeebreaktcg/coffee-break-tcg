@@ -321,7 +321,8 @@ const translations = {
     availableCards: "Produits disponibles",
     shopEmpty: "Aucun produit ne correspond à ta recherche.",
     details: "Voir détails",
-    addToCartShort: "+ Ajouter au panier",
+    addToCartShort: "+",
+    addToCartFull: "Ajouter au panier",
     reserved: "RÉSERVÉ",
     cart: "Panier",
     cartEmpty: "Ton panier est vide.",
@@ -437,7 +438,8 @@ const translations = {
     availableCards: "Available products",
     shopEmpty: "No products match your search.",
     details: "View details",
-    addToCartShort: "+ Add to cart",
+    addToCartShort: "+",
+    addToCartFull: "Add to cart",
     reserved: "RESERVED",
     cart: "Cart",
     cartEmpty: "Your cart is empty.",
@@ -1148,8 +1150,6 @@ function fillCheckoutFromProfile() {
     const input = checkoutForm.elements[name];
     if (input && !input.value) input.value = value;
   });
-  const saveProfile = checkoutForm.elements.saveProfile;
-  if (saveProfile) saveProfile.checked = true;
 }
 
 function openAccountModal() {
@@ -1544,7 +1544,7 @@ function renderProductDetail(id) {
           ${product.maxPerCart ? `<span>Limite ${product.maxPerCart} / demande</span>` : ""}
           ${features.map((feature) => `<span>${feature}</span>`).join("")}
         </div>
-        <button class="button primary" type="button" data-add-cart="${product.id}" ${status === "reserved" || limit <= 0 ? "disabled" : ""}>${status === "reserved" ? t("reserved") : "+"}</button>
+        <button class="button primary" type="button" data-add-cart="${product.id}" ${status === "reserved" || limit <= 0 ? "disabled" : ""}>${status === "reserved" ? t("reserved") : t("addToCartFull")}</button>
         <dl class="detail-specs">
           ${detailSpec("Condition", conditionDetail)}
           ${detailSpec("Numéro", product.cardNumber)}
@@ -1909,6 +1909,10 @@ function renderCreateAccountPage() {
         <label>${t("postal")} <input name="postal" autocomplete="postal-code" /></label>
         <label>${t("deliveryNotes")} <input name="notes" /></label>
       </div>
+      <label class="save-profile-option">
+        <input name="marketingOptIn" type="checkbox" />
+        <span>${t("marketingOptIn")}</span>
+      </label>
       <button class="button primary" type="submit">${t("createAccount")}</button>
       <p class="form-status" role="status"></p>
     </form>
@@ -3374,6 +3378,7 @@ document.addEventListener("submit", async (event) => {
         name: form.get("name") || "",
         email: form.get("email"),
         password: form.get("password"),
+        marketingOptIn: Boolean(form.get("marketingOptIn")),
       };
       const payload = await api(endpoint, { method: "POST", body: JSON.stringify(body) });
       currentUser = payload.user || null;
@@ -3454,7 +3459,6 @@ checkoutForm?.addEventListener("submit", async (event) => {
     shipping: "canada_post_manual",
     paymentMethod: { type: "square" },
     items: cart,
-    saveProfile: Boolean(form.get("saveProfile")),
     marketingOptIn: Boolean(form.get("marketingOptIn")),
   };
   const submitButtons = [...checkoutForm.querySelectorAll('button[type="submit"]')];

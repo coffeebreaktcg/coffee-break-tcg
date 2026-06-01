@@ -3062,9 +3062,18 @@ async function handleApi(req, res) {
       email,
       name,
       passwordHash: hashPassword(password),
+      marketingOptIn: Boolean(body.marketingOptIn),
       createdAt: new Date().toISOString(),
       lastLogin: new Date().toISOString(),
     };
+    if (user.marketingOptIn && !db.newsletter.some((entry) => entry.email === email)) {
+      db.newsletter.push({
+        email,
+        name,
+        source: "account",
+        createdAt: new Date().toISOString(),
+      });
+    }
     const sessionId = crypto.randomBytes(24).toString("hex");
     db.users.push(user);
     db.sessions[sessionId] = user.id;
