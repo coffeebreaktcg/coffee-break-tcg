@@ -4513,6 +4513,59 @@ body.admin-mode .admin-page {
     aspect-ratio: 0.92 / 1;
   }
 
+  .product-art.slab-product-art {
+    aspect-ratio: 0.72 / 1;
+    align-content: center;
+    overflow: visible;
+    padding: 6px 0;
+  }
+
+  .product-art.slab-product-art .slab-frame {
+    height: 96%;
+    max-width: 96%;
+    border-width: 5px;
+    border-radius: 12px;
+    grid-template-rows: 23% 1fr;
+  }
+
+  .product-art.slab-product-art .slab-label {
+    gap: 1px 5px;
+    padding: 7px 6px 5px;
+    font-size: 8px;
+  }
+
+  .product-art.slab-product-art .slab-brand {
+    min-width: 28px;
+    min-height: 16px;
+    padding: 0 4px;
+  }
+
+  .product-art.slab-product-art .slab-label small {
+    font-size: 6px;
+  }
+
+  .product-art.slab-product-art .slab-label strong {
+    min-width: 21px;
+    min-height: 21px;
+    font-size: 12px;
+  }
+
+  .product-art.slab-product-art .slab-label em {
+    font-size: 5px;
+  }
+
+  .product-art.slab-product-art .slab-window {
+    margin: 5px 6px 7px;
+    padding: 3px 4px 5px;
+  }
+
+  .product-art.slab-product-art .slab-window .product-photo {
+    width: 104%;
+    height: 104%;
+    max-width: 104%;
+    max-height: 104%;
+  }
+
   .product-card:hover,
   .product-card:hover .product-art,
   .product-card:hover .product-photo,
@@ -4686,7 +4739,13 @@ body.admin-mode .admin-page {
   }
 
   .detail-art .slab-frame {
-    width: min(82%, 320px);
+    width: min(94%, 380px);
+    grid-template-rows: 23% 1fr;
+  }
+
+  .detail-art .slab-window {
+    margin: 7px 8px 9px;
+    padding: 4px 5px 6px;
   }
 
   .detail-art > .sealed-product-photo {

@@ -1252,7 +1252,7 @@ function renderProducts() {
       const limit = cartLineLimit(product);
       return `
         <article class="product-card" data-product-card="${product.id}" style="--stagger:${Math.min(index, 12) * 42}ms">
-          <a class="product-art" href="${productDetailPath(product)}" data-view-product="${product.id}" style="--accent: ${product.accent}">
+          <a class="product-art ${isSlabProduct(product) ? "slab-product-art" : ""}" href="${productDetailPath(product)}" data-view-product="${product.id}" style="--accent: ${product.accent}">
             ${productVisual(product)}
           </a>
           <div class="product-meta">
