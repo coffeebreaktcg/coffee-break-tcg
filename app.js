@@ -359,6 +359,7 @@ const translations = {
     deliveryNotesPlaceholder: "Appartement, instructions, etc.",
     paySquare: "Payer avec Square",
     login: "Connexion",
+    rememberMe: "Se souvenir de moi",
     createAccount: "Créer un compte",
     password: "Mot de passe",
     confirmPassword: "Confirmer le mot de passe",
@@ -482,6 +483,7 @@ const translations = {
     deliveryNotesPlaceholder: "Apartment, instructions, etc.",
     paySquare: "Pay with Square",
     login: "Sign in",
+    rememberMe: "Remember me",
     createAccount: "Create account",
     password: "Password",
     confirmPassword: "Confirm password",
@@ -3485,6 +3487,7 @@ document.addEventListener("submit", async (event) => {
         email: form.get("email"),
         password: form.get("password"),
         marketingOptIn: Boolean(form.get("marketingOptIn")),
+        rememberMe: Boolean(form.get("rememberMe")),
       };
       const payload = await api(endpoint, { method: "POST", body: JSON.stringify(body) });
       currentUser = payload.user || null;

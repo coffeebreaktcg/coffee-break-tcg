@@ -3133,7 +3133,7 @@ async function handleApi(req, res) {
     user.lastLogin = new Date().toISOString();
     db.sessions[sessionId] = user.id;
     await writeDb(db);
-    return json(res, 200, { user: publicUser(user) }, cookieHeader(sessionId));
+    return json(res, 200, { user: publicUser(user) }, cookieHeader(sessionId, body.rememberMe ? 60 * 60 * 24 * 90 : undefined));
   }
 
   if (url.pathname === "/api/logout" && req.method === "POST") {
@@ -3291,12 +3291,12 @@ async function handleApi(req, res) {
   return json(res, 404, { error: "Route API introuvable" });
 }
 
-function cookieHeader(sessionId) {
+function cookieHeader(sessionId, maxAge = 60 * 60 * 24 * 7) {
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
   return {
     "Set-Cookie": `cb_session=${encodeURIComponent(
       sessionId
-    )}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800${secure}`,
+    )}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${secure}`,
   };
 }
 
