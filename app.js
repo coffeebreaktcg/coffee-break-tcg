@@ -46,6 +46,7 @@ const adminOrderRows = document.querySelector("#adminOrderRows");
 const adminCardShowForm = document.querySelector("#adminCardShowForm");
 const adminCardShowRows = document.querySelector("#adminCardShowRows");
 const cardShowStatus = document.querySelector("#cardShowStatus");
+const cardShowImagePreview = document.querySelector("#cardShowImagePreview");
 const adminReviewForm = document.querySelector("#adminReviewForm");
 const adminReviewRows = document.querySelector("#adminReviewRows");
 const reviewStatus = document.querySelector("#reviewStatus");
@@ -2484,10 +2485,16 @@ function parseJsonArray(value) {
 function editCardShow(id) {
   const show = cardShows.find((item) => item.id === id);
   if (!show || !adminCardShowForm) return;
-  ["id", "name", "location", "city", "date", "dateEnd", "time", "tables", "collaborator", "announcementUrl"].forEach((field) => {
+  ["id", "name", "location", "city", "date", "dateEnd", "time", "tables", "collaborator", "announcementUrl", "imageUrl"].forEach((field) => {
     const input = adminCardShowForm.querySelector(`[name="${field}"]`);
     if (input) input.value = show[field] || "";
   });
+  if (cardShowImagePreview) {
+    cardShowImagePreview.classList.toggle("hidden", !show.imageUrl);
+    cardShowImagePreview.innerHTML = show.imageUrl
+      ? `<img src="${escapeAttribute(show.imageUrl)}" alt="" /><span>Image actuelle</span>`
+      : "";
+  }
   if (cardShowStatus) cardShowStatus.textContent = `Modification de ${show.name}.`;
   adminCardShowForm.scrollIntoView({ behavior: "smooth", block: "center" });
 }
@@ -3368,12 +3375,17 @@ adminCardShowForm?.addEventListener("submit", async (event) => {
     tables: form.get("tables"),
     collaborator: form.get("collaborator"),
     announcementUrl: form.get("announcementUrl"),
+    imageUrl: form.get("imageUrl") || "",
     imageData: await fileToDataUrl(form.get("imageFile")),
   };
   try {
     await api("/api/admin/card-shows", { method: "POST", body: JSON.stringify(body) });
     if (cardShowStatus) cardShowStatus.textContent = body.id ? "Card show mis à jour." : "Card show sauvegardé.";
     adminCardShowForm.reset();
+    if (cardShowImagePreview) {
+      cardShowImagePreview.classList.add("hidden");
+      cardShowImagePreview.innerHTML = "";
+    }
     await loadCardShows();
     renderCardShows();
     renderAdmin();

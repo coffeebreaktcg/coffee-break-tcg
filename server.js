@@ -1428,7 +1428,8 @@ async function saveProductGalleryImages(imageDataList, id) {
 }
 
 async function saveCardShowImage(imageData, id) {
-  return saveImageData(imageData, `show-${id}`);
+  const suffix = crypto.createHash("sha1").update(String(imageData || "")).digest("hex").slice(0, 10);
+  return saveImageData(imageData, `show-${id}-${Date.now()}-${suffix}`);
 }
 
 function summarizeSales(db) {

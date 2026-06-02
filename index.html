@@ -593,6 +593,7 @@
         <summary>Prochains card shows</summary>
         <form class="admin-show-form" id="adminCardShowForm">
           <input type="hidden" name="id" />
+          <input type="hidden" name="imageUrl" />
           <div class="form-row two">
             <label>Nom du show <input name="name" required /></label>
             <label>Collaborateur <input name="collaborator" placeholder="Ex. Nom du partenaire" /></label>
@@ -613,6 +614,7 @@
           <div class="form-row">
             <label>Image / logo <input name="imageFile" type="file" accept="image/*" /></label>
           </div>
+          <div class="show-image-preview hidden" id="cardShowImagePreview"></div>
           <div class="show-admin-actions">
             <button class="button primary" type="submit">Sauvegarder le show</button>
             <button class="button secondary" type="reset">Effacer le formulaire</button>
