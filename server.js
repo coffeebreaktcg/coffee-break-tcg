@@ -59,6 +59,7 @@ const cardImageSearchCache = new Map();
 const cardImageSearchCacheTtlMs = 1000 * 60 * 30;
 const adminLoginAttempts = new Map();
 const maxJsonBodyBytes = Number(process.env.MAX_JSON_BODY_BYTES || 8 * 1024 * 1024);
+const clearInventoryMigrationId = "clear-all-inventory-2026-06-02";
 const starterInventoryIds = new Set([
   "pikachu-ar",
   "umbreon-vmax",
@@ -135,9 +136,16 @@ async function readDb() {
     if (!Array.isArray(db.newsletter)) db.newsletter = [];
     if (!db.sessions) db.sessions = {};
     if (!db.adminSessions) db.adminSessions = {};
-    const inventoryCountBeforeStarterCleanup = db.inventory.length;
-    db.inventory = db.inventory.filter((item) => !starterInventoryIds.has(item.id));
-    if (db.inventory.length !== inventoryCountBeforeStarterCleanup) await writeDb(db);
+    if (!Array.isArray(db.migrations)) db.migrations = [];
+    if (!db.migrations.includes(clearInventoryMigrationId)) {
+      db.inventory = [];
+      db.migrations.push(clearInventoryMigrationId);
+      await writeDb(db);
+    } else {
+      const inventoryCountBeforeStarterCleanup = db.inventory.length;
+      db.inventory = db.inventory.filter((item) => !starterInventoryIds.has(item.id));
+      if (db.inventory.length !== inventoryCountBeforeStarterCleanup) await writeDb(db);
+    }
     return db;
   } catch {
     const seedPath = path.join(root, "data", "seed.json");
