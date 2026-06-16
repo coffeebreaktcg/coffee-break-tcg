@@ -2578,6 +2578,26 @@ async function handleApi(req, res) {
     return json(res, 200, { product: publicProduct(product), inventory: db.inventory.map(publicProduct), summary: summarizeSales(db) });
   }
 
+  if (url.pathname === "/api/admin/products/remove" && req.method === "POST") {
+    const body = await readBody(req);
+    const index = db.inventory.findIndex((candidate) => candidate.id === body.id);
+    const product = index >= 0 ? db.inventory[index] : null;
+    if (!product) return json(res, 404, { error: "Item introuvable" });
+    if (Number(product.reservedQuantity || 0) > 0 || product.status === "reserved") {
+      return json(res, 400, { error: "Cet item est réservé dans une commande en cours. Attends l’expiration ou annule la commande avant de le retirer." });
+    }
+    const removedProduct = {
+      ...product,
+      removedAt: new Date().toISOString(),
+      removedReason: String(body.reason || "Retiré de l’inventaire").trim(),
+    };
+    db.inventory.splice(index, 1);
+    db.removedInventory = Array.isArray(db.removedInventory) ? db.removedInventory : [];
+    db.removedInventory.push(removedProduct);
+    await writeDb(db);
+    return json(res, 200, { product: publicProduct(removedProduct), inventory: db.inventory.map(publicProduct), summary: summarizeSales(db) });
+  }
+
   if (url.pathname === "/api/admin/orders/cancel" && req.method === "POST") {
     const body = await readBody(req);
     const order = db.orders.find((candidate) => candidate.id === body.id);

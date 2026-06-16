@@ -4234,7 +4234,7 @@ body.admin-mode .admin-page {
 
 .sale-inline {
   display: grid;
-  grid-template-columns: max-content max-content 90px max-content;
+  grid-template-columns: max-content max-content 90px max-content max-content;
   gap: 6px;
   align-items: center;
 }
@@ -4249,6 +4249,12 @@ body.admin-mode .admin-page {
   border-color: var(--gold);
   background: rgba(217, 168, 93, 0.14);
   color: var(--gold);
+}
+
+.remove-button {
+  border-color: #8f5a43;
+  background: #fff4e5;
+  color: #8f5a43;
 }
 
 .sale-inline input {

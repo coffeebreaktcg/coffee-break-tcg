@@ -2226,6 +2226,9 @@ async function renderAdmin() {
               <button class="sale-button" type="button" data-admin-sale="${item.id}" ${Number(item.stock || 0) <= 0 ? "disabled" : ""}>
                 Vente
               </button>
+              <button class="sale-button remove-button" type="button" data-admin-remove="${item.id}">
+                Retirer
+              </button>
             </div>
           </td>
         </tr>
@@ -2380,6 +2383,33 @@ async function applyAdminDiscount(id, button) {
     if (adminPriceSync) adminPriceSync.textContent = error.message;
     button.disabled = false;
     button.textContent = "Baisser prix";
+  }
+}
+
+async function removeAdminItem(id, button) {
+  if (!id || !button) return;
+  const item = adminInventoryCache.find((candidate) => candidate.id === id);
+  if (!item) return;
+  const confirmed = window.confirm(`Retirer "${item.name}" de l’inventaire?\n\nCette action l’enlève de la vitrine sans l’ajouter aux ventes.`);
+  if (!confirmed) return;
+  button.disabled = true;
+  button.textContent = "Retrait...";
+  try {
+    const payload = await api("/api/admin/products/remove", {
+      method: "POST",
+      body: JSON.stringify({ id }),
+    });
+    inventory = payload.inventory || inventory;
+    adminInventoryCache = payload.inventory || adminInventoryCache;
+    cart = cart.filter((line) => line.id !== id);
+    saveCart();
+    renderProducts();
+    await renderAdmin();
+    if (adminPriceSync) adminPriceSync.textContent = `${item.name} a été retiré de l’inventaire.`;
+  } catch (error) {
+    if (adminPriceSync) adminPriceSync.textContent = error.message;
+    button.disabled = false;
+    button.textContent = "Retirer";
   }
 }
 
@@ -2899,6 +2929,7 @@ document.addEventListener("click", (event) => {
   const adminSaleButton = event.target.closest("[data-admin-sale]");
   const adminDiscountButton = event.target.closest("[data-admin-discount]");
   const adminEditButton = event.target.closest("[data-admin-edit]");
+  const adminRemoveButton = event.target.closest("[data-admin-remove]");
   const editShowButton = event.target.closest("[data-edit-show]");
   const deleteShowButton = event.target.closest("[data-delete-show]");
   const editReviewButton = event.target.closest("[data-edit-review]");
@@ -3007,6 +3038,7 @@ document.addEventListener("click", (event) => {
   }
   if (adminEditButton) editAdminItem(adminEditButton.dataset.adminEdit);
   if (adminDiscountButton) applyAdminDiscount(adminDiscountButton.dataset.adminDiscount, adminDiscountButton);
+  if (adminRemoveButton) removeAdminItem(adminRemoveButton.dataset.adminRemove, adminRemoveButton);
   if (editShowButton) editCardShow(editShowButton.dataset.editShow);
   if (deleteShowButton) deleteCardShow(deleteShowButton.dataset.deleteShow);
   if (editReviewButton) editReview(editReviewButton.dataset.editReview);
