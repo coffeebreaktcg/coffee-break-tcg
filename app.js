@@ -891,13 +891,10 @@ function renderCart() {
   const totals = cartTaxes();
   const potentialCoffeeBucks = Math.floor(totals.total * coffeeBucksEarnRate);
   const drawerTotalMarkup = `
-    <div><span>${t("subtotal")}</span><strong>${money.format(totals.subtotal)}</strong></div>
+    <div class="grand-total"><span>${t("total")}</span><strong>${money.format(totals.total)}</strong></div>
   `;
   const totalMarkup = `
-    <div><span>${t("subtotal")}</span><strong>${money.format(totals.subtotal)}</strong></div>
     ${totals.coffeeBucksDiscount > 0 ? `<div><span>${t("coffeeBucksRedeemed")}</span><strong>-${money.format(totals.coffeeBucksDiscount)}</strong></div>` : ""}
-    <div><span>TPS</span><strong>${money.format(totals.tps)}</strong></div>
-    <div><span>TVQ</span><strong>${money.format(totals.tvq)}</strong></div>
     <div class="grand-total"><span>${t("total")}</span><strong>${money.format(totals.total)}</strong></div>
     ${cart.length ? `<small class="coffee-bucks-earn">${t("coffeeBucksEarn")} ${potentialCoffeeBucks} Coffee Bucks.</small>` : ""}
   `;
