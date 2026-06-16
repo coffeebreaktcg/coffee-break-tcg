@@ -57,6 +57,7 @@ const googleDriveClientEmail = process.env.GOOGLE_DRIVE_CLIENT_EMAIL || "";
 const googleDrivePrivateKey = (process.env.GOOGLE_DRIVE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
 const cardImageSearchCache = new Map();
 const cardImageSearchCacheTtlMs = 1000 * 60 * 30;
+const reservationHoldMs = 10 * 60 * 1000;
 const adminLoginAttempts = new Map();
 const maxJsonBodyBytes = Number(process.env.MAX_JSON_BODY_BYTES || 8 * 1024 * 1024);
 const clearInventoryMigrationId = "clear-all-inventory-2026-06-02";
@@ -827,6 +828,35 @@ function refundCoffeeBucks(db, order) {
   user.coffeeBucks = Math.max(0, Number(user.coffeeBucks || 0)) + redeemed;
   order.coffeeBucksRefundedAt = new Date().toISOString();
   return redeemed;
+}
+
+function releaseOrderReservation(db, order, reason = "Réservation expirée") {
+  if (!order || order.reservationReleasedAt) return false;
+  for (const item of order.items || []) {
+    const product = db.inventory.find((candidate) => candidate.id === item.id);
+    if (!product) continue;
+    const quantity = Math.max(1, Number(item.quantity || 1));
+    product.stock = Number(product.stock || 0) + quantity;
+    product.reservedQuantity = Math.max(0, Number(product.reservedQuantity || 0) - quantity);
+    if (product.status === "reserved") product.status = product.category === "Preorder" ? "preorder" : "available";
+  }
+  refundCoffeeBucks(db, order);
+  order.status = "expired";
+  order.expiredAt = new Date().toISOString();
+  order.reservationReleasedAt = order.expiredAt;
+  order.cancelReason = reason;
+  return true;
+}
+
+function expirePendingReservations(db) {
+  const now = Date.now();
+  let changed = false;
+  for (const order of db.orders || []) {
+    if (order.status !== "pending_payment" || !order.reservationExpiresAt) continue;
+    if (new Date(order.reservationExpiresAt).getTime() > now) continue;
+    changed = releaseOrderReservation(db, order, "Paiement non complété dans le délai de 10 minutes") || changed;
+  }
+  return changed;
 }
 
 function orderGrandTotal(order) {
@@ -2296,6 +2326,8 @@ async function retrieveAddress(id, provider) {
 async function handleApi(req, res) {
   const db = await readDb();
   const url = new URL(req.url, `http://${req.headers.host}`);
+  const expiredReservations = expirePendingReservations(db);
+  if (expiredReservations) await writeDb(db);
 
   if (url.pathname === "/api/square/webhook" && req.method === "POST") {
     return handleSquareWebhook(req, res, db);
@@ -2339,7 +2371,12 @@ async function handleApi(req, res) {
   }
 
   if (url.pathname === "/api/products" && req.method === "GET") {
-    return json(res, 200, { products: db.inventory.filter((product) => product.status !== "draft").map(publicProduct) });
+    return json(res, 200, {
+      products: db.inventory
+        .filter((product) => product.status !== "draft")
+        .map(publicProduct)
+        .filter((product) => product.status !== "reserved"),
+    });
   }
 
   if (url.pathname === "/api/card-shows" && req.method === "GET") {
@@ -2958,7 +2995,7 @@ async function handleApi(req, res) {
       marketingOptIn: Boolean(body.marketingOptIn),
       paymentMethod,
       status: "pending_payment",
-      reservationExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      reservationExpiresAt: new Date(Date.now() + reservationHoldMs).toISOString(),
       emailStatus: resendApiKey ? "sending" : "prepared",
       emailMessage: resendApiKey
         ? `Récapitulatif en cours d’envoi à ${shopEmail} et au client.`

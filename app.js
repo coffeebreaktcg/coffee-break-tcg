@@ -109,7 +109,7 @@ const translations = {
     trustPhotos: "Photos réelles",
     trustShipping: "Livraison suivie le jour même",
     trustPayment: "Paiement Square",
-    trustReserve: "Réservation 1 h",
+    trustReserve: "Réservation 10 min",
     trustLocal: "Basé à Laval",
     searchCard: "Rechercher une carte",
     sortProducts: "Trier les produits",
@@ -233,7 +233,7 @@ const translations = {
     trustPhotos: "Real photos",
     trustShipping: "Same-day tracked shipping",
     trustPayment: "Square payment",
-    trustReserve: "1-hour reservation",
+    trustReserve: "10-minute checkout hold",
     trustLocal: "Based in Laval",
     searchCard: "Search for a card",
     sortProducts: "Sort products",
@@ -534,6 +534,7 @@ function statusLabel(status) {
       reserved: "Réservé",
       sold: "Vendu",
       pending_payment: "En attente",
+      expired: "Expirée",
       paid: "Payée",
       cancelled: "Annulée",
       admin_sale: "Vente admin",
@@ -565,6 +566,7 @@ function originalOrder(a, b) {
 function getProducts() {
   let products = inventory.filter((product) => {
     if (["Preorder", "Accessories"].includes(product.category)) return false;
+    if (getProductStatus(product) === "reserved") return false;
     const matchesCategory =
       state.category === "all" ||
       product.category === state.category ||
@@ -1577,7 +1579,7 @@ const contentPages = {
       ["Protection des cartes", "Les singles sont envoyés en sleeve, top loader ou card saver, puis protégés dans un emballage rigide."],
       ["Slabs et sealed", "Les slabs et produits sealed sont emballés avec rembourrage et boîte solide pour limiter les mouvements pendant le transport."],
       ["Paiement", "Le paiement Square est en intégration. Les commandes peuvent être confirmées avant le paiement lorsque nécessaire."],
-      ["Réservation", "Une carte ajoutée à une commande passe en réservation. Si le paiement n’arrive pas, elle peut être remise en vitrine par l’admin."],
+      ["Réservation", "Lorsqu’un paiement Square est lancé, les items sont réservés pendant 10 minutes. Si le paiement n’est pas complété, ils reviennent automatiquement en vitrine."],
       ["État des cartes", "Nous faisons de notre mieux pour décrire chaque carte clairement. Tu peux demander des photos additionnelles avant de payer."],
       ["On achète vos cartes", "Nous évaluons les collections de 1 000 $ et plus avec photos, résumé et prix demandé."],
       ["Card shows", "Les prochains événements sont affichés sur la page d’accueil lorsqu’ils sont confirmés."],
@@ -1630,7 +1632,7 @@ const contentPagesEn = {
       ["Card protection", "Singles are shipped in a sleeve, top loader or card saver, then protected in rigid packaging."],
       ["Slabs and sealed", "Slabs and sealed products are packed with padding and a solid box."],
       ["Payment", "Square payment is being integrated. Orders can be confirmed before payment when needed."],
-      ["Reservation", "A card added to an order is reserved. If payment does not arrive, it can be returned to the showcase by admin."],
+      ["Reservation", "When a Square payment is started, items are held for 10 minutes. If payment is not completed, they automatically return to the showcase."],
       ["Condition", "We do our best to describe each card clearly. You can ask for additional photos before paying."],
       ["Sell your cards", "We review collections of $1,000 and up with photos, a summary and an asking price."],
       ["Card shows", "Upcoming shows appear on the home page once confirmed."],
@@ -1683,6 +1685,7 @@ function orderStatusLabel(status) {
   return (
     {
       pending_payment: currentLang === "en" ? "Pending payment" : "Paiement en attente",
+      expired: currentLang === "en" ? "Expired" : "Expirée",
       paid: currentLang === "en" ? "Paid" : "Payée",
       admin_sale: currentLang === "en" ? "Manual sale" : "Vente manuelle",
       cancelled: currentLang === "en" ? "Cancelled" : "Annulée",
