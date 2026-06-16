@@ -3280,10 +3280,10 @@ checkoutForm?.addEventListener("submit", async (event) => {
     renderProducts();
     checkoutForm.reset();
     if (payload.squareCheckoutUrl) {
-      if (checkoutStatus) checkoutStatus.textContent = currentLang === "en" ? `Order ${payload.order.id} reserved. Redirecting to Square...` : `Commande ${payload.order.id} réservée. Redirection vers Square...`;
+      if (checkoutStatus) checkoutStatus.textContent = currentLang === "en" ? "Redirecting to Square payment..." : "Redirection vers le paiement Square...";
       window.location.href = payload.squareCheckoutUrl;
     } else if (checkoutStatus) {
-      checkoutStatus.textContent = currentLang === "en" ? `Order ${payload.order.id} reserved.` : `Commande ${payload.order.id} réservée.`;
+      checkoutStatus.textContent = currentLang === "en" ? "Square payment is being prepared." : "Paiement Square en préparation.";
     }
   } catch (error) {
     if (checkoutStatus) checkoutStatus.textContent = error.message;
