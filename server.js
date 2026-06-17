@@ -93,8 +93,6 @@ const adminSessionMs = 8 * 60 * 60 * 1000;
 const TPS_RATE = 0.05;
 const TVQ_RATE = 0.09975;
 const TAX_INCLUDED_DIVISOR = 1 + TPS_RATE + TVQ_RATE;
-const COFFEE_BUCKS_EARN_RATE = 4;
-const COFFEE_BUCKS_REDEEM_RATE = 100;
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -681,7 +679,6 @@ function publicUser(user) {
     name: user.name,
     address: user.address || null,
     paymentMethod: user.paymentMethod || null,
-    coffeeBucks: Math.max(0, Number(user.coffeeBucks || 0)),
     lastLogin: user.lastLogin || null,
   };
 }
@@ -695,9 +692,6 @@ function publicCustomerOrder(order) {
     tpsAmount: Number(order.tpsAmount || 0),
     tvqAmount: Number(order.tvqAmount || 0),
     totalAmount: Number(order.totalAmount || order.total || 0),
-    coffeeBucksEarned: Number(order.coffeeBucksEarned || 0),
-    coffeeBucksRedeemed: Number(order.coffeeBucksRedeemed || 0),
-    coffeeBucksDiscount: Number(order.coffeeBucksDiscount || 0),
     paymentMethod: order.paymentMethod || null,
     paymentUrl: order.paymentUrl || "",
     reservationExpiresAt: order.reservationExpiresAt || "",
@@ -800,36 +794,6 @@ function taxBreakdown(subtotal) {
   };
 }
 
-function coffeeBucksDiscount(points) {
-  return roundMoney(Math.max(0, Number(points || 0)) / COFFEE_BUCKS_REDEEM_RATE);
-}
-
-function coffeeBucksEarned(order) {
-  return Math.floor(Number(order.totalAmount || orderGrandTotal(order) || 0) * COFFEE_BUCKS_EARN_RATE);
-}
-
-function applyCoffeeBucksEarned(db, order) {
-  if (!order?.userId || order.userId === "guest" || order.userId === "admin" || order.coffeeBucksAwardedAt) return 0;
-  const user = db.users.find((candidate) => candidate.id === order.userId);
-  if (!user) return 0;
-  const earned = coffeeBucksEarned(order);
-  user.coffeeBucks = Math.max(0, Number(user.coffeeBucks || 0)) + earned;
-  order.coffeeBucksEarned = earned;
-  order.coffeeBucksAwardedAt = new Date().toISOString();
-  return earned;
-}
-
-function refundCoffeeBucks(db, order) {
-  if (!order?.userId || order.userId === "guest" || order.userId === "admin" || order.coffeeBucksRefundedAt) return 0;
-  const redeemed = Number(order.coffeeBucksRedeemed || 0);
-  if (redeemed <= 0) return 0;
-  const user = db.users.find((candidate) => candidate.id === order.userId);
-  if (!user) return 0;
-  user.coffeeBucks = Math.max(0, Number(user.coffeeBucks || 0)) + redeemed;
-  order.coffeeBucksRefundedAt = new Date().toISOString();
-  return redeemed;
-}
-
 function releaseOrderReservation(db, order, reason = "Réservation expirée") {
   if (!order || order.reservationReleasedAt) return false;
   for (const item of order.items || []) {
@@ -840,7 +804,6 @@ function releaseOrderReservation(db, order, reason = "Réservation expirée") {
     product.reservedQuantity = Math.max(0, Number(product.reservedQuantity || 0) - quantity);
     if (product.status === "reserved") product.status = product.category === "Preorder" ? "preorder" : "available";
   }
-  refundCoffeeBucks(db, order);
   order.status = "expired";
   order.expiredAt = new Date().toISOString();
   order.reservationReleasedAt = order.expiredAt;
@@ -1137,8 +1100,7 @@ function orderEmailHtml(order, intro) {
         <p style="margin:0 0 24px;color:#806452;">${escapeHtml(intro)}</p>
         <h2 style="font-size:18px;margin:0 0 8px;">Commande ${escapeHtml(order.id)}</h2>
         <table style="width:100%;border-collapse:collapse;background:#fffaf2;border-top:1px solid #ead8c6;">${items}</table>
-        ${order.coffeeBucksDiscount ? `<p style="text-align:right;font-size:15px;font-weight:700;margin:18px 0 4px;">Coffee Bucks: -${moneyText(order.coffeeBucksDiscount)} (${Number(order.coffeeBucksRedeemed || 0)} points)</p>` : ""}
-        <p style="text-align:right;font-size:15px;font-weight:700;margin:${order.coffeeBucksDiscount ? "4px" : "18px"} 0 4px;">Sous-total: ${moneyText(taxes.subtotal)}</p>
+        <p style="text-align:right;font-size:15px;font-weight:700;margin:18px 0 4px;">Sous-total: ${moneyText(taxes.subtotal)}</p>
         <p style="text-align:right;font-size:15px;font-weight:700;margin:4px 0;">TPS: ${moneyText(taxes.tps)}</p>
         <p style="text-align:right;font-size:15px;font-weight:700;margin:4px 0;">TVQ: ${moneyText(taxes.tvq)}</p>
         <p style="text-align:right;font-size:18px;font-weight:800;margin:4px 0 18px;">Total: ${moneyText(taxes.total)}</p>
@@ -1207,8 +1169,7 @@ function orderPackingEmailHtml(order) {
           4. Préparer l’étiquette et ajouter le suivi.
         </div>
         <table style="width:100%;border-collapse:collapse;background:#fffaf2;border-top:1px solid #ead8c6;">${items}</table>
-        ${order.coffeeBucksDiscount ? `<p style="text-align:right;font-size:15px;font-weight:700;margin:18px 0 4px;">Coffee Bucks: -${moneyText(order.coffeeBucksDiscount)} (${Number(order.coffeeBucksRedeemed || 0)} points)</p>` : ""}
-        <p style="text-align:right;font-size:15px;font-weight:700;margin:${order.coffeeBucksDiscount ? "4px" : "18px"} 0 4px;">Sous-total: ${moneyText(taxes.subtotal)}</p>
+        <p style="text-align:right;font-size:15px;font-weight:700;margin:18px 0 4px;">Sous-total: ${moneyText(taxes.subtotal)}</p>
         <p style="text-align:right;font-size:15px;font-weight:700;margin:4px 0;">TPS: ${moneyText(taxes.tps)}</p>
         <p style="text-align:right;font-size:15px;font-weight:700;margin:4px 0;">TVQ: ${moneyText(taxes.tvq)}</p>
         <p style="text-align:right;font-size:20px;font-weight:900;margin:4px 0 18px;">Total: ${moneyText(taxes.total)}</p>
@@ -1843,7 +1804,6 @@ function markOrderPaidFromSquare(db, order, payment, eventType = "square_webhook
     totalMoney: payment?.total_money || payment?.amount_money || null,
     updatedAt: payment?.updated_at || "",
   };
-  applyCoffeeBucksEarned(db, order);
   return { changed: true };
 }
 
@@ -2644,7 +2604,6 @@ async function handleApi(req, res) {
     order.status = "cancelled";
     order.cancelledAt = new Date().toISOString();
     order.cancelReason = body.reason || "Paiement non reçu";
-    refundCoffeeBucks(db, order);
     await writeDb(db);
     return json(res, 200, { order, summary: summarizeSales(db), inventory: db.inventory.map(publicProduct) });
   }
@@ -2906,7 +2865,6 @@ async function handleApi(req, res) {
       name,
       passwordHash: hashPassword(password),
       marketingOptIn: Boolean(body.marketingOptIn),
-      coffeeBucks: 0,
       createdAt: new Date().toISOString(),
       lastLogin: new Date().toISOString(),
     };
@@ -3017,15 +2975,7 @@ async function handleApi(req, res) {
       };
     });
     const subtotal = orderItemsTotal(orderItems);
-    const requestedCoffeeBucks = Math.max(0, Math.floor(Number(body.coffeeBucksToRedeem || 0)));
-    const availableCoffeeBucks = user ? Math.max(0, Number(user.coffeeBucks || 0)) : 0;
-    const maxCoffeeBucksForOrder = Math.floor(subtotal * COFFEE_BUCKS_REDEEM_RATE);
-    const coffeeBucksRedeemed = Math.min(requestedCoffeeBucks, availableCoffeeBucks, maxCoffeeBucksForOrder);
-    const coffeeBucksDiscountAmount = coffeeBucksDiscount(coffeeBucksRedeemed);
-    const taxes = taxBreakdown(Math.max(0, subtotal - coffeeBucksDiscountAmount));
-    if (coffeeBucksRedeemed > 0 && user) {
-      user.coffeeBucks = Math.max(0, Number(user.coffeeBucks || 0) - coffeeBucksRedeemed);
-    }
+    const taxes = taxBreakdown(subtotal);
 
     const order = {
       id: `CB-${String(db.orders.length + 1).padStart(5, "0")}`,
@@ -3039,8 +2989,6 @@ async function handleApi(req, res) {
       tpsAmount: taxes.tps,
       tvqAmount: taxes.tvq,
       totalAmount: taxes.total,
-      coffeeBucksRedeemed,
-      coffeeBucksDiscount: coffeeBucksDiscountAmount,
       address: body.address,
       marketingOptIn: Boolean(body.marketingOptIn),
       paymentMethod,

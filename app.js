@@ -23,7 +23,6 @@ const checkoutItems = document.querySelector("#checkoutItems");
 const checkoutTotals = document.querySelector("#checkoutTotals");
 const checkoutForm = document.querySelector("#checkoutForm");
 const checkoutStatus = document.querySelector("#checkoutStatus");
-const coffeeBucksBox = document.querySelector("#coffeeBucksBox");
 const searchInput = document.querySelector("#searchInput");
 const sortSelect = document.querySelector("#sortSelect");
 const setFilterSelect = document.querySelector("#setFilterSelect");
@@ -87,7 +86,6 @@ let reviews = [];
 let currentUser = null;
 let customerOrders = [];
 let profileEditMode = false;
-let coffeeBucksToRedeem = 0;
 let currentLang = localStorage.getItem("coffeeBreakLang") || "fr";
 
 if ("scrollRestoration" in history) {
@@ -139,12 +137,6 @@ const translations = {
     remove: "Retirer",
     subtotal: "Sous-total",
     total: "Total",
-    coffeeBucks: "Coffee Bucks",
-    coffeeBucksBalance: "Solde Coffee Bucks",
-    coffeeBucksApply: "Utiliser mes Coffee Bucks",
-    coffeeBucksEarn: "Cette commande peut rapporter",
-    coffeeBucksRedeemed: "Coffee Bucks utilisés",
-    coffeeBucksLogin: "Connecte-toi pour accumuler et utiliser tes Coffee Bucks.",
     checkoutButton: "Passer à la commande",
     order: "Commande",
     checkoutTitle: "Finaliser",
@@ -263,12 +255,6 @@ const translations = {
     remove: "Remove",
     subtotal: "Subtotal",
     total: "Total",
-    coffeeBucks: "Coffee Bucks",
-    coffeeBucksBalance: "Coffee Bucks balance",
-    coffeeBucksApply: "Use my Coffee Bucks",
-    coffeeBucksEarn: "This order can earn",
-    coffeeBucksRedeemed: "Coffee Bucks redeemed",
-    coffeeBucksLogin: "Sign in to earn and use Coffee Bucks.",
     checkoutButton: "Go to checkout",
     order: "Order",
     checkoutTitle: "Checkout",
@@ -816,9 +802,6 @@ function cartTotal() {
   }, 0);
 }
 
-const coffeeBucksEarnRate = 4;
-const coffeeBucksRedeemRate = 100;
-
 function roundMoney(value) {
   return Math.round(Number(value || 0) * 100) / 100;
 }
@@ -830,30 +813,16 @@ function priceMarkup(product, className = "price") {
   return `<span class="${className}"><span class="current-price">${money.format(price)}</span>${oldPriceMarkup}</span>`;
 }
 
-function maxCoffeeBucksRedeemable() {
-  const balance = Math.max(0, Number(currentUser?.coffeeBucks || 0));
-  const subtotal = roundMoney(cartTotal());
-  return Math.min(balance, Math.floor(subtotal * coffeeBucksRedeemRate));
-}
-
-function coffeeBucksDiscount(points = coffeeBucksToRedeem) {
-  return roundMoney(Math.min(maxCoffeeBucksRedeemable(), Math.max(0, Number(points || 0))) / coffeeBucksRedeemRate);
-}
-
 function cartTaxes() {
   const subtotal = roundMoney(cartTotal());
-  coffeeBucksToRedeem = Math.min(coffeeBucksToRedeem, maxCoffeeBucksRedeemable());
-  const coffeeBucksDiscountAmount = coffeeBucksDiscount();
-  const taxableSubtotal = roundMoney(Math.max(0, subtotal - coffeeBucksDiscountAmount));
-  const tps = roundMoney(taxableSubtotal * 0.05);
-  const tvq = roundMoney(taxableSubtotal * 0.09975);
+  const tps = roundMoney(subtotal * 0.05);
+  const tvq = roundMoney(subtotal * 0.09975);
   return {
     subtotal,
-    coffeeBucksDiscount: coffeeBucksDiscountAmount,
-    taxableSubtotal,
+    taxableSubtotal: subtotal,
     tps,
     tvq,
-    total: roundMoney(taxableSubtotal + tps + tvq),
+    total: roundMoney(subtotal + tps + tvq),
   };
 }
 
@@ -891,14 +860,11 @@ function renderCart() {
     badge.textContent = cartQuantity();
   });
   const totals = cartTaxes();
-  const potentialCoffeeBucks = Math.floor(totals.total * coffeeBucksEarnRate);
   const drawerTotalMarkup = `
     <div class="grand-total"><span>${t("total")}</span><strong>${money.format(totals.total)}</strong></div>
   `;
   const totalMarkup = `
-    ${totals.coffeeBucksDiscount > 0 ? `<div><span>${t("coffeeBucksRedeemed")}</span><strong>-${money.format(totals.coffeeBucksDiscount)}</strong></div>` : ""}
     <div class="grand-total"><span>${t("total")}</span><strong>${money.format(totals.total)}</strong></div>
-    ${cart.length ? `<small class="coffee-bucks-earn">${t("coffeeBucksEarn")} ${potentialCoffeeBucks} Coffee Bucks.</small>` : ""}
   `;
   if (cartItems) {
     cartItems.innerHTML = cart.length ? cart.map((item) => renderCartLine(item)).join("") : `<p>${t("cartEmpty")}</p>`;
@@ -908,42 +874,6 @@ function renderCart() {
     checkoutItems.innerHTML = cart.length ? cart.map((item) => renderCartLine(item, true)).join("") : `<p>${t("cartEmpty")}</p>`;
   }
   if (checkoutTotals) checkoutTotals.innerHTML = totalMarkup;
-  renderCoffeeBucksBox();
-}
-
-function renderCoffeeBucksBox() {
-  if (!coffeeBucksBox || !checkoutForm) return;
-  const hiddenInput = checkoutForm.elements.coffeeBucksToRedeem;
-  if (!cart.length) {
-    coffeeBucksBox.innerHTML = "";
-    if (hiddenInput) hiddenInput.value = "0";
-    return;
-  }
-  if (!currentUser) {
-    coffeeBucksToRedeem = 0;
-    coffeeBucksBox.innerHTML = `<p>${t("coffeeBucksLogin")}</p>`;
-    if (hiddenInput) hiddenInput.value = "0";
-    return;
-  }
-  const balance = Math.max(0, Number(currentUser.coffeeBucks || 0));
-  const maxPoints = maxCoffeeBucksRedeemable();
-  coffeeBucksToRedeem = Math.min(coffeeBucksToRedeem, maxPoints);
-  if (hiddenInput) hiddenInput.value = String(coffeeBucksToRedeem);
-  coffeeBucksBox.innerHTML = `
-    <div>
-      <strong>${t("coffeeBucks")}</strong>
-      <span>${t("coffeeBucksBalance")}: ${balance}</span>
-    </div>
-    ${
-      maxPoints > 0
-        ? `<label>
-            <span>${t("coffeeBucksApply")}</span>
-            <input name="coffeeBucksRedeemControl" type="number" min="0" max="${maxPoints}" step="100" value="${coffeeBucksToRedeem}" data-coffee-bucks-input />
-          </label>
-          <small>${maxPoints} Coffee Bucks max = ${money.format(maxPoints / coffeeBucksRedeemRate)}</small>`
-        : `<small>${currentLang === "en" ? "No Coffee Bucks available for this order yet." : "Aucun Coffee Buck utilisable pour cette commande pour le moment."}</small>`
-    }
-  `;
 }
 
 function addToCart(id) {
@@ -1013,12 +943,6 @@ function updateAccountButtons() {
   document.querySelectorAll("[data-account-link]").forEach((link) => {
     link.setAttribute("aria-label", currentUser ? `${t("account")} - ${currentUser.name}` : t("account"));
     link.classList.toggle("is-active", Boolean(currentUser));
-  });
-  document.querySelectorAll("[data-coffee-bucks-header]").forEach((badge) => {
-    const balance = Math.max(0, Number(currentUser?.coffeeBucks || 0));
-    badge.hidden = !currentUser;
-    const count = badge.querySelector("[data-coffee-bucks-count]");
-    if (count) count.textContent = String(balance);
   });
 }
 
@@ -1703,7 +1627,6 @@ function renderAccount() {
 
   const address = currentUser.address || {};
   const hasProfile = Boolean(address.address || address.city || address.postal || address.phone);
-  const coffeeBucksBalance = Math.max(0, Number(currentUser.coffeeBucks || 0));
   const profileSummary = `
     <section class="account-card profile-summary-card">
       <div class="account-card-title">
@@ -1753,13 +1676,6 @@ function renderAccount() {
       <div>
         <p class="eyebrow">${t("account")}</p>
         <h1>${currentLang === "en" ? "Welcome" : "Bienvenue"}, ${escapeAttribute(currentUser.name)}</h1>
-        <div class="coffee-bucks-profile-card">
-          <span class="coffee-bucks-mark large" aria-hidden="true"></span>
-          <div>
-            <span>${t("coffeeBucksBalance")}</span>
-            <strong>${coffeeBucksBalance}</strong>
-          </div>
-        </div>
       </div>
       <button class="button secondary" type="button" data-account-logout>${t("logout")}</button>
     </div>
@@ -3117,13 +3033,6 @@ setFilterSelect?.addEventListener("change", (event) => {
   renderProducts();
 });
 
-document.addEventListener("input", (event) => {
-  const coffeeBucksInput = event.target.closest("[data-coffee-bucks-input]");
-  if (!coffeeBucksInput) return;
-  coffeeBucksToRedeem = Math.min(maxCoffeeBucksRedeemable(), Math.max(0, Number(coffeeBucksInput.value || 0)));
-  renderCart();
-});
-
 document.querySelectorAll("[data-feature-checkbox]").forEach((input) => {
   input.addEventListener("change", updateFeatureLimitState);
 });
@@ -3292,7 +3201,6 @@ checkoutForm?.addEventListener("submit", async (event) => {
     shipping: "canada_post_manual",
     paymentMethod: { type: "square" },
     items: cart,
-    coffeeBucksToRedeem,
     marketingOptIn: Boolean(form.get("marketingOptIn")),
   };
   const submitButtons = [...checkoutForm.querySelectorAll('button[type="submit"]')];
@@ -3305,7 +3213,6 @@ checkoutForm?.addEventListener("submit", async (event) => {
   try {
     const payload = await api("/api/order", { method: "POST", body: JSON.stringify(body) });
     currentUser = payload.user || currentUser;
-    coffeeBucksToRedeem = 0;
     cart = [];
     saveCart();
     await loadProducts();

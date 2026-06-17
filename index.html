@@ -48,10 +48,6 @@
         <a href="/apropos" data-content-route="apropos" data-i18n="navAbout">À propos</a>
       </nav>
       <div class="header-actions">
-        <span class="coffee-bucks-header" data-coffee-bucks-header hidden>
-          <span class="coffee-bucks-mark" aria-hidden="true"></span>
-          <strong data-coffee-bucks-count>0</strong>
-        </span>
         <a class="icon-button" href="/compte" data-account-link aria-label="Compte client" data-i18n-aria="account">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="8" r="4"></circle>
@@ -234,8 +230,6 @@
             <label><span data-i18n="postal">Code postal</span> <input name="postal" autocomplete="postal-code" required /></label>
           </div>
           <label><span data-i18n="deliveryNotes">Notes de livraison</span> <input name="notes" placeholder="Appartement, instructions, etc." data-i18n-placeholder="deliveryNotesPlaceholder" /></label>
-          <section class="coffee-bucks-box" id="coffeeBucksBox" aria-live="polite"></section>
-          <input name="coffeeBucksToRedeem" type="hidden" value="0" />
           <label class="save-profile-option">
             <input name="marketingOptIn" type="checkbox" />
             <span data-i18n="marketingOptIn">Recevoir les offres exclusives et les prochains drops à l’avance.</span>
@@ -674,7 +668,6 @@
     </div>
 
     <div class="welcome-toast" id="welcomeToast" aria-hidden="true">
-      <span class="coffee-bucks-mark" aria-hidden="true"></span>
       <div>
         <strong></strong>
         <small>Coffee Break TCG</small>
