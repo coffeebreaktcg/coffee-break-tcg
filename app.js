@@ -2841,17 +2841,55 @@ const revealObserver = new IntersectionObserver(
   { threshold: 0.16 }
 );
 
+let scrollFramePending = false;
+
 window.addEventListener("scroll", () => {
+  if (scrollFramePending) return;
+  scrollFramePending = true;
+  requestAnimationFrame(() => {
+    scrollFramePending = false;
+    const progress = Math.min(window.scrollY / Math.max(window.innerHeight, 1), 1);
+    document.documentElement.style.setProperty("--scroll-zoom", progress.toFixed(3));
+    document.body.classList.toggle("is-scrolled", window.scrollY > 18);
+  });
+}, { passive: true });
+
+const finePointerMotion = window.matchMedia("(hover: hover) and (pointer: fine)");
+let pendingTilt = null;
+let tiltFramePending = false;
+
+function scheduleTiltUpdate(card, heroMedia, event) {
+  if (!finePointerMotion.matches) return;
+  pendingTilt = {
+    card,
+    heroMedia,
+    clientX: event.clientX,
+    clientY: event.clientY,
+  };
+  if (tiltFramePending) return;
+  tiltFramePending = true;
+  requestAnimationFrame(() => {
+    tiltFramePending = false;
+    if (!pendingTilt) return;
+    const point = pendingTilt;
+    pendingTilt = null;
+    if (point.card) updateTiltVariables(point.card, point, "card-tilt", 7);
+    if (point.heroMedia) updateTiltVariables(point.heroMedia, point, "tilt", 3.2);
+  });
+}
+
+function syncScrollEffects() {
   const progress = Math.min(window.scrollY / Math.max(window.innerHeight, 1), 1);
   document.documentElement.style.setProperty("--scroll-zoom", progress.toFixed(3));
   document.body.classList.toggle("is-scrolled", window.scrollY > 18);
-});
+}
+
+syncScrollEffects();
 
 document.addEventListener("pointermove", (event) => {
   const card = event.target.closest(".product-card");
-  if (card) updateTiltVariables(card, event, "card-tilt", 7);
   const heroMedia = event.target.closest(".hero-media");
-  if (heroMedia) updateTiltVariables(heroMedia, event, "tilt", 3.2);
+  if (card || heroMedia) scheduleTiltUpdate(card, heroMedia, event);
 });
 
 document.addEventListener("pointerout", (event) => {
