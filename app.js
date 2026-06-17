@@ -2814,32 +2814,9 @@ function closeDrawers() {
 
 function observeDynamicElements() {
   document.querySelectorAll(".product-card, .trust-row article, .reveal-section").forEach((element) => {
-    revealObserver.observe(element);
+    element.classList.add("is-visible");
   });
 }
-
-function updateTiltVariables(element, event, prefix, strength = 5) {
-  const rect = element.getBoundingClientRect();
-  if (!rect.width || !rect.height) return;
-  const x = ((event.clientX - rect.left) / rect.width - 0.5) * strength;
-  const y = ((event.clientY - rect.top) / rect.height - 0.5) * strength;
-  element.style.setProperty(`--${prefix}-x`, x.toFixed(2));
-  element.style.setProperty(`--${prefix}-y`, y.toFixed(2));
-}
-
-function resetTiltVariables(element, prefix) {
-  element.style.setProperty(`--${prefix}-x`, "0");
-  element.style.setProperty(`--${prefix}-y`, "0");
-}
-
-const revealObserver = new IntersectionObserver(
-  (entries) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) entry.target.classList.add("is-visible");
-    });
-  },
-  { threshold: 0.16 }
-);
 
 let scrollFramePending = false;
 
@@ -2848,56 +2825,15 @@ window.addEventListener("scroll", () => {
   scrollFramePending = true;
   requestAnimationFrame(() => {
     scrollFramePending = false;
-    const progress = Math.min(window.scrollY / Math.max(window.innerHeight, 1), 1);
-    document.documentElement.style.setProperty("--scroll-zoom", progress.toFixed(3));
     document.body.classList.toggle("is-scrolled", window.scrollY > 18);
   });
 }, { passive: true });
 
-const finePointerMotion = window.matchMedia("(hover: hover) and (pointer: fine)");
-let pendingTilt = null;
-let tiltFramePending = false;
-
-function scheduleTiltUpdate(card, heroMedia, event) {
-  if (!finePointerMotion.matches) return;
-  pendingTilt = {
-    card,
-    heroMedia,
-    clientX: event.clientX,
-    clientY: event.clientY,
-  };
-  if (tiltFramePending) return;
-  tiltFramePending = true;
-  requestAnimationFrame(() => {
-    tiltFramePending = false;
-    if (!pendingTilt) return;
-    const point = pendingTilt;
-    pendingTilt = null;
-    if (point.card) updateTiltVariables(point.card, point, "card-tilt", 7);
-    if (point.heroMedia) updateTiltVariables(point.heroMedia, point, "tilt", 3.2);
-  });
-}
-
 function syncScrollEffects() {
-  const progress = Math.min(window.scrollY / Math.max(window.innerHeight, 1), 1);
-  document.documentElement.style.setProperty("--scroll-zoom", progress.toFixed(3));
   document.body.classList.toggle("is-scrolled", window.scrollY > 18);
 }
 
 syncScrollEffects();
-
-document.addEventListener("pointermove", (event) => {
-  const card = event.target.closest(".product-card");
-  const heroMedia = event.target.closest(".hero-media");
-  if (card || heroMedia) scheduleTiltUpdate(card, heroMedia, event);
-});
-
-document.addEventListener("pointerout", (event) => {
-  const card = event.target.closest(".product-card");
-  if (card && !card.contains(event.relatedTarget)) resetTiltVariables(card, "card-tilt");
-  const heroMedia = event.target.closest(".hero-media");
-  if (heroMedia && !heroMedia.contains(event.relatedTarget)) resetTiltVariables(heroMedia, "tilt");
-});
 
 document.addEventListener("click", (event) => {
   const tabButton = event.target.closest("[data-category]");
