@@ -42,7 +42,7 @@ const adminEmail = String(process.env.ADMIN_EMAIL || shopEmail).trim().toLowerCa
 const adminPassword = String(process.env.ADMIN_PASSWORD || "");
 const adminPasswordHash = String(process.env.ADMIN_PASSWORD_HASH || "");
 const resendApiKey = process.env.RESEND_API_KEY || "";
-const resendFromEmail = process.env.RESEND_FROM_EMAIL || "Coffee Break TCG <onboarding@resend.dev>";
+const resendFromEmail = process.env.RESEND_FROM_EMAIL || "Coffee Break TCG <orders@coffeebreaktcg.com>";
 const squareEnvironment = process.env.SQUARE_ENVIRONMENT || "sandbox";
 const squareAccessToken = process.env.SQUARE_ACCESS_TOKEN || "";
 const squareLocationId = process.env.SQUARE_LOCATION_ID || "";
@@ -1219,9 +1219,12 @@ function orderPackingEmailHtml(order) {
 }
 
 function orderCustomerConfirmationHtml(order, customerName) {
+  const paid = order.status === "paid";
   return orderEmailHtml(
     order,
-    `Merci pour ta commande chez Coffee Break TCG, ${customerName}. Nous avons bien reçu ta demande. Tu trouveras le récapitulatif ci-dessous; si tu as une question, réponds simplement à ce courriel.`
+    paid
+      ? `Merci pour ta commande chez Coffee Break TCG, ${customerName}. Ton paiement est confirmé et nous préparons ta commande avec soin. Tu trouveras le récapitulatif ci-dessous; si tu as une question, réponds simplement à ce courriel.`
+      : `Merci pour ta commande chez Coffee Break TCG, ${customerName}. Nous avons bien reçu ta demande. Tu trouveras le récapitulatif ci-dessous; si tu as une question, réponds simplement à ce courriel.`
   );
 }
 
@@ -1360,6 +1363,7 @@ async function queueOrderEmails(db, order) {
   const itemSummary = orderEmailLines(order).join("\n");
   const taxes = order.taxBreakdown || taxBreakdown(orderItemsTotal(order));
   const address = order.address || {};
+  const paid = order.status === "paid";
   const messages = [
     {
       id: `${order.id}-shop`,
@@ -1377,7 +1381,7 @@ async function queueOrderEmails(db, order) {
         address.notes ? `Notes: ${address.notes}` : "",
         "",
         "Checklist:",
-        "1. Vérifier le paiement Square.",
+        paid ? "1. Paiement Square confirmé." : "1. Vérifier le paiement Square.",
         "2. Sortir les items.",
         "3. Protéger la commande.",
         "4. Préparer l’étiquette et le suivi.",
@@ -1395,7 +1399,9 @@ async function queueOrderEmails(db, order) {
       body: [
         `${customerName},`,
         "",
-        "Merci pour ta commande chez Coffee Break TCG. Nous avons bien reçu ta demande.",
+        paid
+          ? "Merci pour ta commande chez Coffee Break TCG. Ton paiement est confirmé et nous préparons ta commande avec soin."
+          : "Merci pour ta commande chez Coffee Break TCG. Nous avons bien reçu ta demande.",
         "Voici ton récapitulatif:",
         "",
         itemSummary,
@@ -1415,10 +1421,13 @@ async function queueOrderEmails(db, order) {
   ];
 
   for (const message of messages) {
+    const existing = db.emailOutbox.find((candidate) => candidate.id === message.id);
+    if (existing?.status === "sent") continue;
     if (!message.to) {
       message.status = "skipped";
       message.error = "Adresse courriel manquante";
-      db.emailOutbox.push(message);
+      if (existing) Object.assign(existing, message);
+      else db.emailOutbox.push(message);
       continue;
     }
     try {
@@ -1431,8 +1440,23 @@ async function queueOrderEmails(db, order) {
       message.status = "failed";
       message.error = error.message;
     }
-    db.emailOutbox.push(message);
+    if (existing) Object.assign(existing, message);
+    else db.emailOutbox.push(message);
   }
+}
+
+function updateOrderEmailStatus(db, order) {
+  const orderEmails = db.emailOutbox.filter((message) => String(message.id || "").startsWith(`${order.id}-`));
+  const sentCount = orderEmails.filter((message) => message.status === "sent").length;
+  const failedCount = orderEmails.filter((message) => message.status === "failed").length;
+  order.emailStatus = failedCount ? "partial" : sentCount === orderEmails.length && orderEmails.length ? "sent" : "prepared";
+  order.emailMessage =
+    order.emailStatus === "sent"
+      ? `Récapitulatif envoyé à ${shopEmail} et au client.`
+      : failedCount
+        ? `Certains courriels n’ont pas été envoyés. Vérifie Resend et le domaine d’envoi.`
+        : `Récapitulatif préparé. Vérifie la configuration Resend si l’envoi n’est pas complété.`;
+  return order.emailStatus;
 }
 
 async function readBody(req) {
@@ -1875,6 +1899,10 @@ async function handleSquareWebhook(req, res, db) {
 
   if (eventType === "payment.updated" && paymentStatus === "COMPLETED" && order) {
     const result = markOrderPaidFromSquare(db, order, payment, "square_webhook");
+    if (result.changed) {
+      await queueOrderEmails(db, order);
+      updateOrderEmailStatus(db, order);
+    }
     order.squareWebhookEvents = [...(order.squareWebhookEvents || []), webhookRecord].slice(-10);
     await writeDb(db);
     return json(res, 200, { ok: true, orderId: order.id, changed: result.changed, reason: result.reason || "" });
@@ -2629,6 +2657,8 @@ async function handleApi(req, res) {
       return json(res, 400, { error: "Seules les commandes en attente de paiement peuvent être marquées comme payées" });
     }
     markOrderPaidFromSquare(db, order, { status: "COMPLETED" }, "admin");
+    await queueOrderEmails(db, order);
+    updateOrderEmailStatus(db, order);
     await writeDb(db);
     return json(res, 200, { order, summary: summarizeSales(db), inventory: db.inventory.map(publicProduct) });
   }
@@ -3016,10 +3046,8 @@ async function handleApi(req, res) {
       paymentMethod,
       status: "pending_payment",
       reservationExpiresAt: new Date(Date.now() + reservationHoldMs).toISOString(),
-      emailStatus: resendApiKey ? "sending" : "prepared",
-      emailMessage: resendApiKey
-        ? `Récapitulatif en cours d’envoi à ${shopEmail} et au client.`
-        : `Récapitulatif préparé pour ${shopEmail} et pour le client.`,
+      emailStatus: "waiting_payment",
+      emailMessage: "Les courriels seront envoyés après confirmation du paiement Square.",
       createdAt: new Date().toISOString(),
     };
     if (order.marketingOptIn) {
@@ -3049,14 +3077,6 @@ async function handleApi(req, res) {
       if (Number(product.stock || 0) <= 0) product.status = "reserved";
     }
     db.orders.push(order);
-    await queueOrderEmails(db, order);
-    const orderEmails = db.emailOutbox.filter((message) => String(message.id || "").startsWith(`${order.id}-`));
-    const sentCount = orderEmails.filter((message) => message.status === "sent").length;
-    order.emailStatus = sentCount === orderEmails.length ? "sent" : sentCount > 0 ? "partial" : "prepared";
-    order.emailMessage =
-      order.emailStatus === "sent"
-        ? `Récapitulatif envoyé à ${shopEmail} et au client.`
-        : `Récapitulatif préparé. Vérifie la configuration Resend si l’envoi n’est pas complété.`;
     await writeDb(db);
     return json(res, 201, { order, user: publicUser(user), squareCheckoutUrl: order.paymentUrl || "" });
   }
