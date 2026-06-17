@@ -2818,6 +2818,20 @@ function observeDynamicElements() {
   });
 }
 
+function updateTiltVariables(element, event, prefix, strength = 5) {
+  const rect = element.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const x = ((event.clientX - rect.left) / rect.width - 0.5) * strength;
+  const y = ((event.clientY - rect.top) / rect.height - 0.5) * strength;
+  element.style.setProperty(`--${prefix}-x`, x.toFixed(2));
+  element.style.setProperty(`--${prefix}-y`, y.toFixed(2));
+}
+
+function resetTiltVariables(element, prefix) {
+  element.style.setProperty(`--${prefix}-x`, "0");
+  element.style.setProperty(`--${prefix}-y`, "0");
+}
+
 const revealObserver = new IntersectionObserver(
   (entries) => {
     entries.forEach((entry) => {
@@ -2831,6 +2845,20 @@ window.addEventListener("scroll", () => {
   const progress = Math.min(window.scrollY / Math.max(window.innerHeight, 1), 1);
   document.documentElement.style.setProperty("--scroll-zoom", progress.toFixed(3));
   document.body.classList.toggle("is-scrolled", window.scrollY > 18);
+});
+
+document.addEventListener("pointermove", (event) => {
+  const card = event.target.closest(".product-card");
+  if (card) updateTiltVariables(card, event, "card-tilt", 7);
+  const heroMedia = event.target.closest(".hero-media");
+  if (heroMedia) updateTiltVariables(heroMedia, event, "tilt", 3.2);
+});
+
+document.addEventListener("pointerout", (event) => {
+  const card = event.target.closest(".product-card");
+  if (card && !card.contains(event.relatedTarget)) resetTiltVariables(card, "card-tilt");
+  const heroMedia = event.target.closest(".hero-media");
+  if (heroMedia && !heroMedia.contains(event.relatedTarget)) resetTiltVariables(heroMedia, "tilt");
 });
 
 document.addEventListener("click", (event) => {

@@ -85,8 +85,16 @@
             <button class="button secondary" type="button" data-open-menu data-i18n="seeOptions">Voir les options</button>
           </div>
         </div>
-        <div class="hero-media parallax-media" data-depth="0.12">
-          <img src="/assets/hero-business-cards.png?v=business-cards-20260531" alt="Cartes d'affaires Coffee Break TCG dans une ambiance claire" />
+        <div class="hero-media parallax-media motion-card" data-depth="0.12">
+          <video class="hero-reel" autoplay muted loop playsinline poster="/assets/hero-business-cards.png?v=business-cards-20260531" aria-label="Ambiance Coffee Break TCG: card shows, échanges et cartes Pokémon">
+            <source src="/assets/card-show-reel.mp4" type="video/mp4" />
+          </video>
+          <img class="hero-reel-fallback" src="/assets/hero-business-cards.png?v=business-cards-20260531" alt="Cartes d'affaires Coffee Break TCG dans une ambiance claire" />
+          <div class="hero-motion-copy" aria-hidden="true">
+            <span>Card shows</span>
+            <span>Trades</span>
+            <span>Slabs</span>
+          </div>
         </div>
       </section>
 
