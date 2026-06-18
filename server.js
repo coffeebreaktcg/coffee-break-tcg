@@ -1087,7 +1087,9 @@ function jarvisPriorities(db, context) {
       reason: growth.partnershipsThisWeek === 0 ? "Aucun partenariat suivi cette semaine. Bon levier, mais moins urgent que stock et clients." : "Des pistes de partenariat existent; garde le suivi vivant.",
       score: Math.max(28, (growth.partnershipsThisWeek === 0 ? 52 : 64) - Math.min(16, urgentPressure)),
     },
-  ].sort((a, b) => b.score - a.score);
+  ]
+    .map((priority) => ({ ...priority, score: Math.max(0, Math.min(100, Math.round(Number(priority.score || 0)))) }))
+    .sort((a, b) => b.score - a.score);
 }
 
 function jarvisGrowthMetrics(db) {
@@ -1129,6 +1131,21 @@ function contentOpportunityScore(factors) {
   return Math.max(1, Math.min(100, factors.reduce((sum, factor) => sum + Number(factor.points || 0), 0)));
 }
 
+function opportunityTier(score) {
+  if (score >= 95) return "Exceptionnel";
+  if (score >= 85) return "Excellente opportunité";
+  if (score >= 70) return "Bonne opportunité";
+  if (score >= 50) return "Opportunité normale";
+  return "Faible priorité";
+}
+
+function calibrateOpportunityScore(rawScore, majorSignals) {
+  const score = Math.round(Number(rawScore || 0));
+  if (score > 95 && majorSignals < 5) return 94;
+  if (score >= 95) return Math.min(100, score);
+  return Math.max(1, Math.min(94, score));
+}
+
 function contentConfidence(score, signalCount) {
   if (score >= 82 && signalCount >= 4) return "Élevé";
   if (score >= 64 && signalCount >= 3) return "Moyen";
@@ -1142,6 +1159,15 @@ function buildContentOpportunity({ title, format, topic, inventoryMatches, sales
   const trendPoints = trendMatches ? 15 : 6;
   const collectionPoints = collectionSignal ? 20 : Math.min(20, businessPotential);
   const executionPoints = executionMinutes <= 10 ? 12 : executionMinutes <= 20 ? 9 : 6;
+  const majorSignals = [
+    inventoryMatches >= 4,
+    salesMatches >= 2,
+    Boolean(trendMatches),
+    Boolean(collectionSignal),
+    businessPotential >= 18,
+    executionMinutes <= 10,
+    format === "Reel",
+  ].filter(Boolean).length;
   const factors = [
     { label: "Historique CoffeeBreak", detail: "Le sujet sert directement la confiance, les ventes ou le sourcing.", points: collectionSignal ? 18 : 10 },
     { label: `Format ${format}`, detail: "Score basé sur l'engagement moyen attendu du format, sans prédire les vues.", points: formatPoints },
@@ -1151,15 +1177,17 @@ function buildContentOpportunity({ title, format, topic, inventoryMatches, sales
     { label: "Potentiel business", detail: "Peut générer des ventes, des messages ou des collections à acheter.", points: collectionPoints },
     { label: "Exécution", detail: `${executionMinutes} minutes estimées.`, points: executionPoints },
   ];
-  const score = contentOpportunityScore(factors);
+  const score = calibrateOpportunityScore(contentOpportunityScore(factors), majorSignals);
   return {
     id: crypto.createHash("sha1").update(`${title}:${format}:${topic}`).digest("hex").slice(0, 12),
     title,
     format,
     topic,
     score,
+    tier: opportunityTier(score),
     scoreLabel: "Score opportunité",
     scoreType: "opportunity",
+    majorSignals,
     factors,
     whyNow:
       inventoryMatches > 0
@@ -1193,7 +1221,11 @@ function jarvisContentOpportunities(db, context) {
   ].sort((a, b) => b.count - a.count)[0];
   const ideas = [
     buildContentOpportunity({
-      title: recentInventory.length ? "Montrer les nouveautés arrivées cette semaine" : `Mettre en valeur les meilleurs ${bestCategory?.name || "items"} disponibles`,
+      title: recentInventory.length
+        ? "Montrer les nouveautés arrivées cette semaine"
+        : inventory.length
+          ? `Mettre en valeur les meilleurs ${bestCategory?.name || "items"} disponibles`
+          : "Créer un contenu confiance: pourquoi vendre ou acheter avec CoffeeBreak",
       format: "Reel",
       topic: "Nouveautés boutique",
       inventoryMatches: Math.max(recentInventory.length, bestCategory?.count || 0),
@@ -1207,7 +1239,7 @@ function jarvisContentOpportunities(db, context) {
       title: "Appel à collections: ce qu’on recherche cette semaine",
       format: "Story",
       topic: "Collections à acheter",
-      inventoryMatches: Math.max(1, inventory.length),
+      inventoryMatches: inventory.length,
       salesMatches: Number(context.growth.collectionsBoughtThisWeek || 0),
       trendMatches: hasMarketTrendSignal(inventoryText + " " + recentOrderText),
       collectionSignal: true,
@@ -1227,6 +1259,173 @@ function jarvisContentOpportunities(db, context) {
     }),
   ];
   return ideas.sort((a, b) => b.score - a.score).slice(0, 3);
+}
+
+function daysSince(value) {
+  if (!value) return 0;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 0;
+  return Math.max(0, Math.floor((Date.now() - date.getTime()) / (24 * 60 * 60 * 1000)));
+}
+
+function productCost(product) {
+  return Number(product.cost || product.paidPrice || product.purchasePrice || 0);
+}
+
+function productMargin(product) {
+  const price = Number(product.price || 0);
+  const cost = productCost(product);
+  if (!price || !cost) return null;
+  return (price - cost) / price;
+}
+
+function inventorySaleRows(db) {
+  const rows = new Map();
+  for (const order of paidOrders(db)) {
+    for (const item of order.items || []) {
+      const key = item.productId || item.id || item.sku || item.name;
+      if (!key) continue;
+      const row = rows.get(key) || {
+        key,
+        name: item.name || "Item",
+        category: item.category || "",
+        quantity: 0,
+        revenue: 0,
+        lastSoldAt: "",
+      };
+      row.quantity += Number(item.quantity || 1);
+      row.revenue += Number(item.price || 0) * Number(item.quantity || 1);
+      row.lastSoldAt = [row.lastSoldAt, order.paidAt || order.createdAt || ""].sort().pop();
+      rows.set(key, row);
+    }
+  }
+  return [...rows.values()].sort((a, b) => b.revenue - a.revenue || b.quantity - a.quantity);
+}
+
+function estimateInventoryImpact(item, reason = "") {
+  const price = Number(item.price || item.market || 0);
+  if (price >= 500) return "Élevé: gros capital immobilisé.";
+  if (price >= 150) return "Moyen-élevé: peut libérer du cash rapidement.";
+  if (/bundle|lot|liquid/i.test(reason)) return "Moyen: bon levier pour augmenter le panier moyen.";
+  return "Moyen: améliore la rotation et la clarté de la vitrine.";
+}
+
+function jarvisInventoryIntelligence(db) {
+  const inventory = activeInventoryItems(db).map((item) => ({
+    ...item,
+    ageDays: daysSince(item.createdAt || item.updatedAt),
+    marginRate: productMargin(item),
+  }));
+  const sales = inventorySaleRows(db);
+  const soldKeys = new Set(sales.map((sale) => sale.key));
+  const dormant = inventory
+    .filter((item) => item.ageDays >= 45 && !soldKeys.has(item.id))
+    .sort((a, b) => b.ageDays - a.ageDays || Number(b.price || 0) - Number(a.price || 0))
+    .slice(0, 8);
+  const liquidityAlerts = dormant
+    .filter((item) => item.ageDays >= 60 || Number(item.price || 0) >= 150)
+    .slice(0, 5)
+    .map((item) => ({
+      title: `${item.name} dort depuis ${item.ageDays} jours`,
+      impact: estimateInventoryImpact(item),
+      effort: "Faible à moyen",
+      delay: item.price >= 150 ? "7 à 14 jours" : "3 à 10 jours",
+      reason: "Capital immobilisé dans l’inventaire. À pousser en contenu, bundle ou ajustement de prix.",
+      itemId: item.id,
+    }));
+  const bySet = new Map();
+  for (const item of inventory) {
+    const key = item.setName || item.category || "Mix CoffeeBreak";
+    const group = bySet.get(key) || [];
+    group.push(item);
+    bySet.set(key, group);
+  }
+  const bundleOpportunities = [...bySet.entries()]
+    .filter(([, items]) => items.length >= 2)
+    .map(([setName, items]) => ({
+      title: `Bundle ${setName}`,
+      impact: "Moyen: augmente le panier moyen et aide les items lents.",
+      effort: "Faible",
+      delay: "Cette semaine",
+      reason: `${items.length} items reliés peuvent être présentés ensemble au lieu d’attendre une vente isolée.`,
+      items: items.slice(0, 4).map((item) => item.name),
+    }))
+    .slice(0, 4);
+  const tradeOpportunities = dormant
+    .filter((item) => Number(item.price || item.market || 0) >= 80)
+    .slice(0, 4)
+    .map((item) => ({
+      title: `Proposer ${item.name} en trade`,
+      impact: "Moyen: transforme un item lent en stock plus liquide.",
+      effort: "Moyen",
+      delay: "1 à 3 semaines",
+      reason: "Item avec valeur suffisante pour attirer un échange sans vendre sous pression.",
+      itemId: item.id,
+    }));
+  const contentRecommendations = inventory
+    .filter((item) => item.featured || item.ageDays >= 30 || Number(item.price || 0) >= 100)
+    .sort((a, b) => Number(b.price || 0) - Number(a.price || 0) || b.ageDays - a.ageDays)
+    .slice(0, 5)
+    .map((item) => ({
+      title: `Créer du contenu pour ${item.name}`,
+      impact: estimateInventoryImpact(item, "content"),
+      effort: "Faible",
+      delay: "Aujourd’hui",
+      reason: item.ageDays >= 45 ? "Item dormant qui mérite une nouvelle exposition." : "Item assez fort pour attirer confiance, messages ou vente.",
+      itemId: item.id,
+    }));
+  return {
+    topSellers: sales.slice(0, 6).map((sale) => ({
+      ...sale,
+      impact: "Signal de demande réelle.",
+      effort: "Faible",
+      delay: "À réutiliser dans le prochain contenu ou restock.",
+      reason: `${sale.quantity} vendu${sale.quantity > 1 ? "s" : ""}, ${roundMoney(sale.revenue)}$ de revenus.`,
+    })),
+    dormantInventory: dormant.map((item) => ({
+      id: item.id,
+      name: item.name,
+      category: item.category,
+      ageDays: item.ageDays,
+      price: Number(item.price || 0),
+      marginRate: item.marginRate,
+      impact: estimateInventoryImpact(item),
+      effort: "Faible",
+      delay: "7 à 14 jours",
+      reason: "Âge élevé sans vente récente détectée.",
+    })),
+    liquidityAlerts,
+    bundleOpportunities,
+    tradeOpportunities,
+    contentRecommendations,
+    summary: {
+      inventoryCount: inventory.length,
+      dormantCount: dormant.length,
+      totalDormantValue: roundMoney(dormant.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.stock || 1), 0)),
+    },
+  };
+}
+
+function jarvisTicker(db, context) {
+  const today = dateOnlyString(new Date());
+  const weekStart = startOfWeek();
+  const orders = paidOrders(db);
+  const salesToday = roundMoney(
+    orders.filter((order) => String(order.paidAt || order.createdAt || "").slice(0, 10) === today).reduce((sum, order) => sum + orderGrandTotal(order), 0)
+  );
+  const salesWeek = roundMoney(orders.filter((order) => isSince(order.paidAt || order.createdAt, weekStart)).reduce((sum, order) => sum + orderGrandTotal(order), 0));
+  const inventory = activeInventoryItems(db);
+  const topSeller = context.inventoryIntelligence.topSellers?.[0]?.name || "À découvrir";
+  const alertCount = Number(context.ordersToShip.length || 0) + Number(context.emails.filter((email) => email.priority === "Critique").length || 0);
+  return [
+    { label: "Ventes aujourd’hui", value: moneyText(salesToday) },
+    { label: "Ventes semaine", value: moneyText(salesWeek) },
+    { label: "Inventaire", value: String(inventory.length) },
+    { label: "Produits populaires", value: topSeller },
+    { label: "Inventaire dormant", value: String(context.inventoryIntelligence.summary?.dormantCount || 0) },
+    { label: "Card Shows à venir", value: String(context.cardShows.length || 0) },
+    { label: "Alertes importantes", value: String(alertCount) },
+  ];
 }
 
 function decisionItem({ type, title, detail, score, source, action, opportunity }) {
@@ -1353,6 +1552,7 @@ async function buildJarvisBriefing(db) {
   const calendar = jarvisCalendarEvents(db);
   const tasks = activeJarvisTasks(db);
   const growth = jarvisGrowthMetrics(db);
+  const inventoryIntelligence = jarvisInventoryIntelligence(db);
   const invoiceEmails = emails.filter((email) => email.category === "Factures");
   const criticalEmails = emails.filter((email) => email.priority === "Critique");
   const baseContext = { emails, ordersToShip, cardShows, calendar, growth };
@@ -1400,6 +1600,7 @@ async function buildJarvisBriefing(db) {
         cardShows,
         calendar,
         tasks,
+        inventoryIntelligence,
         growth,
         priorities: priorities.slice(0, 6),
       },
@@ -1448,6 +1649,7 @@ async function buildJarvisBriefing(db) {
       invoices: invoiceEmails.length,
       todayEvents: calendar.today.length,
     },
+    ticker: jarvisTicker(db, { emails, ordersToShip, cardShows, calendar, inventoryIntelligence }),
     emails: {
       important: emails,
       accounts: ["coffeebreaktcg@gmail.com", "maximelegault2000@gmail.com"],
@@ -1456,6 +1658,7 @@ async function buildJarvisBriefing(db) {
     cardShows,
     calendar,
     tasks,
+    inventoryIntelligence,
     priorities: priorities.slice(0, 6),
     contentOpportunities,
     growth,

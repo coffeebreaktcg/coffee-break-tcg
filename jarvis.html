@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/jarvis.css?v=jarvis-chief-of-staff-v1-20260618" />
+    <link rel="stylesheet" href="/jarvis.css?v=jarvis-v2-orb-20260618" />
   </head>
   <body>
     <main class="jarvis-shell">
@@ -35,6 +35,7 @@
       </section>
 
       <section class="assistant-panel" data-app-panel hidden>
+        <section class="market-strip" data-ticker></section>
         <header class="jarvis-header">
           <div>
             <h1 data-greeting>Bonjour Max</h1>
@@ -45,15 +46,22 @@
           </div>
         </header>
 
-        <section class="command-hero">
-          <div>
-            <p class="eyebrow">Aujourd’hui</p>
+        <section class="jarvis-stage">
+          <div class="orb-wrap" aria-hidden="true">
+            <div class="jarvis-orb">
+              <span></span>
+            </div>
+          </div>
+          <div class="spoken-briefing">
+            <p class="eyebrow">Briefing</p>
             <div class="today-summary" data-today-summary>Préparation du briefing...</div>
+            <p class="jarvis-speech" data-jarvis-speech>Jarvis analyse les signaux CoffeeBreak.</p>
           </div>
           <div class="admin-time">
-            <span>Temps estimé pour vider l’administratif</span>
+            <span>Temps administratif estimé</span>
             <strong data-admin-time>...</strong>
           </div>
+          <div class="living-board" data-living-board></div>
         </section>
 
         <section class="action-stack" aria-label="Priorités Jarvis">
@@ -99,6 +107,13 @@
           </details>
 
           <details>
+            <summary>Intelligence d’inventaire</summary>
+            <div class="panel-body">
+              <div class="inventory-intel" data-inventory-intelligence></div>
+            </div>
+          </details>
+
+          <details>
             <summary>Mode apprentissage</summary>
             <div class="panel-body">
               <div class="learning-head">
@@ -138,6 +153,6 @@
       </section>
     </main>
 
-    <script src="/jarvis.js?v=jarvis-chief-of-staff-v1-20260618" defer></script>
+    <script src="/jarvis.js?v=jarvis-v2-orb-20260618" defer></script>
   </body>
 </html>

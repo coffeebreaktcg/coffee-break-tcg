@@ -288,6 +288,65 @@ function renderTodaySummary(counts, cardShowsCount) {
   document.querySelector("[data-admin-time]").textContent = `${adminMinutes || 8} minutes`;
 }
 
+function renderTicker(ticker) {
+  const node = document.querySelector("[data-ticker]");
+  if (!node) return;
+  node.innerHTML = (ticker || [])
+    .map((item) => `<div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong></div>`)
+    .join("");
+}
+
+function renderJarvisSpeech(payload, decisions) {
+  const node = document.querySelector("[data-jarvis-speech]");
+  if (!node) return;
+  const counts = payload.counts || {};
+  const focus = decisions?.[0];
+  const urgency = counts.criticalEmails ? `${counts.criticalEmails} email${counts.criticalEmails > 1 ? "s" : ""} critique${counts.criticalEmails > 1 ? "s" : ""}` : "aucune urgence critique";
+  node.textContent = `Bonjour Max. Tu as ${urgency}, ${counts.ordersToShip || 0} commande${counts.ordersToShip > 1 ? "s" : ""} à expédier et ${
+    counts.cardShows || 0
+  } opportunité${counts.cardShows > 1 ? "s" : ""} Card Show. Je recommande: ${focus?.title || "ajouter des cartes au site"}. ${focus?.action || ""}`;
+}
+
+function renderLivingBoard(payload, decisions) {
+  const node = document.querySelector("[data-living-board]");
+  if (!node) return;
+  const emails = payload.emails?.important || [];
+  const inventory = payload.inventoryIntelligence || {};
+  const cards = [
+    {
+      label: "Maintenant",
+      title: decisions?.[0]?.title || "Aucune urgence",
+      detail: decisions?.[0]?.action || "Passer à une action de croissance.",
+    },
+    {
+      label: "Email",
+      title: emails[0]?.subject || "Aucun email critique",
+      detail: emails[0]?.action || "Gmail reste sous contrôle.",
+    },
+    {
+      label: "Inventaire",
+      title: `${inventory.summary?.dormantCount || 0} item${inventory.summary?.dormantCount > 1 ? "s" : ""} dormant${inventory.summary?.dormantCount > 1 ? "s" : ""}`,
+      detail: inventory.liquidityAlerts?.[0]?.reason || "Aucune alerte de liquidité majeure.",
+    },
+    {
+      label: "Opportunité",
+      title: payload.contentOpportunities?.[0]?.title || "Contenu à définir",
+      detail: payload.contentOpportunities?.[0]?.tier || "Score opportunité à calculer.",
+    },
+  ];
+  node.innerHTML = cards
+    .map(
+      (card, index) => `
+        <article style="--i:${index}">
+          <span>${escapeHtml(card.label)}</span>
+          <strong>${escapeHtml(card.title)}</strong>
+          <p>${escapeHtml(card.detail)}</p>
+        </article>
+      `
+    )
+    .join("");
+}
+
 function growthScoreFrom(growth, priorities) {
   let score = 72;
   if ((growth.cardsAddedThisWeek || 0) >= 20) score += 8;
@@ -320,7 +379,7 @@ function renderGrowthScore(growth, priorities) {
 }
 
 function opportunityScorePill(opportunity) {
-  return `<span class="opportunity-score">Score opportunité ${Math.round(Number(opportunity?.score || 0))}/100</span>`;
+  return `<span class="opportunity-score">Score opportunité ${Math.round(Number(opportunity?.score || 0))}/100 · ${escapeHtml(opportunity?.tier || "")}</span>`;
 }
 
 function renderOpportunityBlock(opportunity, compact = false) {
@@ -493,10 +552,13 @@ function groupEmails(emails) {
 }
 
 function renderBriefing(payload) {
-  const { briefing, counts, emails, calendar, priorities, contentOpportunities, growth, integrations } = payload;
+  const { briefing, counts, emails, calendar, priorities, contentOpportunities, inventoryIntelligence, growth, integrations, ticker } = payload;
   currentContentOpportunities = contentOpportunities || [];
   const decisions = briefing.decisionMatrix?.all || [];
   renderTodaySummary(counts || {}, (emails.important || []).filter((email) => email.category === "Card Shows").length || (payload.cardShows || []).length);
+  renderTicker(ticker || []);
+  renderJarvisSpeech(payload, decisions);
+  renderLivingBoard(payload, decisions);
   renderActionCard("now", decisions[0], "Faire maintenant");
   renderActionCard("next", decisions[1], "Ensuite");
   renderActionCard("later", decisions[2], "Après");
@@ -566,7 +628,47 @@ function renderBriefing(payload) {
     (opportunity) => renderOpportunityBlock(opportunity),
     "Aucune opportunité contenu calculée pour l’instant."
   );
+  renderInventoryIntelligence(inventoryIntelligence || {});
   renderGrowthScore(growth, priorities);
+}
+
+function renderRecommendationList(items) {
+  if (!items?.length) return `<p class="empty">Rien à signaler.</p>`;
+  return items
+    .map(
+      (item) => `
+        <div class="intel-item">
+          <strong>${escapeHtml(item.title || item.name || "Signal")}</strong>
+          <p>${escapeHtml(item.reason || "Pourquoi Max devrait s’en soucier: signal à examiner.")}</p>
+          <div class="opportunity-meta">
+            <span>Impact: ${escapeHtml(item.impact || "À confirmer")}</span>
+            <span>Effort: ${escapeHtml(item.effort || "À confirmer")}</span>
+            <span>Délai: ${escapeHtml(item.delay || "À confirmer")}</span>
+          </div>
+        </div>
+      `
+    )
+    .join("");
+}
+
+function renderInventoryIntelligence(intel) {
+  const node = document.querySelector("[data-inventory-intelligence]");
+  if (!node) return;
+  node.innerHTML = `
+    <div class="intel-summary">
+      <div><span>Inventaire</span><strong>${Number(intel.summary?.inventoryCount || 0)}</strong></div>
+      <div><span>Dormant</span><strong>${Number(intel.summary?.dormantCount || 0)}</strong></div>
+      <div><span>Valeur dormante</span><strong>${money(intel.summary?.totalDormantValue || 0)}</strong></div>
+    </div>
+    <div class="intel-grid">
+      <section><h3>Top vendeurs</h3>${renderRecommendationList(intel.topSellers)}</section>
+      <section><h3>Inventaire dormant</h3>${renderRecommendationList(intel.dormantInventory)}</section>
+      <section><h3>Alertes de liquidité</h3>${renderRecommendationList(intel.liquidityAlerts)}</section>
+      <section><h3>Bundles</h3>${renderRecommendationList(intel.bundleOpportunities)}</section>
+      <section><h3>Trades</h3>${renderRecommendationList(intel.tradeOpportunities)}</section>
+      <section><h3>Contenu basé sur l’inventaire</h3>${renderRecommendationList(intel.contentRecommendations)}</section>
+    </div>
+  `;
 }
 
 function renderEmailReviewList(payload) {
