@@ -234,9 +234,22 @@ button.ghost {
 .attention-list,
 .email-list,
 .compact-list,
-.focus-list {
+.focus-list,
+.decision-stack {
   display: grid;
   gap: 10px;
+}
+
+.decision-stack {
+  gap: 18px;
+}
+
+.decision-stack h3 {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 1000;
+  text-transform: uppercase;
 }
 
 .attention-item,
@@ -252,6 +265,13 @@ button.ghost {
 .attention-item {
   display: grid;
   gap: 7px;
+}
+
+.item-title-row {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .attention-item strong,
@@ -298,6 +318,21 @@ button.ghost {
   color: var(--red);
 }
 
+.score-pill {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  min-height: 28px;
+  border: 1px solid rgba(213, 116, 45, 0.24);
+  background: #fff7eb;
+  color: var(--orange);
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 1000;
+}
+
 .pill.card-show {
   color: var(--blue);
 }
@@ -308,6 +343,35 @@ button.ghost {
 
 .pill.work {
   color: var(--green);
+}
+
+.growth-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.growth-item {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: rgba(251, 234, 216, 0.45);
+  padding: 10px;
+}
+
+.growth-item span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.growth-item strong {
+  color: var(--orange);
+  font-family: "Rubik One", Inter, sans-serif;
+  font-size: 24px;
+  font-weight: 400;
 }
 
 .empty {
@@ -326,7 +390,8 @@ button.ghost {
   }
 
   .status-grid,
-  .priority-layout {
+  .priority-layout,
+  .growth-grid {
     grid-template-columns: 1fr;
   }
 

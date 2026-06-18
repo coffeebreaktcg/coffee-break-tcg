@@ -81,9 +81,22 @@
           <article class="jarvis-card urgent-card">
             <div class="section-heading">
               <p class="eyebrow">Maintenant</p>
-              <h2>Ce qui mérite ton attention</h2>
+              <h2>Moteur de priorisation</h2>
             </div>
-            <div class="attention-list" data-attention-list></div>
+            <div class="decision-stack">
+              <div>
+                <h3>Urgent</h3>
+                <div class="attention-list" data-urgent-list></div>
+              </div>
+              <div>
+                <h3>Important</h3>
+                <div class="attention-list" data-important-list></div>
+              </div>
+              <div>
+                <h3>Peut attendre</h3>
+                <div class="attention-list" data-waiting-list></div>
+              </div>
+            </div>
           </article>
 
           <article class="jarvis-card">
@@ -115,8 +128,9 @@
           <article class="jarvis-card">
             <div class="section-heading">
               <p class="eyebrow">Croissance</p>
-              <h2>Priorités Coffee Break</h2>
+              <h2>Score Coffee Break</h2>
             </div>
+            <div class="growth-grid" data-growth-list></div>
             <div class="focus-list" data-priority-list></div>
           </article>
         </section>

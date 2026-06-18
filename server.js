@@ -827,6 +827,20 @@ function jarvisEmailCategory(email) {
   return match ? { category: match[0], categoryType: match[1] } : { category: "Faible", categoryType: "low" };
 }
 
+function jarvisEmailPriority(email, category) {
+  const text = `${email.from || ""} ${email.subject || ""} ${email.snippet || ""} ${email.body || ""}`.toLowerCase();
+  let score = category.categoryType === "critical" ? 92 : category.categoryType === "important" ? 72 : 28;
+  if (category.category === "Card Shows") score += 12;
+  if (category.category === "Collections à vendre") score += 10;
+  if (category.category === "Factures") score += 7;
+  if (category.category === "Questions clients") score += 8;
+  if (/today|aujourd'hui|urgent|asap|deadline|limite|derni[eè]re chance/.test(text)) score += 12;
+  if (/tomorrow|demain|cette semaine|week/.test(text)) score += 6;
+  score = Math.max(0, Math.min(100, score));
+  const priority = score >= 88 ? "Critique" : score >= 62 ? "Important" : "Peut attendre";
+  return { score, priority };
+}
+
 function summarizeJarvisEmail(email, category) {
   const snippet = String(email.snippet || email.body || "").replace(/\s+/g, " ").trim();
   const base = snippet ? snippet.slice(0, 180) : "Aucun extrait disponible.";
@@ -835,6 +849,17 @@ function summarizeJarvisEmail(email, category) {
   if (category === "Factures") return `Document ou paiement à vérifier. ${base}`;
   if (category === "Questions clients") return `Client à répondre. ${base}`;
   return base;
+}
+
+function recommendedJarvisEmailAction(email, category, priority) {
+  if (priority === "Critique") return "Répondre aujourd’hui";
+  if (category === "Card Shows") return "Confirmer les dates, le prix des tables et la logistique";
+  if (category === "Collections à vendre") return "Demander photos, prix demandé et disponibilité";
+  if (category === "Factures") return "Vérifier le montant et classer pour la comptabilité";
+  if (category === "Questions clients") return "Répondre avec les détails de commande ou livraison";
+  if (category === "Partenariats") return "Évaluer l’opportunité et proposer une prochaine étape";
+  if (priority === "Important") return "Traiter après les urgences";
+  return "Lire plus tard";
 }
 
 function suggestedJarvisReply(email, category) {
@@ -849,18 +874,22 @@ function importantJarvisEmails(db) {
   return (db.jarvisEmails || [])
     .map((email) => {
       const category = jarvisEmailCategory(email);
+      const priority = jarvisEmailPriority(email, category);
       return {
         id: email.id || crypto.createHash("sha1").update(`${email.from || ""}${email.subject || ""}`).digest("hex").slice(0, 12),
         from: email.from || "",
         subject: email.subject || "(Sans sujet)",
         receivedAt: email.receivedAt || email.date || "",
         ...category,
+        priority: priority.priority,
+        score: priority.score,
         summary: summarizeJarvisEmail(email, category.category),
+        action: recommendedJarvisEmailAction(email, category.category, priority.priority),
         suggestedReply: suggestedJarvisReply(email, category.category),
       };
     })
     .filter((email) => email.categoryType !== "low")
-    .sort((a, b) => String(b.receivedAt || "").localeCompare(String(a.receivedAt || "")))
+    .sort((a, b) => b.score - a.score || String(b.receivedAt || "").localeCompare(String(a.receivedAt || "")))
     .slice(0, 12);
 }
 
@@ -880,6 +909,24 @@ function jarvisOrdersToShip(db) {
 
 function dateOnlyString(date) {
   return date.toISOString().slice(0, 10);
+}
+
+function startOfWeek(date = new Date()) {
+  const copy = new Date(date);
+  const day = copy.getDay() || 7;
+  copy.setHours(0, 0, 0, 0);
+  copy.setDate(copy.getDate() - day + 1);
+  return copy;
+}
+
+function isSince(value, since) {
+  if (!value) return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && date >= since;
+}
+
+function countActivity(db, type, since) {
+  return (db.jarvisActivity || []).filter((entry) => entry.type === type && isSince(entry.createdAt || entry.date, since)).length;
 }
 
 function jarvisCardShows(db) {
@@ -932,22 +979,163 @@ function jarvisCalendarEvents(db) {
 
 function jarvisPriorities(db, context) {
   const inventoryCount = (db.inventory || []).filter((item) => item.status !== "draft" && item.status !== "sold").length;
+  const growth = context.growth;
+  const urgentPressure = context.ordersToShip.length * 24 + context.emails.filter((email) => email.priority === "Critique").length * 18 + context.calendar.today.length * 12;
   return [
     {
       title: "Ajouter des cartes au site",
-      reason: inventoryCount < 12 ? "La vitrine a besoin de stock visible pour convertir les visiteurs." : "Garder la boutique fraîche aide les retours clients.",
-      score: inventoryCount < 12 ? 95 : 60,
+      reason:
+        growth.cardsAddedThisWeek === 0
+          ? "Aucune carte ajoutée cette semaine. La vitrine a besoin de nouveautés pour convertir."
+          : inventoryCount < 12
+            ? "La vitrine a besoin de plus de stock visible pour convertir les visiteurs."
+            : "Garder la boutique fraîche aide les retours clients.",
+      score: Math.max(45, (growth.cardsAddedThisWeek === 0 ? 92 : 62) + (inventoryCount < 12 ? 12 : 0) - Math.min(30, urgentPressure)),
     },
-    { title: "Créer du contenu Instagram", reason: "Montrer les nouveautés et les beaux slabs crée de la confiance.", score: 74 },
-    { title: "Améliorer le site web", reason: "Optimiser l’expérience augmente les chances d’achat.", score: 62 },
-    { title: "Trouver des collections", reason: "Le sourcing reste le moteur de marge pour Coffee Break.", score: 70 },
+    {
+      title: "Créer du contenu Instagram",
+      reason: growth.instagramPostsThisWeek === 0 ? "Aucune publication suivie cette semaine. Le contenu nourrit la confiance et les ventes." : "Continue de montrer les nouveautés et les beaux slabs.",
+      score: Math.max(36, (growth.instagramPostsThisWeek === 0 ? 78 : 54) - Math.min(24, urgentPressure)),
+    },
+    {
+      title: "Améliorer le site web",
+      reason: "Optimiser l’expérience augmente les chances d’achat, mais passe après les urgences clients.",
+      score: Math.max(30, 58 - Math.min(22, urgentPressure)),
+    },
+    {
+      title: "Trouver des collections",
+      reason: growth.collectionsBoughtThisWeek === 0 ? "Aucune collection suivie cette semaine. Le sourcing reste le moteur de marge." : "Des collections ont été suivies; continue à alimenter le pipeline.",
+      score: Math.max(38, (growth.collectionsBoughtThisWeek === 0 ? 73 : 56) - Math.min(20, urgentPressure)),
+    },
     {
       title: "Trouver des Card Shows",
       reason: context.cardShows.length ? "Tu as déjà des shows à suivre; confirme les détails importants." : "Les shows amènent contacts, achats et visibilité locale.",
-      score: context.cardShows.length ? 80 : 68,
+      score: Math.max(34, (context.cardShows.length ? 76 : 68) - Math.min(18, urgentPressure)),
     },
-    { title: "Trouver des partenariats", reason: "Les collaborations peuvent accélérer la croissance sans gros budget média.", score: 58 },
+    {
+      title: "Trouver des partenariats",
+      reason: growth.partnershipsThisWeek === 0 ? "Aucun partenariat suivi cette semaine. Bon levier, mais moins urgent que stock et clients." : "Des pistes de partenariat existent; garde le suivi vivant.",
+      score: Math.max(28, (growth.partnershipsThisWeek === 0 ? 52 : 64) - Math.min(16, urgentPressure)),
+    },
   ].sort((a, b) => b.score - a.score);
+}
+
+function jarvisGrowthMetrics(db) {
+  const since = startOfWeek();
+  const cardsAddedThisWeek = (db.inventory || []).filter((item) => isSince(item.createdAt, since)).length;
+  const cardShowsThisWeek = (db.cardShows || []).filter((show) => isSince(show.createdAt || show.date, since)).length;
+  const collectionsBoughtThisWeek =
+    countActivity(db, "collection_bought", since) +
+    (db.orders || []).filter((order) => order.status === "admin_sale" && /collection/i.test(JSON.stringify(order))).length;
+  return {
+    weekStartsAt: since.toISOString(),
+    cardsAddedThisWeek,
+    instagramPostsThisWeek: countActivity(db, "instagram_post", since),
+    cardShowsThisWeek,
+    collectionsBoughtThisWeek,
+    partnershipsThisWeek: countActivity(db, "partnership", since),
+    siteImprovementsThisWeek: countActivity(db, "site_improvement", since),
+  };
+}
+
+function decisionItem({ type, title, detail, score, source, action }) {
+  const priority = score >= 85 ? "Critique" : score >= 58 ? "Important" : "Peut attendre";
+  return { type, title, detail, score: Math.max(0, Math.min(100, Math.round(score))), priority, source, action };
+}
+
+function buildDecisionMatrix({ emails, ordersToShip, calendar, cardShows, priorities, growth }) {
+  const decisions = [];
+  for (const order of ordersToShip) {
+    decisions.push(
+      decisionItem({
+        type: "Commande",
+        title: `${order.id} à expédier`,
+        detail: `${order.customerName || "Client"} · ${order.itemsSummary || "Commande payée"}`,
+        score: 96,
+        source: "Boutique",
+        action: "Préparer et expédier avant les tâches de croissance",
+      })
+    );
+  }
+  for (const email of emails) {
+    decisions.push(
+      decisionItem({
+        type: "Email",
+        title: email.subject,
+        detail: `${email.category} · ${email.summary}`,
+        score: email.score,
+        source: email.from || "Gmail",
+        action: email.action,
+      })
+    );
+  }
+  for (const event of calendar.today) {
+    decisions.push(
+      decisionItem({
+        type: "Calendrier",
+        title: event.title,
+        detail: event.location || event.type || "Événement aujourd’hui",
+        score: event.type === "Card Show" ? 84 : 72,
+        source: "Google Calendar",
+        action: "Vérifier les préparatifs aujourd’hui",
+      })
+    );
+  }
+  if (cardShows.length) {
+    decisions.push(
+      decisionItem({
+        type: "Card Show",
+        title: "Suivi des Card Shows",
+        detail: `${cardShows.length} événement${cardShows.length > 1 ? "s" : ""} actif${cardShows.length > 1 ? "s" : ""} ou à venir.`,
+        score: 66,
+        source: "Coffee Break",
+        action: "Confirmer tables, dates et matériel à apporter",
+      })
+    );
+  }
+  if (growth.cardsAddedThisWeek === 0) {
+    decisions.push(
+      decisionItem({
+        type: "Croissance",
+        title: "Ajouter des cartes au site",
+        detail: "Aucune carte ajoutée cette semaine.",
+        score: 74,
+        source: "Historique d’activité",
+        action: "Ajouter ou publier un lot de cartes aujourd’hui",
+      })
+    );
+  }
+  if (growth.instagramPostsThisWeek === 0) {
+    decisions.push(
+      decisionItem({
+        type: "Croissance",
+        title: "Créer du contenu Instagram",
+        detail: "Aucune publication Instagram suivie cette semaine.",
+        score: 58,
+        source: "Historique d’activité",
+        action: "Préparer une publication courte avec une nouveauté ou un beau slab",
+      })
+    );
+  }
+  if (priorities[0]) {
+    decisions.push(
+      decisionItem({
+        type: "Focus",
+        title: priorities[0].title,
+        detail: priorities[0].reason,
+        score: priorities[0].score,
+        source: "Moteur de croissance",
+        action: "Planifier un bloc de 45 minutes",
+      })
+    );
+  }
+  const sorted = decisions.sort((a, b) => b.score - a.score);
+  return {
+    urgent: sorted.filter((item) => item.priority === "Critique").slice(0, 8),
+    important: sorted.filter((item) => item.priority === "Important").slice(0, 8),
+    waiting: sorted.filter((item) => item.priority === "Peut attendre").slice(0, 8),
+    all: sorted,
+  };
 }
 
 function buildJarvisBriefing(db) {
@@ -955,61 +1143,29 @@ function buildJarvisBriefing(db) {
   const ordersToShip = jarvisOrdersToShip(db);
   const cardShows = jarvisCardShows(db);
   const calendar = jarvisCalendarEvents(db);
+  const growth = jarvisGrowthMetrics(db);
   const invoiceEmails = emails.filter((email) => email.category === "Factures");
-  const criticalEmails = emails.filter((email) => email.categoryType === "critical");
-  const context = { emails, ordersToShip, cardShows, calendar };
+  const criticalEmails = emails.filter((email) => email.priority === "Critique");
+  const context = { emails, ordersToShip, cardShows, calendar, growth };
   const priorities = jarvisPriorities(db, context);
-  const attention = [];
+  const decisionMatrix = buildDecisionMatrix({ emails, ordersToShip, calendar, cardShows, priorities, growth });
+  const topDecision = decisionMatrix.all[0];
 
-  if (ordersToShip.length) {
-    attention.push({
-      priority: "Critique",
-      title: `${ordersToShip.length} commande${ordersToShip.length > 1 ? "s" : ""} à expédier`,
-      detail: "Prépare les colis payés avant d’ajouter de nouvelles tâches.",
-    });
-  }
-  if (criticalEmails.length) {
-    attention.push({
-      priority: "Critique",
-      title: `${criticalEmails.length} email${criticalEmails.length > 1 ? "s" : ""} critique${criticalEmails.length > 1 ? "s" : ""}`,
-      detail: "Lis ces messages avant de toucher aux tâches de croissance.",
-    });
-  }
-  if (calendar.today.length) {
-    attention.push({
-      priority: "Important",
-      title: `${calendar.today.length} événement${calendar.today.length > 1 ? "s" : ""} aujourd’hui`,
-      detail: "Vérifie les heures et les préparatifs avant midi.",
-    });
-  }
-  if (cardShows.length) {
-    attention.push({
-      priority: "Important",
-      title: "Card Shows à suivre",
-      detail: "Confirme les dates, les tables et les opportunités de présence.",
-    });
-  }
-  if (!attention.length) {
-    attention.push({
-      priority: "Important",
-      title: priorities[0]?.title || "Ajouter des cartes au site",
-      detail: priorities[0]?.reason || "Travaille sur l’action qui fait croître Coffee Break aujourd’hui.",
-    });
-  }
-
-  const focus = ordersToShip.length
-    ? { title: "Expédier les commandes payées", reason: "Les commandes clients passent avant la croissance. Une expédition rapide crée la confiance." }
-    : criticalEmails.length
-      ? { title: "Répondre aux emails critiques", reason: "Il y a des messages qui peuvent bloquer des ventes, des shows ou des décisions." }
-      : calendar.today.length
-        ? { title: "Préparer les événements du jour", reason: "Ton calendrier contient des éléments actifs aujourd’hui." }
-        : { title: priorities[0]?.title || "Ajouter des cartes au site", reason: priorities[0]?.reason || "C’est la meilleure action de croissance disponible maintenant." };
+  const focus = topDecision
+    ? {
+        title: topDecision.title,
+        reason: `${topDecision.action}. Score Jarvis: ${topDecision.score}/100.`,
+        score: topDecision.score,
+        source: topDecision.source,
+      }
+    : { title: "Ajouter des cartes au site", reason: "Aucun signal urgent. Le meilleur levier est d’alimenter la vitrine.", score: 60, source: "Moteur de croissance" };
 
   return {
     briefing: {
       generatedAt: new Date().toISOString(),
       focus,
-      attention,
+      attention: decisionMatrix.all.slice(0, 10),
+      decisionMatrix,
     },
     counts: {
       criticalEmails: criticalEmails.length,
@@ -1026,6 +1182,7 @@ function buildJarvisBriefing(db) {
     cardShows,
     calendar,
     priorities: priorities.slice(0, 6),
+    growth,
     integrations: {
       gmail: {
         connected: (db.jarvisEmails || []).length > 0,

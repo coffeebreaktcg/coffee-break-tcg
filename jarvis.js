@@ -62,6 +62,10 @@ function pill(label, type = "") {
   return `<span class="pill ${type}">${label}</span>`;
 }
 
+function scorePill(score) {
+  return `<span class="score-pill">${Math.round(Number(score || 0))}/100</span>`;
+}
+
 function setCounts(counts) {
   Object.entries(counts).forEach(([key, value]) => {
     const node = document.querySelector(`[data-count="${key}"]`);
@@ -70,7 +74,7 @@ function setCounts(counts) {
 }
 
 function renderBriefing(payload) {
-  const { briefing, counts, emails, ordersToShip, calendar, priorities, integrations } = payload;
+  const { briefing, counts, emails, ordersToShip, calendar, priorities, growth, integrations } = payload;
   document.querySelector("[data-focus-title]").textContent = briefing.focus.title;
   document.querySelector("[data-focus-reason]").textContent = briefing.focus.reason;
   document.querySelector("[data-briefing-time]").textContent = `Mis à jour ${new Date(briefing.generatedAt).toLocaleString("fr-CA", {
@@ -79,32 +83,61 @@ function renderBriefing(payload) {
   })}`;
   setCounts(counts);
 
-  renderList(
-    document.querySelector("[data-attention-list]"),
-    briefing.attention,
-    (item) => `
-      <div class="attention-item">
+  const renderDecision = (item) => `
+    <div class="attention-item">
+      <div class="item-title-row">
         <strong>${item.title}</strong>
-        <p>${item.detail}</p>
-        <div class="pill-row">${pill(item.priority, item.priority === "Critique" ? "critical" : "important")}</div>
+        ${scorePill(item.score)}
       </div>
-    `,
-    "Rien d’urgent pour l’instant."
+      <p>${item.detail}</p>
+      <p><strong>Action:</strong> ${item.action}</p>
+      <div class="pill-row">
+        ${pill(item.priority, item.priority === "Critique" ? "critical" : item.priority === "Important" ? "important" : "")}
+        ${pill(item.type)}
+        ${item.source ? pill(item.source) : ""}
+      </div>
+    </div>
+  `;
+
+  renderList(
+    document.querySelector("[data-urgent-list]"),
+    briefing.decisionMatrix?.urgent || [],
+    renderDecision,
+    "Aucune urgence active."
+  );
+
+  renderList(
+    document.querySelector("[data-important-list]"),
+    briefing.decisionMatrix?.important || [],
+    renderDecision,
+    "Rien d’important en attente."
+  );
+
+  renderList(
+    document.querySelector("[data-waiting-list]"),
+    briefing.decisionMatrix?.waiting || [],
+    renderDecision,
+    "Rien à reporter."
   );
 
   document.querySelector("[data-gmail-state]").innerHTML = `<p>${integrations.gmail.message}</p>`;
   renderList(
     document.querySelector("[data-email-list]"),
     emails.important,
-    (email) => `
+    (item) => `
       <div class="email-item">
-        <strong>${email.subject}</strong>
-        <p>${email.summary}</p>
-        <div class="pill-row">
-          ${pill(email.category, email.categoryType)}
-          ${email.from ? pill(email.from) : ""}
+        <div class="item-title-row">
+          <strong>${item.subject}</strong>
+          ${scorePill(item.score)}
         </div>
-        ${email.suggestedReply ? `<p><strong>Réponse suggérée:</strong> ${email.suggestedReply}</p>` : ""}
+        <p>${item.summary}</p>
+        <p><strong>Action recommandée:</strong> ${item.action}</p>
+        <div class="pill-row">
+          ${pill(item.category, item.categoryType)}
+          ${pill(item.priority, item.priority === "Critique" ? "critical" : item.priority === "Important" ? "important" : "")}
+          ${item.from ? pill(item.from) : ""}
+        </div>
+        ${item.suggestedReply ? `<p><strong>Réponse suggérée:</strong> ${item.suggestedReply}</p>` : ""}
       </div>
     `,
     "Aucun email critique importé. Branche Gmail pour activer le tri automatique."
@@ -141,12 +174,26 @@ function renderBriefing(payload) {
     priorities,
     (priority) => `
       <div class="focus-item">
-        <strong>${priority.title}</strong>
+        <div class="item-title-row">
+          <strong>${priority.title}</strong>
+          ${scorePill(priority.score)}
+        </div>
         <p>${priority.reason}</p>
       </div>
     `,
     "Aucune priorité configurée."
   );
+
+  const growthItems = [
+    ["Cartes ajoutées", growth.cardsAddedThisWeek],
+    ["Publications Instagram", growth.instagramPostsThisWeek],
+    ["Card Shows", growth.cardShowsThisWeek],
+    ["Collections achetées", growth.collectionsBoughtThisWeek],
+    ["Partenariats", growth.partnershipsThisWeek],
+  ];
+  document.querySelector("[data-growth-list]").innerHTML = growthItems
+    .map(([label, value]) => `<div class="growth-item"><span>${label}</span><strong>${value}</strong></div>`)
+    .join("");
 }
 
 async function loadJarvis() {
