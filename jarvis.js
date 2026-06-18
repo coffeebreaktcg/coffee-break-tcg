@@ -28,6 +28,7 @@ let currentEmailFilter = "all";
 let currentContentOpportunities = [];
 let activeStudioOpportunity = null;
 let speechTimer = null;
+let currentActionDecisions = [];
 
 function oauthMessageFromParams() {
   const params = new URLSearchParams(window.location.search);
@@ -115,8 +116,8 @@ function runImmersiveReveal() {
   const revealTargets = [
     document.querySelector("[data-ticker]"),
     document.querySelector(".spoken-briefing"),
+    document.querySelector(".today-sidebar"),
     document.querySelector("[data-living-board]"),
-    document.querySelector(".action-reveal"),
     document.querySelector(".quiet-panels"),
   ].filter(Boolean);
 
@@ -288,6 +289,58 @@ function completedActions() {
   }
 }
 
+function saveCompletedActions(done) {
+  localStorage.setItem("jarvis_completed_actions", JSON.stringify([...done]));
+}
+
+function visibleActionDecisions(decisions = currentActionDecisions) {
+  const done = completedActions();
+  return (decisions || []).filter((item) => !done.has(actionId(item)));
+}
+
+function renderCompletedActions(decisions = currentActionDecisions) {
+  const node = document.querySelector("[data-completed-list]");
+  const wrapper = document.querySelector("[data-completed-actions]");
+  if (!node || !wrapper) return;
+  const done = completedActions();
+  const completed = (decisions || []).filter((item) => done.has(actionId(item))).slice(0, 6);
+  wrapper.hidden = completed.length === 0;
+  node.innerHTML = completed.length
+    ? completed
+        .map(
+          (item) => `
+            <div class="completed-item">
+              <strong>${escapeHtml(item.title || "Action")}</strong>
+              <span>${estimateMinutes(item)} min</span>
+            </div>
+          `
+        )
+        .join("")
+    : "";
+}
+
+function renderTodaySidebar(decisions = currentActionDecisions) {
+  const active = visibleActionDecisions(decisions);
+  renderActionCard("now", active[0], "Faire maintenant");
+  renderActionCard("next", active[1], "Ensuite");
+  renderActionCard("later", active[2], "Après");
+  renderCompletedActions(decisions);
+}
+
+function updateBriefingAfterCompletion(nextAction) {
+  const summary = document.querySelector("[data-today-summary]");
+  if (summary) {
+    summary.innerHTML = nextAction
+      ? `<p>Prochaine action: ${escapeHtml(nextAction.title || "continuer le plan")}</p>`
+      : `<p>Plan du jour vidé. Jarvis ne voit plus d’action immédiate.</p>`;
+  }
+  typeJarvisSpeech(
+    nextAction
+      ? `Action terminée. La prochaine priorité est: ${nextAction.title}. ${nextAction.action || "Passe à cette étape maintenant."}`
+      : "Action terminée. Tu as vidé le plan immédiat. Je recommande maintenant de respirer, puis de relancer un briefing."
+  );
+}
+
 function renderActionCard(slot, item, label) {
   const node = document.querySelector(`[data-action-card="${slot}"]`);
   if (!node) return;
@@ -320,7 +373,6 @@ function renderActionCard(slot, item, label) {
         <dd>${escapeHtml(impactFor(item))}</dd>
       </div>
     </dl>
-    ${item.opportunity ? renderOpportunityBlock(item.opportunity, true) : ""}
     <button type="button" data-complete-action="${escapeHtml(id)}">${isDone ? "Terminé" : "Terminé"}</button>
   `;
 }
@@ -609,13 +661,13 @@ function renderBriefing(payload) {
   const { briefing, counts, emails, calendar, priorities, contentOpportunities, inventoryIntelligence, growth, integrations, ticker } = payload;
   currentContentOpportunities = contentOpportunities || [];
   const decisions = briefing.decisionMatrix?.all || [];
+  currentActionDecisions = decisions;
   renderTodaySummary(counts || {}, (emails.important || []).filter((email) => email.category === "Card Shows").length || (payload.cardShows || []).length);
   renderTicker(ticker || []);
-  renderJarvisSpeech(payload, decisions);
-  renderLivingBoard(payload, decisions);
-  renderActionCard("now", decisions[0], "Faire maintenant");
-  renderActionCard("next", decisions[1], "Ensuite");
-  renderActionCard("later", decisions[2], "Après");
+  const visibleDecisions = visibleActionDecisions(decisions);
+  renderJarvisSpeech(payload, visibleDecisions);
+  renderLivingBoard(payload, visibleDecisions);
+  renderTodaySidebar(decisions);
 
   renderGmailState(integrations);
   renderList(
@@ -934,6 +986,18 @@ loginForm.addEventListener("submit", async (event) => {
   }
 });
 
+document.querySelector("[data-ask-jarvis-form]")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const question = String(form.get("question") || "").trim();
+  const response = document.querySelector("[data-ask-response]");
+  if (!response) return;
+  response.textContent = question
+    ? "Reçu. Pour l’instant, Jarvis utilise ce poste de commande pour prioriser; la conversation complète sera branchée après la structure principale."
+    : "";
+  event.currentTarget.reset();
+});
+
 document.querySelector("[data-refresh]").addEventListener("click", () => {
   loadJarvis().catch((error) => {
     const alert = document.querySelector("[data-oauth-alert]");
@@ -967,9 +1031,9 @@ document.addEventListener("click", async (event) => {
   if (completeActionButton) {
     const done = completedActions();
     done.add(completeActionButton.dataset.completeAction);
-    localStorage.setItem("jarvis_completed_actions", JSON.stringify([...done]));
-    completeActionButton.closest("[data-action-card]")?.classList.add("is-complete");
-    completeActionButton.textContent = "Terminé";
+    saveCompletedActions(done);
+    renderTodaySidebar(currentActionDecisions);
+    updateBriefingAfterCompletion(visibleActionDecisions(currentActionDecisions)[0]);
     return;
   }
 

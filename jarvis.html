@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/jarvis.css?v=jarvis-v3-immersive-20260618" />
+    <link rel="stylesheet" href="/jarvis.css?v=jarvis-command-center-20260618" />
   </head>
   <body>
     <main class="jarvis-shell">
@@ -46,33 +46,44 @@
           </div>
         </header>
 
-        <section class="jarvis-stage">
-          <div class="orb-wrap" aria-hidden="true">
-            <div class="jarvis-orb">
-              <span></span>
+        <section class="command-center">
+          <section class="jarvis-stage">
+            <div class="orb-wrap" aria-hidden="true">
+              <div class="jarvis-orb">
+                <span></span>
+              </div>
+              <p class="thinking-line" data-thinking-line>Jarvis initialise le briefing...</p>
             </div>
-            <p class="thinking-line" data-thinking-line>Jarvis initialise le briefing...</p>
-          </div>
-          <div class="spoken-briefing">
-            <p class="eyebrow">Briefing</p>
-            <div class="today-summary" data-today-summary>Préparation du briefing...</div>
-            <p class="jarvis-speech" data-jarvis-speech>Jarvis analyse les signaux CoffeeBreak.</p>
-          </div>
-          <div class="admin-time">
-            <span>Temps administratif estimé</span>
-            <strong data-admin-time>...</strong>
-          </div>
-          <div class="living-board" data-living-board></div>
-        </section>
-
-        <details class="action-reveal">
-          <summary>Voir le plan d’action</summary>
-          <section class="action-stack" aria-label="Priorités Jarvis">
-            <article class="primary-action" data-action-card="now"></article>
-            <article class="secondary-action" data-action-card="next"></article>
-            <article class="secondary-action" data-action-card="later"></article>
+            <div class="spoken-briefing">
+              <p class="eyebrow">Briefing</p>
+              <div class="today-summary" data-today-summary>Préparation du briefing...</div>
+              <p class="jarvis-speech" data-jarvis-speech>Jarvis analyse les signaux CoffeeBreak.</p>
+              <form class="ask-jarvis" data-ask-jarvis-form>
+                <input type="text" name="question" placeholder="Demander à Jarvis..." autocomplete="off" />
+                <button type="submit">Parler à Jarvis</button>
+              </form>
+              <p class="ask-response" data-ask-response></p>
+            </div>
+            <div class="admin-time">
+              <span>Temps administratif estimé</span>
+              <strong data-admin-time>...</strong>
+            </div>
+            <div class="living-board" data-living-board></div>
           </section>
-        </details>
+
+          <aside class="today-sidebar" aria-label="Aujourd’hui" data-today-sidebar>
+            <div class="today-sidebar-inner">
+              <p class="eyebrow">Aujourd’hui</p>
+              <article class="primary-action" data-action-card="now"></article>
+              <article class="secondary-action" data-action-card="next"></article>
+              <article class="secondary-action" data-action-card="later"></article>
+              <details class="completed-actions" data-completed-actions>
+                <summary>Complété</summary>
+                <div data-completed-list></div>
+              </details>
+            </div>
+          </aside>
+        </section>
 
         <section class="quiet-panels" aria-label="Détails Jarvis">
           <details>
@@ -157,6 +168,6 @@
       </section>
     </main>
 
-    <script src="/jarvis.js?v=jarvis-v3-immersive-20260618" defer></script>
+    <script src="/jarvis.js?v=jarvis-command-center-20260618" defer></script>
   </body>
 </html>

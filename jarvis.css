@@ -244,6 +244,14 @@ label {
   gap: 10px;
 }
 
+.command-center {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(310px, 360px);
+  gap: clamp(30px, 5vw, 72px);
+  align-items: start;
+  min-height: min(780px, calc(100vh - 104px));
+}
+
 .eyebrow,
 .action-label {
   margin: 0;
@@ -260,7 +268,7 @@ label {
   grid-template-columns: 1fr;
   justify-items: center;
   gap: clamp(18px, 4vw, 34px);
-  min-height: min(760px, calc(100vh - 118px));
+  min-height: min(720px, calc(100vh - 118px));
   padding: 26px 0 42px;
   border-bottom: 0;
   text-align: center;
@@ -397,6 +405,35 @@ label {
   line-height: 1.6;
 }
 
+.ask-jarvis {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  width: min(640px, 100%);
+  margin-top: 8px;
+}
+
+.ask-jarvis input {
+  min-height: 48px;
+  border-color: rgba(248, 239, 230, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  text-align: left;
+}
+
+.ask-jarvis button {
+  min-height: 48px;
+  background: rgba(248, 239, 230, 0.9);
+}
+
+.ask-response {
+  min-height: 20px;
+  margin: 0;
+  color: rgba(248, 239, 230, 0.5);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .living-board {
   width: min(1040px, 100%);
   display: grid;
@@ -526,10 +563,125 @@ body:not(.jarvis-ready) .living-board article {
 body:not(.jarvis-ready) .market-strip,
 body:not(.jarvis-ready) .admin-time,
 body:not(.jarvis-ready) .living-board,
-body:not(.jarvis-ready) .action-reveal,
+body:not(.jarvis-ready) .today-sidebar,
 body:not(.jarvis-ready) .quiet-panels {
   opacity: 0;
   pointer-events: none;
+}
+
+.today-sidebar {
+  position: sticky;
+  top: 58px;
+  align-self: start;
+  max-height: calc(100vh - 78px);
+  overflow: auto;
+  padding: 2px 2px 18px;
+  scrollbar-width: none;
+}
+
+.today-sidebar::-webkit-scrollbar {
+  display: none;
+}
+
+.today-sidebar-inner {
+  display: grid;
+  gap: 12px;
+  border-left: 1px solid rgba(248, 239, 230, 0.1);
+  padding-left: 22px;
+}
+
+.today-sidebar .eyebrow {
+  color: rgba(248, 239, 230, 0.54);
+}
+
+.today-sidebar .primary-action,
+.today-sidebar .secondary-action {
+  gap: 12px;
+  border-color: rgba(248, 239, 230, 0.09);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.032);
+  padding: 16px;
+}
+
+.today-sidebar .primary-action {
+  border-color: rgba(213, 116, 45, 0.22);
+  background:
+    linear-gradient(135deg, rgba(213, 116, 45, 0.095), transparent 58%),
+    rgba(255, 255, 255, 0.036);
+}
+
+.today-sidebar .primary-action h2,
+.today-sidebar .secondary-action h2 {
+  font-size: 18px;
+  line-height: 1.15;
+}
+
+.today-sidebar .action-title-row {
+  align-items: start;
+}
+
+.today-sidebar .action-title-row span {
+  border: 0;
+  background: rgba(248, 239, 230, 0.07);
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+.today-sidebar .primary-action dl,
+.today-sidebar .secondary-action dl {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.today-sidebar .primary-action dd,
+.today-sidebar .secondary-action dd {
+  font-size: 13px;
+}
+
+.today-sidebar .primary-action button,
+.today-sidebar .secondary-action button {
+  justify-self: stretch;
+  min-height: 38px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.completed-actions {
+  border-top: 1px solid rgba(248, 239, 230, 0.1);
+  padding-top: 8px;
+}
+
+.completed-actions summary {
+  cursor: pointer;
+  list-style: none;
+  color: rgba(248, 239, 230, 0.5);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.completed-actions summary::-webkit-details-marker {
+  display: none;
+}
+
+.completed-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0 0;
+  color: rgba(248, 239, 230, 0.52);
+}
+
+.completed-item strong {
+  font-size: 13px;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.completed-item span {
+  flex: 0 0 auto;
+  font-size: 11px;
 }
 
 .action-reveal {
@@ -1171,6 +1323,7 @@ body:not(.jarvis-ready) .quiet-panels {
   }
 
   .jarvis-header,
+  .command-center,
   .jarvis-stage,
   .growth-score,
   .intel-summary,
@@ -1194,14 +1347,29 @@ body:not(.jarvis-ready) .quiet-panels {
     min-height: auto;
   }
 
+  .today-sidebar {
+    position: static;
+    max-height: none;
+  }
+
+  .today-sidebar-inner {
+    border-left: 0;
+    border-top: 1px solid rgba(248, 239, 230, 0.1);
+    padding: 18px 0 0;
+  }
+
   .today-summary {
     font-size: 30px;
   }
 
+  .ask-jarvis {
+    grid-template-columns: 1fr;
+  }
+
   .admin-time {
     position: static;
-    justify-items: start;
-    text-align: left;
+    justify-items: center;
+    text-align: center;
   }
 
   .living-board {
