@@ -155,6 +155,7 @@ async function readDb() {
     if (!db.adminSessions) db.adminSessions = {};
     if (!db.jarvisSessions) db.jarvisSessions = {};
     if (!Array.isArray(db.jarvisEmails)) db.jarvisEmails = [];
+    if (!Array.isArray(db.jarvisEmailFeedback)) db.jarvisEmailFeedback = [];
     if (!Array.isArray(db.jarvisCalendarEvents)) db.jarvisCalendarEvents = [];
     if (!db.jarvisGoogleTokens) db.jarvisGoogleTokens = {};
     if (!db.jarvisOAuthStates) db.jarvisOAuthStates = {};
@@ -177,6 +178,7 @@ async function readDb() {
       adminSessions: {},
       jarvisSessions: {},
       jarvisEmails: [],
+      jarvisEmailFeedback: [],
       jarvisCalendarEvents: [],
       jarvisGoogleTokens: {},
       jarvisOAuthStates: {},
@@ -891,23 +893,31 @@ function suggestedJarvisReply(email, category) {
 function importantJarvisEmails(db) {
   return (db.jarvisEmails || [])
     .map((email) => {
-      const category = jarvisEmailCategory(email);
-      const priority = jarvisEmailPriority(email, category);
+      const feedback = latestEmailFeedback(db, email.id);
+      const learnedEmail = applyEmailFeedback(email, feedback);
+      const category = learnedEmail.learnedFromMax
+        ? { category: learnedEmail.category, categoryType: learnedEmail.categoryType || "important" }
+        : jarvisEmailCategory(learnedEmail);
+      const priority = learnedEmail.learnedFromMax
+        ? { priority: learnedEmail.priority, score: Number(learnedEmail.score || 78) }
+        : jarvisEmailPriority(learnedEmail, category);
       return {
-        id: email.id || crypto.createHash("sha1").update(`${email.from || ""}${email.subject || ""}`).digest("hex").slice(0, 12),
-        source: email.source || "",
-        sourceLabel: email.sourceLabel || "",
-        account: email.account || "",
-        status: email.status || "nouveau",
-        from: email.from || "",
-        subject: email.subject || "(Sans sujet)",
-        receivedAt: email.receivedAt || email.date || "",
+        id: learnedEmail.id || crypto.createHash("sha1").update(`${learnedEmail.from || ""}${learnedEmail.subject || ""}`).digest("hex").slice(0, 12),
+        source: learnedEmail.source || "",
+        sourceLabel: learnedEmail.sourceLabel || "",
+        account: learnedEmail.account || "",
+        status: learnedEmail.status || "nouveau",
+        from: learnedEmail.from || "",
+        subject: learnedEmail.subject || "(Sans sujet)",
+        receivedAt: learnedEmail.receivedAt || learnedEmail.date || "",
         ...category,
         priority: priority.priority,
         score: priority.score,
-        summary: summarizeJarvisEmail(email, category.category),
-        action: recommendedJarvisEmailAction(email, category.category, priority.priority),
-        suggestedReply: suggestedJarvisReply(email, category.category),
+        summary: learnedEmail.summary || summarizeJarvisEmail(learnedEmail, category.category),
+        action: learnedEmail.learnedFromMax ? learnedEmail.action : recommendedJarvisEmailAction(learnedEmail, category.category, priority.priority),
+        suggestedReply: learnedEmail.learnedFromMax ? learnedEmail.suggestedReply : suggestedJarvisReply(learnedEmail, category.category),
+        feedbackVerdict: learnedEmail.feedbackVerdict || "",
+        learnedFromMax: Boolean(learnedEmail.learnedFromMax),
       };
     })
     .filter((email) => email.categoryType !== "low")
@@ -2484,6 +2494,35 @@ function jarvisEmailStatus(existing, classification) {
   return classification.priority === "Critique" || classification.priority === "Important" ? "à répondre" : "nouveau";
 }
 
+function jarvisCategoryTypeFromName(category) {
+  if (["Faible", "Marketing", "Newsletters", "Promotions"].includes(category)) return "low";
+  if (category === "Critique") return "critical";
+  if (category === "Card Shows") return "card-show";
+  if (category === "Registraire des entreprises") return "work";
+  if (["Collections à vendre", "Questions clients", "Commandes", "Livraison"].includes(category)) return "coffee";
+  return "important";
+}
+
+function latestEmailFeedback(db, emailId) {
+  return (db.jarvisEmailFeedback || [])
+    .filter((item) => item.emailId === emailId)
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))[0] || null;
+}
+
+function applyEmailFeedback(email, feedback) {
+  if (!feedback) return email;
+  return {
+    ...email,
+    category: feedback.category || email.category,
+    categoryType: jarvisCategoryTypeFromName(feedback.category || email.category),
+    priority: feedback.priority || email.priority,
+    action: feedback.action || email.action,
+    suggestedReply: feedback.suggestedReply || email.suggestedReply,
+    feedbackVerdict: feedback.replyVerdict || "",
+    learnedFromMax: true,
+  };
+}
+
 async function classifyJarvisEmailWithAI(email, local) {
   const ai = await generateJarvisResponse({
     task:
@@ -2530,7 +2569,7 @@ async function gmailMessageToJarvisEmail(db, source, message) {
   };
   const ai = await classifyJarvisEmailWithAI(email, local).catch(() => null);
   const final = ai || local;
-  return {
+  const classified = {
     ...existing,
     ...email,
     category: final.category,
@@ -2545,13 +2584,14 @@ async function gmailMessageToJarvisEmail(db, source, message) {
     importedAt: existing?.importedAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  return applyEmailFeedback(classified, latestEmailFeedback(db, id));
 }
 
 async function syncGmailSource(db, source, { maxResults = 15 } = {}) {
   const token = await refreshGoogleAccessToken(db, source);
   const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
   listUrl.searchParams.set("maxResults", String(maxResults));
-  listUrl.searchParams.set("q", "newer_than:14d");
+  listUrl.searchParams.set("q", "newer_than:7d");
   const listed = await googleGetJson(listUrl, token);
   const messages = [];
   for (const item of (listed.messages || []).slice(0, maxResults)) {
@@ -3423,6 +3463,23 @@ async function handleApi(req, res) {
     return json(res, 200, { results, emails: importantJarvisEmails(db), status: googleOAuthStatus(db) });
   }
 
+  if (url.pathname === "/api/jarvis/emails" && req.method === "GET") {
+    const filter = String(url.searchParams.get("filter") || "all");
+    const emails = (db.jarvisEmails || [])
+      .map((email) => applyEmailFeedback(email, latestEmailFeedback(db, email.id)))
+      .filter((email) => {
+        if (filter === "all") return true;
+        if (filter === "Critique" || filter === "Important") return email.priority === filter;
+        if (["À suivre", "Traité", "Ignoré"].includes(filter)) return String(email.status || "").toLowerCase() === filter.toLowerCase();
+        if (filter === "Business") return email.source === "business";
+        if (filter === "Personnel") return email.source === "personal";
+        return true;
+      })
+      .sort((a, b) => String(b.receivedAt || "").localeCompare(String(a.receivedAt || "")))
+      .slice(0, 80);
+    return json(res, 200, { emails, feedbackCount: (db.jarvisEmailFeedback || []).length });
+  }
+
   if (url.pathname === "/api/jarvis/emails/status" && req.method === "POST") {
     const body = await readBody(req);
     const id = String(body.id || "");
@@ -3436,6 +3493,40 @@ async function handleApi(req, res) {
     email.updatedAt = new Date().toISOString();
     await writeDb(db);
     return json(res, 200, { email, briefing: await buildJarvisBriefing(db) });
+  }
+
+  if (url.pathname === "/api/jarvis/emails/feedback" && req.method === "POST") {
+    const body = await readBody(req);
+    const id = String(body.id || "");
+    const email = (db.jarvisEmails || []).find((item) => item.id === id);
+    if (!email) return json(res, 404, { error: "Email Jarvis introuvable." });
+    const feedback = {
+      id: `feedback-${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}`,
+      emailId: id,
+      source: email.source || "",
+      previous: {
+        category: email.category || "",
+        priority: email.priority || "",
+        action: email.action || "",
+        suggestedReply: email.suggestedReply || "",
+      },
+      category: String(body.category || email.category || "").trim(),
+      priority: String(body.priority || email.priority || "").trim(),
+      action: String(body.action || email.action || "").trim(),
+      suggestedReply: String(body.suggestedReply || email.suggestedReply || "").trim(),
+      replyVerdict: String(body.replyVerdict || "").trim(),
+      createdAt: new Date().toISOString(),
+    };
+    db.jarvisEmailFeedback = Array.isArray(db.jarvisEmailFeedback) ? db.jarvisEmailFeedback : [];
+    db.jarvisEmailFeedback.push(feedback);
+    Object.assign(email, applyEmailFeedback(email, feedback), { status: "à suivre", updatedAt: new Date().toISOString() });
+    await writeDb(db);
+    return json(res, 200, {
+      email,
+      feedback,
+      briefing: await buildJarvisBriefing(db),
+      feedbackCount: db.jarvisEmailFeedback.length,
+    });
   }
 
   if (url.pathname === "/api/admin/login" && req.method === "POST") {

@@ -3,6 +3,28 @@ const appPanel = document.querySelector("[data-app-panel]");
 const loginForm = document.querySelector("[data-login-form]");
 const loginMessage = document.querySelector("[data-login-message]");
 const greeting = document.querySelector("[data-greeting]");
+const emailCategories = [
+  "Critique",
+  "Card Shows",
+  "Collections à vendre",
+  "Registraire des entreprises",
+  "Fournisseurs importants",
+  "Partenariats",
+  "Emails de mon boss",
+  "Emails nécessitant une décision",
+  "Important",
+  "Questions clients",
+  "Factures",
+  "Commandes",
+  "Livraison",
+  "Faible",
+  "Marketing",
+  "Newsletters",
+  "Promotions",
+];
+const emailPriorities = ["Critique", "Important", "Peut attendre"];
+const replyVerdicts = ["correcte", "à modifier", "incorrecte"];
+let currentEmailFilter = "all";
 
 function cleanSensitiveUrlParams() {
   const params = new URLSearchParams(window.location.search);
@@ -60,6 +82,21 @@ function renderList(container, items, renderer, emptyText) {
 
 function pill(label, type = "") {
   return `<span class="pill ${type}">${label}</span>`;
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function optionList(options, selected) {
+  return options
+    .map((option) => `<option value="${escapeHtml(option)}" ${option === selected ? "selected" : ""}>${escapeHtml(option)}</option>`)
+    .join("");
 }
 
 function scorePill(score) {
@@ -236,9 +273,79 @@ function renderBriefing(payload) {
     .join("");
 }
 
+function renderEmailReviewList(payload) {
+  const list = document.querySelector("[data-email-review-list]");
+  const counter = document.querySelector("[data-feedback-count]");
+  if (counter) {
+    const count = Number(payload.feedbackCount || 0);
+    counter.textContent = `${count} correction${count > 1 ? "s" : ""} sauvegardée${count > 1 ? "s" : ""}`;
+  }
+  renderList(
+    list,
+    payload.emails || [],
+    (item) => `
+      <form class="email-review-item" data-email-review-item data-email-id="${escapeHtml(item.id)}">
+        <div class="review-email-head">
+          <div>
+            <strong>${escapeHtml(item.subject || "(Sans sujet)")}</strong>
+            <p>${escapeHtml(item.from || item.account || "")}</p>
+          </div>
+          <div class="review-meta">
+            ${scorePill(item.score)}
+            ${item.learnedFromMax ? pill("Corrigé par Max", "coffee") : ""}
+          </div>
+        </div>
+        <p class="review-summary">${escapeHtml(item.summary || item.snippet || "Aucun résumé disponible.")}</p>
+        <div class="pill-row">
+          ${pill(item.category || "Important", item.categoryType || "")}
+          ${pill(item.priority || "Important", item.priority === "Critique" ? "critical" : item.priority === "Important" ? "important" : "")}
+          ${pill(item.status || "nouveau")}
+          ${item.source ? pill(item.source) : ""}
+        </div>
+        <div class="review-form-grid">
+          <label>
+            Catégorie correcte
+            <select name="category">${optionList(emailCategories, item.category || "Important")}</select>
+          </label>
+          <label>
+            Priorité correcte
+            <select name="priority">${optionList(emailPriorities, item.priority || "Important")}</select>
+          </label>
+          <label class="wide-field">
+            Action correcte
+            <input name="action" value="${escapeHtml(item.action || "")}" />
+          </label>
+          <label>
+            Réponse suggérée
+            <select name="replyVerdict">${optionList(replyVerdicts, item.feedbackVerdict || "correcte")}</select>
+          </label>
+          <label class="wide-field">
+            Texte de réponse suggérée
+            <textarea name="suggestedReply" rows="3">${escapeHtml(item.suggestedReply || "")}</textarea>
+          </label>
+        </div>
+        <div class="email-actions review-actions">
+          <button type="button" data-save-email-feedback>Sauvegarder la correction</button>
+          <button type="button" class="ghost-dark" data-email-status="à suivre" data-email-id="${escapeHtml(item.id)}">À suivre</button>
+          <button type="button" class="ghost-dark" data-email-status="traité" data-email-id="${escapeHtml(item.id)}">Traité</button>
+          <button type="button" class="ghost-dark" data-email-status="ignoré" data-email-id="${escapeHtml(item.id)}">Ignorer</button>
+        </div>
+      </form>
+    `,
+    "Aucun email à valider pour ce filtre. Importe Gmail pour nourrir Jarvis."
+  );
+}
+
+async function loadEmailReview(filter = currentEmailFilter) {
+  currentEmailFilter = filter;
+  const payload = await api(`/api/jarvis/emails?filter=${encodeURIComponent(filter)}`);
+  renderEmailReviewList(payload);
+}
+
 async function loadJarvis() {
   const payload = await api("/api/jarvis/briefing");
   renderBriefing(payload);
+  await loadEmailReview().catch(() => {});
 }
 
 loginForm.addEventListener("submit", async (event) => {
@@ -271,6 +378,18 @@ document.addEventListener("click", async (event) => {
   const connectButton = event.target.closest("[data-connect-gmail]");
   const syncButton = event.target.closest("[data-sync-gmail]");
   const emailStatusButton = event.target.closest("[data-email-status]");
+  const emailFilterButton = event.target.closest("[data-email-filter]");
+  const saveFeedbackButton = event.target.closest("[data-save-email-feedback]");
+
+  if (emailFilterButton) {
+    document.querySelectorAll("[data-email-filter]").forEach((button) => {
+      button.classList.toggle("active", button === emailFilterButton);
+    });
+    await loadEmailReview(emailFilterButton.dataset.emailFilter).catch((error) => {
+      document.querySelector("[data-email-review-list]").innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
+    });
+    return;
+  }
 
   if (connectButton) {
     const source = connectButton.dataset.connectGmail;
@@ -309,10 +428,43 @@ document.addEventListener("click", async (event) => {
         }),
       });
       renderBriefing(payload.briefing);
+      await loadEmailReview().catch(() => {});
     } catch (error) {
       emailStatusButton.textContent = error.message;
     }
   }
+
+  if (saveFeedbackButton) {
+    const form = saveFeedbackButton.closest("[data-email-review-item]");
+    if (!form) return;
+    saveFeedbackButton.disabled = true;
+    saveFeedbackButton.textContent = "Sauvegarde...";
+    const formData = new FormData(form);
+    try {
+      const payload = await api("/api/jarvis/emails/feedback", {
+        method: "POST",
+        body: JSON.stringify({
+          id: form.dataset.emailId,
+          category: formData.get("category"),
+          priority: formData.get("priority"),
+          action: formData.get("action"),
+          suggestedReply: formData.get("suggestedReply"),
+          replyVerdict: formData.get("replyVerdict"),
+        }),
+      });
+      renderBriefing(payload.briefing);
+      await loadEmailReview();
+    } catch (error) {
+      saveFeedbackButton.textContent = error.message;
+    } finally {
+      saveFeedbackButton.disabled = false;
+      if (saveFeedbackButton.textContent === "Sauvegarde...") saveFeedbackButton.textContent = "Sauvegarder la correction";
+    }
+  }
+});
+
+document.addEventListener("submit", (event) => {
+  if (event.target.closest("[data-email-review-item]")) event.preventDefault();
 });
 
 document.querySelector("[data-logout]").addEventListener("click", async () => {

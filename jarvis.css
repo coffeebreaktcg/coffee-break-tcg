@@ -28,7 +28,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -91,6 +93,26 @@ input {
 }
 
 input:focus {
+  border-color: var(--orange);
+}
+
+select,
+textarea {
+  width: 100%;
+  border: 1px solid rgba(37, 26, 19, 0.14);
+  background: #fff7eb;
+  color: var(--ink);
+  padding: 12px 13px;
+  outline: none;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 88px;
+}
+
+select:focus,
+textarea:focus {
   border-color: var(--orange);
 }
 
@@ -298,6 +320,35 @@ button.ghost-dark,
   font-size: 12px;
 }
 
+.email-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.email-filter-row button {
+  border: 1px solid rgba(37, 26, 19, 0.15);
+  background: #fff7eb;
+  color: var(--ink);
+  padding: 9px 11px;
+  font-size: 12px;
+}
+
+.email-filter-row button.active {
+  border-color: var(--orange);
+  background: var(--orange);
+  color: #fff7eb;
+}
+
+.feedback-counter {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
 .gmail-account-row {
   display: flex;
   flex-wrap: wrap;
@@ -321,12 +372,78 @@ button.ghost-dark,
 
 .attention-item,
 .email-item,
+.email-review-item,
 .compact-item,
 .focus-item,
 .integration-state {
   border: 1px solid var(--line);
   background: rgba(251, 234, 216, 0.45);
   padding: 14px;
+}
+
+.email-review-card {
+  grid-column: 1 / -1;
+}
+
+.email-review-list {
+  display: grid;
+  gap: 12px;
+}
+
+.email-review-item {
+  display: grid;
+  gap: 12px;
+}
+
+.review-email-head,
+.review-meta {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.review-meta {
+  align-items: center;
+  justify-content: end;
+  flex-wrap: wrap;
+}
+
+.review-email-head strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.review-email-head p,
+.review-summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.review-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.review-form-grid label {
+  color: var(--muted);
+}
+
+.review-form-grid input {
+  border-color: rgba(37, 26, 19, 0.14);
+  background: #fff7eb;
+  color: var(--ink);
+}
+
+.wide-field {
+  grid-column: 1 / -1;
+}
+
+.review-actions {
+  margin-top: 0;
 }
 
 .attention-item {

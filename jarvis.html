@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/jarvis.css?v=jarvis-v1-20260618" />
+    <link rel="stylesheet" href="/jarvis.css?v=jarvis-email-feedback-20260618" />
   </head>
   <body>
     <main class="jarvis-shell">
@@ -115,6 +115,27 @@
             <div class="email-list" data-email-list></div>
           </article>
 
+          <article class="jarvis-card email-review-card">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Apprentissage</p>
+                <h2>Emails à valider</h2>
+              </div>
+              <p class="feedback-counter" data-feedback-count>0 correction</p>
+            </div>
+            <div class="email-filter-row" data-email-filters>
+              <button type="button" class="active" data-email-filter="all">Tous</button>
+              <button type="button" data-email-filter="Critique">Critique</button>
+              <button type="button" data-email-filter="Important">Important</button>
+              <button type="button" data-email-filter="À suivre">À suivre</button>
+              <button type="button" data-email-filter="Traité">Traité</button>
+              <button type="button" data-email-filter="Ignoré">Ignoré</button>
+              <button type="button" data-email-filter="Business">Business</button>
+              <button type="button" data-email-filter="Personnel">Personnel</button>
+            </div>
+            <div class="email-review-list" data-email-review-list></div>
+          </article>
+
           <article class="jarvis-card">
             <div class="section-heading">
               <p class="eyebrow">Boutique</p>
@@ -144,6 +165,6 @@
       </section>
     </main>
 
-    <script src="/jarvis.js?v=jarvis-v1-20260618" defer></script>
+    <script src="/jarvis.js?v=jarvis-email-feedback-20260618" defer></script>
   </body>
 </html>
