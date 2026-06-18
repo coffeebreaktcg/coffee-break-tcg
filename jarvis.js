@@ -293,6 +293,38 @@ function saveCompletedActions(done) {
   localStorage.setItem("jarvis_completed_actions", JSON.stringify([...done]));
 }
 
+function demoActionDecisions() {
+  return [
+    {
+      type: "Demo",
+      title: "Ajouter 10 cartes au site",
+      detail: "La vitrine doit avoir du stock frais pour convertir.",
+      score: 92,
+      priority: "Critique",
+      source: "Demo data reset",
+      action: "Préparer un bloc de 25 minutes et publier 10 items.",
+    },
+    {
+      type: "Demo",
+      title: "Répondre au Card Show Laval",
+      detail: "Une opportunité de présence locale peut créer ventes et contacts.",
+      score: 78,
+      priority: "Important",
+      source: "Demo data reset",
+      action: "Confirmer prix, dates, installation et nombre de tables.",
+    },
+    {
+      type: "Demo",
+      title: "Préparer une Story de sourcing",
+      detail: "Attirer des collections à acheter augmente la marge future.",
+      score: 68,
+      priority: "Important",
+      source: "Demo data reset",
+      action: "Publier une Story simple: ce qu’on recherche cette semaine.",
+    },
+  ];
+}
+
 function visibleActionDecisions(decisions = currentActionDecisions) {
   const done = completedActions();
   return (decisions || []).filter((item) => !done.has(actionId(item)));
@@ -1021,6 +1053,7 @@ document.addEventListener("click", async (event) => {
   const testGmailButton = event.target.closest("[data-test-gmail]");
   const testCalendarButton = event.target.closest("[data-test-calendar]");
   const reimportAllButton = event.target.closest("[data-reimport-all]");
+  const demoResetButton = event.target.closest("[data-demo-reset]");
   const completeActionButton = event.target.closest("[data-complete-action]");
   const contentGenerateButton = event.target.closest("[data-content-generate]");
   const contentDevelopButton = event.target.closest("[data-content-develop]");
@@ -1034,6 +1067,15 @@ document.addEventListener("click", async (event) => {
     saveCompletedActions(done);
     renderTodaySidebar(currentActionDecisions);
     updateBriefingAfterCompletion(visibleActionDecisions(currentActionDecisions)[0]);
+    return;
+  }
+
+  if (demoResetButton) {
+    currentActionDecisions = demoActionDecisions();
+    saveCompletedActions(new Set());
+    renderTodaySidebar(currentActionDecisions);
+    updateBriefingAfterCompletion(visibleActionDecisions(currentActionDecisions)[0]);
+    renderTestResult("Demo data reset", { message: "Trois tâches de test propres ont été chargées dans la sidebar AUJOURD’HUI." }, true);
     return;
   }
 
