@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>JARVIS | Coffee Break TCG</title>
+    <meta name="robots" content="noindex,nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/jarvis.css?v=jarvis-v1-20260618" />
+  </head>
+  <body>
+    <main class="jarvis-shell">
+      <section class="login-panel" data-login-panel>
+        <p class="eyebrow">Coffee Break TCG private</p>
+        <h1>JARVIS</h1>
+        <p class="login-copy">Assistant exécutif IA pour décider ce que Max doit faire maintenant.</p>
+        <form class="login-form" data-login-form>
+          <label>
+            Courriel
+            <input type="email" name="email" autocomplete="email" required />
+          </label>
+          <label>
+            Mot de passe
+            <input type="password" name="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit">Entrer dans Jarvis</button>
+          <p class="form-message" data-login-message></p>
+        </form>
+      </section>
+
+      <section class="assistant-panel" data-app-panel hidden>
+        <header class="jarvis-header">
+          <div>
+            <p class="eyebrow">Chief of Staff IA</p>
+            <h1 data-greeting>Bonjour Max</h1>
+          </div>
+          <div class="header-actions">
+            <button type="button" data-refresh>Rafraîchir</button>
+            <button type="button" class="ghost" data-logout>Déconnexion</button>
+          </div>
+        </header>
+
+        <section class="briefing-hero">
+          <div>
+            <p class="eyebrow">Focus du jour</p>
+            <h2 data-focus-title>Préparer le briefing...</h2>
+            <p data-focus-reason></p>
+          </div>
+          <div class="briefing-time" data-briefing-time></div>
+        </section>
+
+        <section class="status-grid" aria-label="Résumé Jarvis">
+          <article>
+            <span>Emails critiques</span>
+            <strong data-count="criticalEmails">0</strong>
+          </article>
+          <article>
+            <span>Commandes à expédier</span>
+            <strong data-count="ordersToShip">0</strong>
+          </article>
+          <article>
+            <span>Card Shows</span>
+            <strong data-count="cardShows">0</strong>
+          </article>
+          <article>
+            <span>Factures</span>
+            <strong data-count="invoices">0</strong>
+          </article>
+          <article>
+            <span>Événements du jour</span>
+            <strong data-count="todayEvents">0</strong>
+          </article>
+        </section>
+
+        <section class="priority-layout">
+          <article class="jarvis-card urgent-card">
+            <div class="section-heading">
+              <p class="eyebrow">Maintenant</p>
+              <h2>Ce qui mérite ton attention</h2>
+            </div>
+            <div class="attention-list" data-attention-list></div>
+          </article>
+
+          <article class="jarvis-card">
+            <div class="section-heading">
+              <p class="eyebrow">Gmail</p>
+              <h2>Emails importants</h2>
+            </div>
+            <div class="integration-state" data-gmail-state></div>
+            <div class="email-list" data-email-list></div>
+          </article>
+
+          <article class="jarvis-card">
+            <div class="section-heading">
+              <p class="eyebrow">Boutique</p>
+              <h2>Commandes à expédier</h2>
+            </div>
+            <div class="compact-list" data-order-list></div>
+          </article>
+
+          <article class="jarvis-card">
+            <div class="section-heading">
+              <p class="eyebrow">Calendrier</p>
+              <h2>Aujourd’hui et cette semaine</h2>
+            </div>
+            <div class="integration-state" data-calendar-state></div>
+            <div class="compact-list" data-event-list></div>
+          </article>
+
+          <article class="jarvis-card">
+            <div class="section-heading">
+              <p class="eyebrow">Croissance</p>
+              <h2>Priorités Coffee Break</h2>
+            </div>
+            <div class="focus-list" data-priority-list></div>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <script src="/jarvis.js?v=jarvis-v1-20260618" defer></script>
+  </body>
+</html>

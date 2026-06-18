@@ -41,6 +41,14 @@ const shopEmail = "coffeebreaktcg@gmail.com";
 const adminEmail = String(process.env.ADMIN_EMAIL || shopEmail).trim().toLowerCase();
 const adminPassword = String(process.env.ADMIN_PASSWORD || "");
 const adminPasswordHash = String(process.env.ADMIN_PASSWORD_HASH || "");
+const jarvisAllowedEmails = String(
+  process.env.JARVIS_ALLOWED_EMAILS || `${adminEmail},coffeebreaktcg@gmail.com,maximelegault2000@gmail.com`
+)
+  .split(",")
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
+const jarvisPassword = String(process.env.JARVIS_PASSWORD || adminPassword || "");
+const jarvisPasswordHash = String(process.env.JARVIS_PASSWORD_HASH || adminPasswordHash || "");
 const resendApiKey = process.env.RESEND_API_KEY || "";
 const resendFromEmail = process.env.RESEND_FROM_EMAIL || "Coffee Break TCG <orders@coffeebreaktcg.com>";
 const squareEnvironment = process.env.SQUARE_ENVIRONMENT || "sandbox";
@@ -59,6 +67,7 @@ const cardImageSearchCache = new Map();
 const cardImageSearchCacheTtlMs = 1000 * 60 * 30;
 const reservationHoldMs = 10 * 60 * 1000;
 const adminLoginAttempts = new Map();
+const jarvisLoginAttempts = new Map();
 const maxJsonBodyBytes = Number(process.env.MAX_JSON_BODY_BYTES || 8 * 1024 * 1024);
 const clearInventoryMigrationId = "clear-all-inventory-2026-06-02";
 const starterInventoryIds = new Set([
@@ -90,6 +99,7 @@ let googleDriveBackupStatus = {
 };
 const dbBackupIntervalMs = 5 * 60 * 1000;
 const adminSessionMs = 8 * 60 * 60 * 1000;
+const jarvisSessionMs = 12 * 60 * 60 * 1000;
 const TPS_RATE = 0.05;
 const TVQ_RATE = 0.09975;
 const TAX_INCLUDED_DIVISOR = 1 + TPS_RATE + TVQ_RATE;
@@ -135,6 +145,9 @@ async function readDb() {
     if (!Array.isArray(db.newsletter)) db.newsletter = [];
     if (!db.sessions) db.sessions = {};
     if (!db.adminSessions) db.adminSessions = {};
+    if (!db.jarvisSessions) db.jarvisSessions = {};
+    if (!Array.isArray(db.jarvisEmails)) db.jarvisEmails = [];
+    if (!Array.isArray(db.jarvisCalendarEvents)) db.jarvisCalendarEvents = [];
     if (!Array.isArray(db.migrations)) db.migrations = [];
     if (!db.migrations.includes(clearInventoryMigrationId)) {
       db.inventory = [];
@@ -148,7 +161,20 @@ async function readDb() {
     return db;
   } catch {
     const seedPath = path.join(root, "data", "seed.json");
-    let empty = { users: [], sessions: {}, adminSessions: {}, orders: [], emailOutbox: [], newsletter: [], cardShows: [], reviews: defaultReviews(), inventory: defaultInventory() };
+    let empty = {
+      users: [],
+      sessions: {},
+      adminSessions: {},
+      jarvisSessions: {},
+      jarvisEmails: [],
+      jarvisCalendarEvents: [],
+      orders: [],
+      emailOutbox: [],
+      newsletter: [],
+      cardShows: [],
+      reviews: defaultReviews(),
+      inventory: defaultInventory(),
+    };
     try {
       const seed = JSON.parse(await fs.readFile(seedPath, "utf8"));
       empty = {
@@ -712,6 +738,312 @@ function getAdminSession(req, db) {
 
 function publicAdmin(session) {
   return session ? { email: session.email, name: "Coffee Break Admin", expiresAt: session.expiresAt || null } : null;
+}
+
+function jarvisPasswordMatches(password) {
+  if (jarvisPasswordHash) return verifyPassword(password, jarvisPasswordHash);
+  if (!jarvisPassword || password.length !== jarvisPassword.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(password), Buffer.from(jarvisPassword));
+}
+
+function jarvisAttemptState(req) {
+  const key = requestIp(req);
+  const now = Date.now();
+  const state = jarvisLoginAttempts.get(key) || { count: 0, lockedUntil: 0 };
+  if (state.lockedUntil && state.lockedUntil < now) {
+    state.count = 0;
+    state.lockedUntil = 0;
+  }
+  jarvisLoginAttempts.set(key, state);
+  return state;
+}
+
+function recordJarvisLoginFailure(req) {
+  const state = jarvisAttemptState(req);
+  state.count += 1;
+  if (state.count >= 5) state.lockedUntil = Date.now() + 15 * 60 * 1000;
+}
+
+function clearJarvisLoginFailures(req) {
+  jarvisLoginAttempts.delete(requestIp(req));
+}
+
+function jarvisUserFromEmail(email) {
+  const normalized = String(email || "").trim().toLowerCase();
+  if (!normalized) return null;
+  const isMaxime = normalized === "maximelegault2000@gmail.com" || normalized === adminEmail || normalized === shopEmail;
+  return {
+    email: normalized,
+    name: isMaxime ? "Maxime" : "Partenaire",
+    shortName: isMaxime ? "Max" : "Partenaire",
+    role: isMaxime ? "administrateur" : "partenaire",
+  };
+}
+
+function getJarvisSession(req, db) {
+  const sessionId = parseCookies(req).cb_jarvis;
+  const session = sessionId ? db.jarvisSessions?.[sessionId] : null;
+  if (!session) return null;
+  if (session.expiresAt && new Date(session.expiresAt).getTime() < Date.now()) {
+    delete db.jarvisSessions[sessionId];
+    return null;
+  }
+  return session;
+}
+
+function publicJarvisUser(session) {
+  if (!session) return null;
+  return {
+    email: session.email,
+    name: session.name || "Maxime",
+    shortName: session.shortName || "Max",
+    role: session.role || "administrateur",
+    expiresAt: session.expiresAt || null,
+  };
+}
+
+function jarvisEmailCategory(email) {
+  const text = `${email.from || ""} ${email.subject || ""} ${email.snippet || ""} ${email.body || ""}`.toLowerCase();
+  const rules = [
+    ["Critique", "critical", ["urgent", "critique", "asap", "immédiat", "immediat", "problème", "probleme", "erreur", "chargeback"]],
+    ["Card Shows", "card-show", ["card show", "expo", "convention", "table", "kiosque", "booth", "collect-a-con"]],
+    ["Collections à vendre", "important", ["collection", "vendre mes cartes", "buylist", "rachat", "sell my cards"]],
+    ["Registraire des entreprises", "important", ["registraire", "entreprises québec", "neq", "revenu québec"]],
+    ["Fournisseurs importants", "important", ["distributeur", "supplier", "fournisseur", "invoice", "facture fournisseur"]],
+    ["Partenariats", "important", ["partenariat", "collaboration", "collab", "sponsor"]],
+    ["Emails de mon boss", "critical", ["boss", "manager", "superviseur"]],
+    ["Emails nécessitant une décision", "important", ["décision", "decision", "approve", "approuver", "confirmer"]],
+    ["Questions clients", "important", ["question", "shipping", "livraison", "commande", "order", "tracking"]],
+    ["Factures", "important", ["facture", "invoice", "receipt", "reçu", "recu", "payment due"]],
+    ["Commandes", "important", ["commande", "order", "achat", "purchase"]],
+    ["Livraison", "important", ["livraison", "tracking", "poste canada", "canada post", "ship"]],
+    ["Marketing", "low", ["marketing", "seo", "ads", "publicité", "publicite"]],
+    ["Newsletters", "low", ["newsletter", "unsubscribe", "digest"]],
+    ["Promotions", "low", ["promo", "promotion", "rabais", "sale"]],
+  ];
+  const match = rules.find(([, , keywords]) => keywords.some((keyword) => text.includes(keyword)));
+  return match ? { category: match[0], categoryType: match[1] } : { category: "Faible", categoryType: "low" };
+}
+
+function summarizeJarvisEmail(email, category) {
+  const snippet = String(email.snippet || email.body || "").replace(/\s+/g, " ").trim();
+  const base = snippet ? snippet.slice(0, 180) : "Aucun extrait disponible.";
+  if (category === "Critique") return `À traiter rapidement. ${base}`;
+  if (category === "Card Shows") return `Possibilité ou suivi de card show. ${base}`;
+  if (category === "Factures") return `Document ou paiement à vérifier. ${base}`;
+  if (category === "Questions clients") return `Client à répondre. ${base}`;
+  return base;
+}
+
+function suggestedJarvisReply(email, category) {
+  if (category === "Questions clients") return "Bonjour, merci pour ton message. Je vérifie ça et je te reviens rapidement avec les détails.";
+  if (category === "Collections à vendre") return "Bonjour, merci de nous avoir contactés. Peux-tu envoyer quelques photos claires et une estimation de la valeur totale de la collection?";
+  if (category === "Card Shows") return "Bonjour, merci pour l’information. Peux-tu confirmer les dates, le prix des tables et les détails d’installation?";
+  if (category === "Factures") return "Bonjour, bien reçu. Je vais valider la facture et revenir vers vous si une information manque.";
+  return "";
+}
+
+function importantJarvisEmails(db) {
+  return (db.jarvisEmails || [])
+    .map((email) => {
+      const category = jarvisEmailCategory(email);
+      return {
+        id: email.id || crypto.createHash("sha1").update(`${email.from || ""}${email.subject || ""}`).digest("hex").slice(0, 12),
+        from: email.from || "",
+        subject: email.subject || "(Sans sujet)",
+        receivedAt: email.receivedAt || email.date || "",
+        ...category,
+        summary: summarizeJarvisEmail(email, category.category),
+        suggestedReply: suggestedJarvisReply(email, category.category),
+      };
+    })
+    .filter((email) => email.categoryType !== "low")
+    .sort((a, b) => String(b.receivedAt || "").localeCompare(String(a.receivedAt || "")))
+    .slice(0, 12);
+}
+
+function jarvisOrdersToShip(db) {
+  return (db.orders || [])
+    .filter((order) => order.status === "paid" && !order.shippedAt && order.shippingStatus !== "shipped")
+    .sort((a, b) => String(a.paidAt || a.createdAt || "").localeCompare(String(b.paidAt || b.createdAt || "")))
+    .map((order) => ({
+      id: order.id,
+      totalAmount: Number(order.totalAmount || 0),
+      customerName: order.address?.name || order.customer?.name || "",
+      createdAt: order.createdAt || "",
+      paidAt: order.paidAt || "",
+      itemsSummary: (order.items || []).map((item) => `${item.quantity || 1}x ${item.name}`).join(", "),
+    }));
+}
+
+function dateOnlyString(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function jarvisCardShows(db) {
+  const today = dateOnlyString(new Date());
+  return (db.cardShows || [])
+    .filter((show) => show.active !== false)
+    .filter((show) => !show.date || String(show.dateEnd || show.date) >= today)
+    .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")))
+    .slice(0, 8)
+    .map((show) => ({
+      id: show.id,
+      title: show.name,
+      start: show.date || "",
+      end: show.dateEnd || "",
+      location: [show.location, show.city].filter(Boolean).join(", "),
+      type: "Card Show",
+      colorLabel: "Bleu - Card Show",
+      colorType: "card-show",
+    }));
+}
+
+function jarvisCalendarEvents(db) {
+  const now = new Date();
+  const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const today = dateOnlyString(now);
+  const externalEvents = (db.jarvisCalendarEvents || []).map((event) => ({
+    id: event.id || crypto.randomBytes(6).toString("hex"),
+    title: event.title || "Événement",
+    start: event.start || event.date || "",
+    location: event.location || "",
+    type: event.type || "Calendrier",
+    colorLabel: event.colorLabel || "Calendrier",
+    colorType: event.colorType || "",
+  }));
+  const cardShowEvents = jarvisCardShows(db);
+  const week = [...externalEvents, ...cardShowEvents]
+    .filter((event) => {
+      if (!event.start) return true;
+      const eventDate = new Date(event.start);
+      if (Number.isNaN(eventDate.getTime())) return true;
+      return eventDate >= new Date(today) && eventDate <= weekEnd;
+    })
+    .sort((a, b) => String(a.start || "").localeCompare(String(b.start || "")))
+    .slice(0, 12);
+  return {
+    today: week.filter((event) => String(event.start || "").slice(0, 10) === today),
+    week,
+  };
+}
+
+function jarvisPriorities(db, context) {
+  const inventoryCount = (db.inventory || []).filter((item) => item.status !== "draft" && item.status !== "sold").length;
+  return [
+    {
+      title: "Ajouter des cartes au site",
+      reason: inventoryCount < 12 ? "La vitrine a besoin de stock visible pour convertir les visiteurs." : "Garder la boutique fraîche aide les retours clients.",
+      score: inventoryCount < 12 ? 95 : 60,
+    },
+    { title: "Créer du contenu Instagram", reason: "Montrer les nouveautés et les beaux slabs crée de la confiance.", score: 74 },
+    { title: "Améliorer le site web", reason: "Optimiser l’expérience augmente les chances d’achat.", score: 62 },
+    { title: "Trouver des collections", reason: "Le sourcing reste le moteur de marge pour Coffee Break.", score: 70 },
+    {
+      title: "Trouver des Card Shows",
+      reason: context.cardShows.length ? "Tu as déjà des shows à suivre; confirme les détails importants." : "Les shows amènent contacts, achats et visibilité locale.",
+      score: context.cardShows.length ? 80 : 68,
+    },
+    { title: "Trouver des partenariats", reason: "Les collaborations peuvent accélérer la croissance sans gros budget média.", score: 58 },
+  ].sort((a, b) => b.score - a.score);
+}
+
+function buildJarvisBriefing(db) {
+  const emails = importantJarvisEmails(db);
+  const ordersToShip = jarvisOrdersToShip(db);
+  const cardShows = jarvisCardShows(db);
+  const calendar = jarvisCalendarEvents(db);
+  const invoiceEmails = emails.filter((email) => email.category === "Factures");
+  const criticalEmails = emails.filter((email) => email.categoryType === "critical");
+  const context = { emails, ordersToShip, cardShows, calendar };
+  const priorities = jarvisPriorities(db, context);
+  const attention = [];
+
+  if (ordersToShip.length) {
+    attention.push({
+      priority: "Critique",
+      title: `${ordersToShip.length} commande${ordersToShip.length > 1 ? "s" : ""} à expédier`,
+      detail: "Prépare les colis payés avant d’ajouter de nouvelles tâches.",
+    });
+  }
+  if (criticalEmails.length) {
+    attention.push({
+      priority: "Critique",
+      title: `${criticalEmails.length} email${criticalEmails.length > 1 ? "s" : ""} critique${criticalEmails.length > 1 ? "s" : ""}`,
+      detail: "Lis ces messages avant de toucher aux tâches de croissance.",
+    });
+  }
+  if (calendar.today.length) {
+    attention.push({
+      priority: "Important",
+      title: `${calendar.today.length} événement${calendar.today.length > 1 ? "s" : ""} aujourd’hui`,
+      detail: "Vérifie les heures et les préparatifs avant midi.",
+    });
+  }
+  if (cardShows.length) {
+    attention.push({
+      priority: "Important",
+      title: "Card Shows à suivre",
+      detail: "Confirme les dates, les tables et les opportunités de présence.",
+    });
+  }
+  if (!attention.length) {
+    attention.push({
+      priority: "Important",
+      title: priorities[0]?.title || "Ajouter des cartes au site",
+      detail: priorities[0]?.reason || "Travaille sur l’action qui fait croître Coffee Break aujourd’hui.",
+    });
+  }
+
+  const focus = ordersToShip.length
+    ? { title: "Expédier les commandes payées", reason: "Les commandes clients passent avant la croissance. Une expédition rapide crée la confiance." }
+    : criticalEmails.length
+      ? { title: "Répondre aux emails critiques", reason: "Il y a des messages qui peuvent bloquer des ventes, des shows ou des décisions." }
+      : calendar.today.length
+        ? { title: "Préparer les événements du jour", reason: "Ton calendrier contient des éléments actifs aujourd’hui." }
+        : { title: priorities[0]?.title || "Ajouter des cartes au site", reason: priorities[0]?.reason || "C’est la meilleure action de croissance disponible maintenant." };
+
+  return {
+    briefing: {
+      generatedAt: new Date().toISOString(),
+      focus,
+      attention,
+    },
+    counts: {
+      criticalEmails: criticalEmails.length,
+      ordersToShip: ordersToShip.length,
+      cardShows: cardShows.length,
+      invoices: invoiceEmails.length,
+      todayEvents: calendar.today.length,
+    },
+    emails: {
+      important: emails,
+      accounts: ["coffeebreaktcg@gmail.com", "maximelegault2000@gmail.com"],
+    },
+    ordersToShip,
+    cardShows,
+    calendar,
+    priorities: priorities.slice(0, 6),
+    integrations: {
+      gmail: {
+        connected: (db.jarvisEmails || []).length > 0,
+        accounts: ["coffeebreaktcg@gmail.com", "maximelegault2000@gmail.com"],
+        message: (db.jarvisEmails || []).length
+          ? "Gmail: source email importée dans Jarvis."
+          : "Gmail prêt à brancher. Ajoute OAuth Google pour lire les deux boîtes automatiquement.",
+      },
+      calendar: {
+        connected: (db.jarvisCalendarEvents || []).length > 0,
+        message: (db.jarvisCalendarEvents || []).length
+          ? "Google Calendar: événements importés."
+          : "Google Calendar prêt à brancher. Les Card Shows du site sont déjà affichés comme événements.",
+      },
+      ai: {
+        connected: Boolean(process.env.OPENAI_API_KEY),
+        message: process.env.OPENAI_API_KEY ? "Briefing IA prêt pour enrichissement OpenAI." : "Briefing heuristique actif; OpenAI pourra enrichir les résumés plus tard.",
+      },
+    },
+  };
 }
 
 function publicProduct(product) {
@@ -2384,6 +2716,55 @@ async function handleApi(req, res) {
     });
   }
 
+  if (url.pathname === "/api/jarvis/login" && req.method === "POST") {
+    const attempts = jarvisAttemptState(req);
+    if (attempts.lockedUntil && attempts.lockedUntil > Date.now()) {
+      return json(res, 429, { error: "Trop d’essais. Réessaie dans quelques minutes." });
+    }
+    const body = await readBody(req);
+    const email = String(body.email || "").trim().toLowerCase();
+    const password = String(body.password || "");
+    if (!jarvisPassword && !jarvisPasswordHash) {
+      return json(res, 503, { error: "Mot de passe Jarvis non configuré sur le serveur." });
+    }
+    if (!jarvisAllowedEmails.includes(email) || !jarvisPasswordMatches(password)) {
+      recordJarvisLoginFailure(req);
+      return json(res, 401, { error: "Accès Jarvis refusé." });
+    }
+    clearJarvisLoginFailures(req);
+    const user = jarvisUserFromEmail(email);
+    const sessionId = crypto.randomBytes(24).toString("hex");
+    db.jarvisSessions[sessionId] = {
+      ...user,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + jarvisSessionMs).toISOString(),
+      ip: requestIp(req),
+    };
+    await writeDb(db);
+    return json(res, 200, { user: publicJarvisUser(db.jarvisSessions[sessionId]) }, jarvisCookieHeader(sessionId));
+  }
+
+  if (url.pathname === "/api/jarvis/logout" && req.method === "POST") {
+    const sessionId = parseCookies(req).cb_jarvis;
+    if (sessionId && db.jarvisSessions?.[sessionId]) {
+      delete db.jarvisSessions[sessionId];
+      await writeDb(db);
+    }
+    return json(res, 200, { ok: true }, clearJarvisCookieHeader());
+  }
+
+  if (url.pathname === "/api/jarvis/me" && req.method === "GET") {
+    return json(res, 200, { user: publicJarvisUser(getJarvisSession(req, db)) });
+  }
+
+  if (url.pathname.startsWith("/api/jarvis/") && !getJarvisSession(req, db)) {
+    return json(res, 401, { error: "Connexion Jarvis requise." });
+  }
+
+  if (url.pathname === "/api/jarvis/briefing" && req.method === "GET") {
+    return json(res, 200, buildJarvisBriefing(db));
+  }
+
   if (url.pathname === "/api/admin/login" && req.method === "POST") {
     const attempts = adminAttemptState(req);
     if (attempts.lockedUntil && attempts.lockedUntil > Date.now()) {
@@ -3057,10 +3438,26 @@ function clearAdminCookieHeader() {
   };
 }
 
+function jarvisCookieHeader(sessionId) {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return {
+    "Set-Cookie": `cb_jarvis=${encodeURIComponent(
+      sessionId
+    )}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(jarvisSessionMs / 1000)}${secure}`,
+  };
+}
+
+function clearJarvisCookieHeader() {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return {
+    "Set-Cookie": `cb_jarvis=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}`,
+  };
+}
+
 async function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const safePath = path.normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, "");
-  const requested = safePath === "/" ? "/index.html" : safePath;
+  const requested = safePath === "/" ? "/index.html" : safePath === "/jarvis" ? "/jarvis.html" : safePath;
   const isUploadAsset = requested.startsWith("/assets/uploads/");
   const uploadFileName = isUploadAsset ? path.basename(requested) : "";
   const filePath = isUploadAsset ? path.join(uploadDir, uploadFileName) : path.join(root, requested);
@@ -3080,7 +3477,8 @@ async function serveStatic(req, res) {
   } catch {
     const acceptsHtml = (req.headers.accept || "").includes("text/html");
     if (acceptsHtml && !url.pathname.startsWith("/assets/")) {
-      const file = await fs.readFile(path.join(root, "index.html"));
+      const fallbackFile = url.pathname === "/jarvis" ? "jarvis.html" : "index.html";
+      const file = await fs.readFile(path.join(root, fallbackFile));
       res.writeHead(200, { ...securityHeaders, "Content-Type": mimeTypes[".html"] });
       return res.end(file);
     }
