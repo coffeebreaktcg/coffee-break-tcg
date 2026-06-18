@@ -3734,6 +3734,78 @@ async function handleApi(req, res) {
     });
   }
 
+  if (url.pathname === "/api/jarvis/test-openai" && req.method === "POST") {
+    if (!openaiApiKey) return json(res, 400, { error: "OPENAI_API_KEY n’est pas configurée." });
+    try {
+      const ai = await generateJarvisResponse({
+        task: "Test de connexion OpenAI pour Jarvis. Retourne un JSON minimal avec ok:true et message.",
+        data: { test: true, source: "Jarvis diagnostic" },
+      });
+      if (ai.provider !== "openai") return json(res, 502, { error: ai.error || "OpenAI n’a pas répondu." });
+      return json(res, 200, {
+        ok: true,
+        provider: ai.provider,
+        model: ai.model || openaiModel,
+        message: ai.parsed?.message || "OpenAI répond correctement avec le system prompt Jarvis.",
+      });
+    } catch (error) {
+      recordJarvisIntegrationError(db, "openai", error, "test");
+      await writeDb(db);
+      return json(res, 502, { error: error.message, diagnostic: buildJarvisDiagnostic(db) });
+    }
+  }
+
+  if (url.pathname === "/api/jarvis/test-gmail" && req.method === "POST") {
+    if (!googleOAuthConfigured()) return json(res, 400, { error: "Google OAuth n’est pas configuré." });
+    const results = [];
+    for (const [source, account] of Object.entries(jarvisGmailAccounts())) {
+      if (!db.jarvisGoogleTokens?.[source]) {
+        results.push({ source, expectedEmail: account.email, ok: false, connected: false, message: "Compte non connecté." });
+        continue;
+      }
+      try {
+        const token = await refreshGoogleAccessToken(db, source);
+        const profile = await googleGetJson("https://gmail.googleapis.com/gmail/v1/users/me/profile", token);
+        results.push({
+          source,
+          expectedEmail: account.email,
+          ok: true,
+          connected: true,
+          email: profile.emailAddress || "",
+          messagesTotal: profile.messagesTotal || 0,
+          message: "Gmail répond correctement.",
+        });
+        clearJarvisIntegrationError(db, `gmail:${source}`);
+      } catch (error) {
+        recordJarvisIntegrationError(db, `gmail:${source}`, error, "test");
+        results.push({ source, expectedEmail: account.email, ok: false, connected: true, message: error.message });
+      }
+    }
+    await writeDb(db);
+    return json(res, 200, { ok: results.every((result) => result.ok), results, diagnostic: buildJarvisDiagnostic(db) });
+  }
+
+  if (url.pathname === "/api/jarvis/test-calendar" && req.method === "POST") {
+    if (!googleOAuthConfigured()) return json(res, 400, { error: "Google OAuth n’est pas configuré." });
+    if (!db.jarvisCalendarTokens?.primary) return json(res, 400, { error: "Google Calendar n’est pas connecté." });
+    try {
+      const token = await refreshGoogleCalendarAccessToken(db);
+      const calendarList = await googleGetJson("https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader", token);
+      clearJarvisIntegrationError(db, "calendar");
+      await writeDb(db);
+      return json(res, 200, {
+        ok: true,
+        calendars: (calendarList.items || []).map((calendar) => calendar.summary || calendar.id).slice(0, 12),
+        message: "Google Calendar répond correctement.",
+        diagnostic: buildJarvisDiagnostic(db),
+      });
+    } catch (error) {
+      recordJarvisIntegrationError(db, "calendar", error, "test");
+      await writeDb(db);
+      return json(res, 502, { error: error.message, diagnostic: buildJarvisDiagnostic(db) });
+    }
+  }
+
   if (url.pathname === "/api/jarvis/gmail/status" && req.method === "GET") {
     return json(res, 200, {
       configured: googleOAuthConfigured(),

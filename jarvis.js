@@ -26,6 +26,38 @@ const emailPriorities = ["Critique", "Important", "Peut attendre"];
 const replyVerdicts = ["correcte", "à modifier", "incorrecte"];
 let currentEmailFilter = "all";
 
+function oauthMessageFromParams() {
+  const params = new URLSearchParams(window.location.search);
+  const service = params.has("gmail") ? "Gmail" : params.has("calendar") ? "Google Calendar" : "";
+  const code = params.get("gmail") || params.get("calendar") || "";
+  if (!service || !code) return null;
+  const message = params.get("message") || params.get("expected") || params.get("email") || "";
+  const labels = {
+    connected: `${service} est connecté. Tu peux importer les données.`,
+    "missing-config": `${service}: configuration OAuth manquante sur le serveur.`,
+    "invalid-state": `${service}: session OAuth expirée ou invalide. Réessaie depuis Jarvis.`,
+    expired: `${service}: lien OAuth expiré. Relance la connexion.`,
+    "wrong-account": `${service}: mauvais compte Google sélectionné.`,
+    error: `${service}: Google a retourné une erreur.`,
+  };
+  return {
+    ok: code === "connected",
+    text: `${labels[code] || `${service}: statut OAuth ${code}.`}${message ? ` Détail: ${message}` : ""}`,
+  };
+}
+
+function renderOAuthMessage() {
+  const node = document.querySelector("[data-oauth-alert]");
+  if (!node) return;
+  const message = oauthMessageFromParams();
+  if (!message) return;
+  node.hidden = false;
+  node.classList.toggle("ok", message.ok);
+  node.textContent = message.text;
+  const cleanUrl = `${window.location.origin}${window.location.pathname}`;
+  window.history.replaceState({}, document.title, cleanUrl);
+}
+
 function cleanSensitiveUrlParams() {
   const params = new URLSearchParams(window.location.search);
   const email = params.get("email");
@@ -451,6 +483,22 @@ function renderTestBriefing(payload) {
   `;
 }
 
+function renderTestResult(title, payload, ok = true) {
+  const node = document.querySelector("[data-test-results]");
+  if (!node) return;
+  const details = payload?.results
+    ? payload.results.map((result) => `${result.source}: ${result.message || (result.ok ? "OK" : "Erreur")}`).join(" · ")
+    : payload?.calendars
+      ? `${payload.message || "OK"} ${payload.calendars.length ? `Calendriers: ${payload.calendars.join(", ")}` : ""}`
+      : payload?.message || payload?.error || "Test terminé.";
+  node.innerHTML = `
+    <div class="test-result ${ok ? "ok" : "warn"}">
+      <strong>${escapeHtml(title)}</strong>
+      <p>${escapeHtml(details)}</p>
+    </div>
+  `;
+}
+
 function renderDecisionPreview(items) {
   if (!items.length) return `<p class="empty">Rien ici.</p>`;
   return items
@@ -509,6 +557,9 @@ document.addEventListener("click", async (event) => {
   const emailFilterButton = event.target.closest("[data-email-filter]");
   const saveFeedbackButton = event.target.closest("[data-save-email-feedback]");
   const testBriefingButton = event.target.closest("[data-test-briefing]");
+  const testOpenAiButton = event.target.closest("[data-test-openai]");
+  const testGmailButton = event.target.closest("[data-test-gmail]");
+  const testCalendarButton = event.target.closest("[data-test-calendar]");
   const reimportAllButton = event.target.closest("[data-reimport-all]");
 
   if (emailFilterButton) {
@@ -607,6 +658,53 @@ document.addEventListener("click", async (event) => {
     }
   }
 
+  if (testOpenAiButton) {
+    testOpenAiButton.disabled = true;
+    testOpenAiButton.textContent = "Test...";
+    try {
+      const payload = await api("/api/jarvis/test-openai", { method: "POST", body: "{}" });
+      renderTestResult("OpenAI", payload, true);
+    } catch (error) {
+      renderTestResult("OpenAI", { error: error.message }, false);
+      await loadDiagnostic().catch(() => {});
+    } finally {
+      testOpenAiButton.disabled = false;
+      testOpenAiButton.textContent = "Tester connexion OpenAI";
+    }
+  }
+
+  if (testGmailButton) {
+    testGmailButton.disabled = true;
+    testGmailButton.textContent = "Test...";
+    try {
+      const payload = await api("/api/jarvis/test-gmail", { method: "POST", body: "{}" });
+      renderTestResult("Gmail", payload, Boolean(payload.ok));
+      renderDiagnostic(payload.diagnostic);
+    } catch (error) {
+      renderTestResult("Gmail", { error: error.message }, false);
+      await loadDiagnostic().catch(() => {});
+    } finally {
+      testGmailButton.disabled = false;
+      testGmailButton.textContent = "Tester Gmail";
+    }
+  }
+
+  if (testCalendarButton) {
+    testCalendarButton.disabled = true;
+    testCalendarButton.textContent = "Test...";
+    try {
+      const payload = await api("/api/jarvis/test-calendar", { method: "POST", body: "{}" });
+      renderTestResult("Google Calendar", payload, Boolean(payload.ok));
+      renderDiagnostic(payload.diagnostic);
+    } catch (error) {
+      renderTestResult("Google Calendar", { error: error.message }, false);
+      await loadDiagnostic().catch(() => {});
+    } finally {
+      testCalendarButton.disabled = false;
+      testCalendarButton.textContent = "Tester Calendar";
+    }
+  }
+
   if (reimportAllButton) {
     reimportAllButton.disabled = true;
     reimportAllButton.textContent = "Réimport...";
@@ -662,6 +760,7 @@ document.querySelector("[data-logout]").addEventListener("click", async () => {
 });
 
 cleanSensitiveUrlParams();
+renderOAuthMessage();
 
 if (!warnIfOpenedAsFile()) {
   api("/api/jarvis/me")

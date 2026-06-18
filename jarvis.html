@@ -11,10 +11,11 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/jarvis.css?v=jarvis-diagnostic-v1-20260618" />
+    <link rel="stylesheet" href="/jarvis.css?v=jarvis-render-preflight-20260618" />
   </head>
   <body>
     <main class="jarvis-shell">
+      <div class="oauth-alert" data-oauth-alert hidden></div>
       <section class="login-panel" data-login-panel>
         <p class="eyebrow">Coffee Break TCG private</p>
         <h1>JARVIS</h1>
@@ -44,7 +45,6 @@
             <button type="button" class="ghost" data-logout>Déconnexion</button>
           </div>
         </header>
-
         <section class="briefing-hero">
           <div>
             <p class="eyebrow">Focus du jour</p>
@@ -143,12 +143,16 @@
                 <h2>Diagnostic Jarvis</h2>
               </div>
               <div class="gmail-controls diagnostic-actions">
+                <button type="button" class="ghost-dark" data-test-openai>Tester connexion OpenAI</button>
+                <button type="button" class="ghost-dark" data-test-gmail>Tester Gmail</button>
+                <button type="button" class="ghost-dark" data-test-calendar>Tester Calendar</button>
                 <button type="button" data-test-briefing>Générer briefing test</button>
                 <button type="button" class="ghost-dark" data-reimport-all>Tout réimporter</button>
               </div>
             </div>
             <div class="diagnostic-grid" data-diagnostic-grid></div>
             <div class="diagnostic-errors" data-diagnostic-errors></div>
+            <div class="test-results" data-test-results></div>
             <div class="test-briefing" data-test-briefing-output hidden></div>
           </article>
 
@@ -185,6 +189,6 @@
       </section>
     </main>
 
-    <script src="/jarvis.js?v=jarvis-diagnostic-v1-20260618" defer></script>
+    <script src="/jarvis.js?v=jarvis-render-preflight-20260618" defer></script>
   </body>
 </html>
