@@ -4,6 +4,23 @@ const loginForm = document.querySelector("[data-login-form]");
 const loginMessage = document.querySelector("[data-login-message]");
 const greeting = document.querySelector("[data-greeting]");
 
+function cleanSensitiveUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  const email = params.get("email");
+  if (email) loginForm.querySelector('input[name="email"]').value = email;
+  if (!params.has("password")) return;
+  const cleanUrl = window.location.origin === "null" ? window.location.pathname : `${window.location.origin}${window.location.pathname}`;
+  window.history.replaceState({}, document.title, cleanUrl);
+  loginMessage.textContent = "Le mot de passe a été retiré de l’URL. Entre-le seulement dans le champ du formulaire.";
+}
+
+function warnIfOpenedAsFile() {
+  if (window.location.protocol !== "file:") return false;
+  loginMessage.innerHTML = 'Jarvis doit être ouvert depuis le serveur local: <a href="http://localhost:4173/jarvis">http://localhost:4173/jarvis</a>';
+  loginForm.querySelector("button").disabled = true;
+  return true;
+}
+
 async function api(path, options = {}) {
   const response = await fetch(path, {
     credentials: "same-origin",
@@ -139,6 +156,7 @@ async function loadJarvis() {
 
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (warnIfOpenedAsFile()) return;
   loginMessage.textContent = "";
   const form = new FormData(loginForm);
   try {
@@ -167,9 +185,13 @@ document.querySelector("[data-logout]").addEventListener("click", async () => {
   setSessionView(null);
 });
 
-api("/api/jarvis/me")
-  .then(async ({ user }) => {
-    setSessionView(user);
-    if (user) await loadJarvis();
-  })
-  .catch(() => setSessionView(null));
+cleanSensitiveUrlParams();
+
+if (!warnIfOpenedAsFile()) {
+  api("/api/jarvis/me")
+    .then(async ({ user }) => {
+      setSessionView(user);
+      if (user) await loadJarvis();
+    })
+    .catch(() => setSessionView(null));
+}
