@@ -26,6 +26,7 @@ const emailPriorities = ["Critique", "Important", "Peut attendre"];
 const replyVerdicts = ["correcte", "à modifier", "incorrecte"];
 let currentEmailFilter = "all";
 let currentContentOpportunities = [];
+let activeStudioOpportunity = null;
 
 function oauthMessageFromParams() {
   const params = new URLSearchParams(window.location.search);
@@ -351,33 +352,131 @@ function renderOpportunityBlock(opportunity, compact = false) {
           .join("")}
       </div>
       <div class="content-actions">
+        <button type="button" data-content-develop data-opportunity-id="${escapeHtml(opportunity.id)}">Développer l’idée</button>
         <button type="button" class="ghost-dark" data-content-generate="reel" data-opportunity-id="${escapeHtml(opportunity.id)}">Générer le Reel</button>
         <button type="button" class="ghost-dark" data-content-generate="post" data-opportunity-id="${escapeHtml(opportunity.id)}">Générer le Post</button>
         <button type="button" class="ghost-dark" data-content-generate="story" data-opportunity-id="${escapeHtml(opportunity.id)}">Générer la Story</button>
+        <button type="button" class="ghost-dark" data-content-task data-opportunity-id="${escapeHtml(opportunity.id)}">Convertir en tâche</button>
       </div>
       <div class="content-draft" data-content-draft hidden></div>
     </div>
   `;
 }
 
+function contentAngles(opportunity) {
+  const base = opportunity?.title || "cette sélection";
+  const topic = opportunity?.topic || "CoffeeBreakTCG";
+  return {
+    hook: `Tu collectionnes Pokémon? Voici pourquoi ${base.toLowerCase()} mérite ton attention aujourd’hui.`,
+    reel15: `0-3s: plan serré sur l’item. 3-9s: montre le détail qui crée la valeur. 9-13s: explique pourquoi maintenant. 13-15s: CTA clair vers CoffeeBreakTCG.com ou DM.`,
+    reel30: `0-4s: hook visuel. 4-12s: contexte rapide sur ${topic}. 12-22s: montre 2-3 plans de détails. 22-27s: lien business: vente, collection ou confiance. 27-30s: CTA vers le site ou message privé.`,
+    caption: `Powered by coffee and cardboard. ${base}. On bâtit CoffeeBreakTCG autour des belles collections, des échanges honnêtes et des cartes bien protégées. Écris-nous pour réserver, vendre une collection ou voir plus de photos.`,
+    story: `Slide 1: ${base}. Slide 2: pourquoi c’est intéressant maintenant. Slide 3: “DM pour réserver / proposer une collection / poser une question”.`,
+    shotList: `Plan 1: reveal lent. Plan 2: détail de la carte ou du produit. Plan 3: texture/protection. Plan 4: plan main + logo CoffeeBreak. Plan 5: CTA final.`,
+    cta: `Découvre les items sur CoffeeBreakTCG.com ou écris-nous si tu veux vendre une collection.`,
+    premium: `Ton calme, précis, collectionneur sérieux: insiste sur l’état, la rareté, la protection et la confiance.`,
+    funny: `Ton plus léger: “on a dit qu’on arrêtait d’acheter des belles cartes... ça a duré 12 minutes.”`,
+    educational: `Explique simplement ce qui rend l’item intéressant: set, condition, demande, grading, protection ou potentiel collectionneur.`,
+  };
+}
+
 function contentDraft(opportunity, channel) {
-  const labels = { reel: "Reel", post: "Post", story: "Story" };
-  const hook =
-    channel === "story"
-      ? "Disponible aujourd’hui chez Coffee Break TCG."
-      : channel === "post"
-        ? "Powered by coffee and cardboard. Voici pourquoi cette sélection mérite ton attention."
-        : "POV: tu trouves une carte qui mérite vraiment sa place dans une collection.";
-  const cta =
-    channel === "story"
-      ? "Réponds à la story si tu veux réserver ou nous proposer une collection."
-      : "Écris-nous si tu veux réserver, vendre une collection ou voir plus de photos.";
+  const labels = {
+    reel: "Reel",
+    post: "Post",
+    story: "Story",
+    hook: "Hook",
+    reel15: "Script Reel 15 secondes",
+    reel30: "Script Reel 30 secondes",
+    caption: "Caption Instagram",
+    story3: "Story en 3 slides",
+    shotList: "Shot list",
+    cta: "CTA vers le site",
+    premium: "Variante premium",
+    funny: "Variante drôle",
+    educational: "Variante éducative",
+  };
+  const angles = contentAngles(opportunity);
+  const body =
+    {
+      reel: angles.reel15,
+      post: angles.caption,
+      story: angles.story,
+      hook: angles.hook,
+      reel15: angles.reel15,
+      reel30: angles.reel30,
+      caption: angles.caption,
+      story3: angles.story,
+      shotList: angles.shotList,
+      cta: angles.cta,
+      premium: angles.premium,
+      funny: angles.funny,
+      educational: angles.educational,
+    }[channel] || angles.reel15;
   return `
     <strong>Brouillon ${labels[channel] || "contenu"}</strong>
-    <p>${escapeHtml(hook)}</p>
-    <p>${escapeHtml(opportunity.title)}. Angle: ${escapeHtml(opportunity.topic || "croissance CoffeeBreak")}.</p>
-    <p>${escapeHtml(cta)}</p>
+    <p>${escapeHtml(body)}</p>
+    <p><strong>Objectif business:</strong> vendre, attirer des collectionneurs, trouver des collections, développer la communauté ou augmenter la confiance.</p>
   `;
+}
+
+function renderContentStudio(opportunity) {
+  const node = document.querySelector("[data-content-studio]");
+  if (!node) return;
+  if (!opportunity) {
+    node.hidden = true;
+    node.innerHTML = "";
+    return;
+  }
+  activeStudioOpportunity = opportunity;
+  node.hidden = false;
+  node.innerHTML = `
+    <div class="studio-head">
+      <div>
+        <p class="eyebrow">Studio Contenu</p>
+        <h3>${escapeHtml(opportunity.title)}</h3>
+        <p>${escapeHtml(opportunity.whyNow || "")}</p>
+      </div>
+      ${opportunityScorePill(opportunity)}
+    </div>
+    <div class="opportunity-meta">
+      <span>Temps: ${escapeHtml(opportunity.timeRequired || "")}</span>
+      <span>Impact: ${escapeHtml(opportunity.impactExpected || "")}</span>
+      <span>Confiance: ${escapeHtml(opportunity.confidence || "Prudent")}</span>
+    </div>
+    <div class="studio-objectives">
+      <span>Vendre</span>
+      <span>Attirer des collectionneurs</span>
+      <span>Trouver des collections</span>
+      <span>Communauté</span>
+      <span>Confiance</span>
+    </div>
+    <div class="studio-actions">
+      <button type="button" data-studio-generate="hook">Hook</button>
+      <button type="button" data-studio-generate="reel15">Script Reel 15s</button>
+      <button type="button" data-studio-generate="reel30">Script Reel 30s</button>
+      <button type="button" data-studio-generate="caption">Caption Instagram</button>
+      <button type="button" data-studio-generate="story3">Story 3 slides</button>
+      <button type="button" data-studio-generate="shotList">Shot list</button>
+      <button type="button" data-studio-generate="cta">CTA site</button>
+      <button type="button" data-studio-generate="premium">Variante premium</button>
+      <button type="button" data-studio-generate="funny">Variante drôle</button>
+      <button type="button" data-studio-generate="educational">Variante éducative</button>
+    </div>
+    <div class="studio-conversation" data-studio-conversation>
+      <div class="studio-message jarvis">
+        <strong>Jarvis</strong>
+        <p>On garde le contenu relié à la croissance CoffeeBreak. Ma recommandation: produire le format ${escapeHtml(
+          opportunity.format || "Instagram"
+        )} parce que l’opportunité business est la plus claire maintenant.</p>
+      </div>
+    </div>
+    <div class="content-actions">
+      <button type="button" data-content-task data-opportunity-id="${escapeHtml(opportunity.id)}">Convertir en tâche</button>
+      <button type="button" class="ghost-dark" data-content-studio-close>Fermer le Studio</button>
+    </div>
+  `;
+  node.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function groupEmails(emails) {
@@ -701,6 +800,10 @@ document.addEventListener("click", async (event) => {
   const reimportAllButton = event.target.closest("[data-reimport-all]");
   const completeActionButton = event.target.closest("[data-complete-action]");
   const contentGenerateButton = event.target.closest("[data-content-generate]");
+  const contentDevelopButton = event.target.closest("[data-content-develop]");
+  const contentTaskButton = event.target.closest("[data-content-task]");
+  const studioGenerateButton = event.target.closest("[data-studio-generate]");
+  const studioCloseButton = event.target.closest("[data-content-studio-close]");
 
   if (completeActionButton) {
     const done = completedActions();
@@ -718,6 +821,69 @@ document.addEventListener("click", async (event) => {
     if (!opportunity || !draft) return;
     draft.hidden = false;
     draft.innerHTML = contentDraft(opportunity, contentGenerateButton.dataset.contentGenerate);
+    return;
+  }
+
+  if (contentDevelopButton) {
+    const opportunity = currentContentOpportunities.find((item) => item.id === contentDevelopButton.dataset.opportunityId);
+    renderContentStudio(opportunity);
+    return;
+  }
+
+  if (studioCloseButton) {
+    renderContentStudio(null);
+    return;
+  }
+
+  if (studioGenerateButton) {
+    if (!activeStudioOpportunity) return;
+    const conversation = document.querySelector("[data-studio-conversation]");
+    if (!conversation) return;
+    conversation.insertAdjacentHTML(
+      "beforeend",
+      `<div class="studio-message jarvis">${contentDraft(activeStudioOpportunity, studioGenerateButton.dataset.studioGenerate)}</div>`
+    );
+    conversation.scrollIntoView({ behavior: "smooth", block: "end" });
+    return;
+  }
+
+  if (contentTaskButton) {
+    const opportunity =
+      currentContentOpportunities.find((item) => item.id === contentTaskButton.dataset.opportunityId) || activeStudioOpportunity;
+    if (!opportunity) return;
+    contentTaskButton.disabled = true;
+    contentTaskButton.textContent = "Création...";
+    const previousConversationHtml = document.querySelector("[data-studio-conversation]")?.innerHTML || "";
+    try {
+      const payload = await api("/api/jarvis/content-task", {
+        method: "POST",
+        body: JSON.stringify({
+          opportunity,
+          title: opportunity.title,
+          timeRequired: opportunity.timeRequired || "15 minutes",
+          impact: opportunity.impactExpected || "visibilité + confiance",
+        }),
+      });
+      renderBriefing(payload.briefing);
+      renderContentStudio(payload.task.opportunity || opportunity);
+      const conversation = document.querySelector("[data-studio-conversation]");
+      if (conversation && previousConversationHtml) conversation.innerHTML = previousConversationHtml;
+      conversation?.insertAdjacentHTML(
+        "beforeend",
+        `<div class="studio-message system"><strong>Tâche créée</strong><p>${escapeHtml(payload.task.title)} · ${escapeHtml(
+          payload.task.timeRequired
+        )} · ${escapeHtml(payload.task.impact)}</p></div>`
+      );
+    } catch (error) {
+      const draft = contentTaskButton.closest("[data-content-opportunity-id]")?.querySelector("[data-content-draft]");
+      if (draft) {
+        draft.hidden = false;
+        draft.innerHTML = `<p>${escapeHtml(error.message)}</p>`;
+      }
+    } finally {
+      contentTaskButton.disabled = false;
+      contentTaskButton.textContent = "Convertir en tâche";
+    }
     return;
   }
 

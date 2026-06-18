@@ -157,6 +157,7 @@ async function readDb() {
     if (!Array.isArray(db.jarvisEmails)) db.jarvisEmails = [];
     if (!Array.isArray(db.jarvisEmailFeedback)) db.jarvisEmailFeedback = [];
     if (!Array.isArray(db.jarvisCalendarEvents)) db.jarvisCalendarEvents = [];
+    if (!Array.isArray(db.jarvisTasks)) db.jarvisTasks = [];
     if (!db.jarvisGoogleTokens) db.jarvisGoogleTokens = {};
     if (!db.jarvisCalendarTokens) db.jarvisCalendarTokens = {};
     if (!db.jarvisOAuthStates) db.jarvisOAuthStates = {};
@@ -183,6 +184,7 @@ async function readDb() {
       jarvisEmails: [],
       jarvisEmailFeedback: [],
       jarvisCalendarEvents: [],
+      jarvisTasks: [],
       jarvisGoogleTokens: {},
       jarvisCalendarTokens: {},
       jarvisOAuthStates: {},
@@ -1106,6 +1108,13 @@ function jarvisGrowthMetrics(db) {
   };
 }
 
+function activeJarvisTasks(db) {
+  return (db.jarvisTasks || [])
+    .filter((task) => !["terminé", "annulé"].includes(String(task.status || "").toLowerCase()))
+    .sort((a, b) => Number(b.score || 0) - Number(a.score || 0) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+    .slice(0, 8);
+}
+
 function activeInventoryItems(db) {
   return (db.inventory || []).filter((item) => !["draft", "sold", "reserved"].includes(item.status) && Number(item.stock || 0) > 0);
 }
@@ -1225,8 +1234,21 @@ function decisionItem({ type, title, detail, score, source, action, opportunity 
   return { type, title, detail, score: Math.max(0, Math.min(100, Math.round(score))), priority, source, action, opportunity: opportunity || null };
 }
 
-function buildDecisionMatrix({ emails, ordersToShip, calendar, cardShows, priorities, growth, contentOpportunities }) {
+function buildDecisionMatrix({ emails, ordersToShip, calendar, cardShows, tasks, priorities, growth, contentOpportunities }) {
   const decisions = [];
+  for (const task of tasks || []) {
+    decisions.push(
+      decisionItem({
+        type: "Tâche",
+        title: task.title,
+        detail: `${task.impact || "Impact business"} · ${task.timeRequired || "Temps à confirmer"}`,
+        score: Number(task.score || 64),
+        source: "Studio Contenu",
+        action: task.nextAction || "Exécuter cette tâche quand le bloc contenu commence",
+        opportunity: task.opportunity || null,
+      })
+    );
+  }
   for (const order of ordersToShip) {
     decisions.push(
       decisionItem({
@@ -1329,6 +1351,7 @@ async function buildJarvisBriefing(db) {
   const ordersToShip = jarvisOrdersToShip(db);
   const cardShows = jarvisCardShows(db);
   const calendar = jarvisCalendarEvents(db);
+  const tasks = activeJarvisTasks(db);
   const growth = jarvisGrowthMetrics(db);
   const invoiceEmails = emails.filter((email) => email.category === "Factures");
   const criticalEmails = emails.filter((email) => email.priority === "Critique");
@@ -1336,7 +1359,7 @@ async function buildJarvisBriefing(db) {
   const contentOpportunities = jarvisContentOpportunities(db, baseContext);
   const context = { ...baseContext, contentOpportunities };
   const priorities = jarvisPriorities(db, context);
-  const decisionMatrix = buildDecisionMatrix({ emails, ordersToShip, calendar, cardShows, priorities, growth, contentOpportunities });
+  const decisionMatrix = buildDecisionMatrix({ emails, ordersToShip, calendar, cardShows, tasks, priorities, growth, contentOpportunities });
   const topDecision = decisionMatrix.all[0];
 
   let focus = topDecision
@@ -1376,6 +1399,7 @@ async function buildJarvisBriefing(db) {
         ordersToShip,
         cardShows,
         calendar,
+        tasks,
         growth,
         priorities: priorities.slice(0, 6),
       },
@@ -1431,6 +1455,7 @@ async function buildJarvisBriefing(db) {
     ordersToShip,
     cardShows,
     calendar,
+    tasks,
     priorities: priorities.slice(0, 6),
     contentOpportunities,
     growth,
@@ -4080,6 +4105,40 @@ async function handleApi(req, res) {
       diagnostic: buildJarvisDiagnostic(db),
       briefing: await buildJarvisBriefing(db),
     });
+  }
+
+  if (url.pathname === "/api/jarvis/content-task" && req.method === "POST") {
+    const body = await readBody(req);
+    const opportunity = body.opportunity || {};
+    const title = String(body.title || opportunity.title || "Produire un contenu CoffeeBreak").trim();
+    if (!title) return json(res, 400, { error: "Titre de tâche requis." });
+    const task = {
+      id: `jarvis-task-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`,
+      type: "content",
+      title: title.startsWith("Filmer") ? title : `Filmer ${title}`,
+      status: "à faire",
+      timeRequired: String(body.timeRequired || opportunity.timeRequired || "15 minutes"),
+      impact: String(body.impact || opportunity.impactExpected || "visibilité + confiance"),
+      nextAction: String(body.nextAction || `Préparer le tournage et produire le contenu ${opportunity.format || "Instagram"}`),
+      score: Number(opportunity.score || body.score || 64),
+      opportunity: {
+        id: opportunity.id || "",
+        title: opportunity.title || title,
+        format: opportunity.format || "",
+        topic: opportunity.topic || "",
+        score: Number(opportunity.score || 0),
+        scoreLabel: opportunity.scoreLabel || "Score opportunité",
+        whyNow: opportunity.whyNow || "",
+        timeRequired: opportunity.timeRequired || "",
+        impactExpected: opportunity.impactExpected || "",
+        confidence: opportunity.confidence || "",
+      },
+      createdAt: new Date().toISOString(),
+    };
+    db.jarvisTasks = db.jarvisTasks || [];
+    db.jarvisTasks.unshift(task);
+    await writeDb(db);
+    return json(res, 200, { task, briefing: await buildJarvisBriefing(db) });
   }
 
   if (url.pathname === "/api/jarvis/emails" && req.method === "GET") {

@@ -555,6 +555,96 @@ label {
   padding: 4px 0 4px 13px;
 }
 
+.content-studio {
+  display: grid;
+  gap: 16px;
+  border: 1px solid rgba(213, 116, 45, 0.24);
+  border-radius: 28px;
+  background:
+    linear-gradient(135deg, rgba(213, 116, 45, 0.08), transparent 48%),
+    rgba(255, 255, 255, 0.62);
+  padding: 22px;
+}
+
+.studio-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.studio-head h3 {
+  margin: 4px 0 8px;
+  font-size: clamp(24px, 4vw, 34px);
+  line-height: 1.05;
+}
+
+.studio-head p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.studio-objectives,
+.studio-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.studio-objectives span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  padding: 6px 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.studio-actions button {
+  min-height: 36px;
+  border-color: var(--line-strong);
+  background: transparent;
+  color: var(--ink);
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.studio-conversation {
+  display: grid;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.studio-message {
+  max-width: 760px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 250, 243, 0.8);
+  padding: 14px;
+}
+
+.studio-message.jarvis {
+  border-color: rgba(213, 116, 45, 0.18);
+}
+
+.studio-message.system {
+  border-color: rgba(79, 125, 85, 0.24);
+  background: rgba(79, 125, 85, 0.08);
+}
+
+.studio-message strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.studio-message p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .email-group {
   display: grid;
   gap: 10px;
@@ -791,5 +881,10 @@ label {
   .quiet-panels summary {
     min-height: 64px;
     font-size: 19px;
+  }
+
+  .studio-head,
+  .item-title-row {
+    display: grid;
   }
 }
