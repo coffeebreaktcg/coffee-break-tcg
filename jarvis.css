@@ -30,8 +30,8 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 50% 22%, rgba(213, 116, 45, 0.16), transparent 28rem),
-    radial-gradient(circle at 20% 85%, rgba(70, 103, 160, 0.16), transparent 24rem),
+    radial-gradient(circle at 50% 28%, rgba(213, 116, 45, 0.1), transparent 30rem),
+    radial-gradient(circle at 50% 92%, rgba(70, 103, 160, 0.08), transparent 28rem),
     var(--bg);
   color: var(--ink);
   font-family: Inter, system-ui, sans-serif;
@@ -114,9 +114,9 @@ label {
 }
 
 .jarvis-shell {
-  width: min(1240px, calc(100% - 40px));
+  width: min(1180px, calc(100% - 40px));
   margin: 0 auto;
-  padding: 36px 0 72px;
+  padding: 26px 0 72px;
 }
 
 .login-panel {
@@ -182,7 +182,17 @@ label {
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
-  margin-bottom: 34px;
+  margin-bottom: 12px;
+  opacity: 0.76;
+}
+
+.jarvis-header h1 {
+  color: var(--muted);
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .market-strip {
@@ -190,11 +200,17 @@ label {
   top: 0;
   z-index: 10;
   display: flex;
-  gap: 10px;
-  margin-bottom: 34px;
-  padding: 10px 0;
+  gap: 24px;
+  margin-bottom: 18px;
+  padding: 8px 0 12px;
   overflow: auto;
   backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(248, 239, 230, 0.08);
+  scrollbar-width: none;
+}
+
+.market-strip::-webkit-scrollbar {
+  display: none;
 }
 
 .market-strip div {
@@ -202,10 +218,10 @@ label {
   flex: 0 0 auto;
   align-items: baseline;
   gap: 8px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.055);
-  padding: 8px 11px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
 }
 
 .market-strip span {
@@ -241,25 +257,27 @@ label {
 .jarvis-stage {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(230px, 0.82fr) minmax(0, 1.18fr);
-  gap: clamp(24px, 7vw, 64px);
-  align-items: center;
-  min-height: min(680px, calc(100vh - 170px));
-  padding: 32px 0 48px;
-  border-bottom: 1px solid var(--line);
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: clamp(18px, 4vw, 34px);
+  min-height: min(760px, calc(100vh - 118px));
+  padding: 26px 0 42px;
+  border-bottom: 0;
+  text-align: center;
 }
 
 .orb-wrap {
   display: grid;
   place-items: center;
-  min-height: 320px;
+  gap: 18px;
+  min-height: 240px;
 }
 
 .jarvis-orb {
   position: relative;
   display: grid;
   place-items: center;
-  width: clamp(190px, 28vw, 340px);
+  width: clamp(180px, 24vw, 300px);
   aspect-ratio: 1;
   border: 1px solid rgba(213, 116, 45, 0.26);
   border-radius: 50%;
@@ -267,9 +285,13 @@ label {
     radial-gradient(circle at 42% 38%, rgba(255, 244, 231, 0.88), transparent 8%),
     radial-gradient(circle at 50% 50%, rgba(213, 116, 45, 0.72), rgba(213, 116, 45, 0.16) 42%, transparent 68%);
   box-shadow:
-    0 0 80px rgba(213, 116, 45, 0.24),
-    inset 0 0 60px rgba(255, 255, 255, 0.08);
-  animation: orbPulse 4.8s ease-in-out infinite;
+    0 0 120px rgba(213, 116, 45, 0.2),
+    inset 0 0 70px rgba(255, 255, 255, 0.08);
+  animation: orbPulse 5.6s ease-in-out infinite;
+}
+
+.jarvis-orb::before {
+  transform: scaleX(1.14);
 }
 
 .jarvis-orb::before,
@@ -317,19 +339,21 @@ label {
 
 .spoken-briefing {
   display: grid;
-  gap: 18px;
+  justify-items: center;
+  gap: 16px;
+  width: min(860px, 100%);
 }
 
 .today-summary {
-  margin-top: 12px;
-  font-size: clamp(34px, 6vw, 72px);
+  margin-top: 2px;
+  font-size: clamp(36px, 6vw, 74px);
   font-weight: 900;
   line-height: 1.04;
 }
 
 .summary-lines {
   display: grid;
-  gap: 7px;
+  gap: 9px;
   margin: 0;
 }
 
@@ -339,13 +363,11 @@ label {
 }
 
 .admin-time {
-  position: absolute;
-  right: 0;
-  bottom: 48px;
+  position: static;
   display: grid;
   gap: 8px;
-  justify-items: end;
-  text-align: right;
+  justify-items: center;
+  text-align: center;
 }
 
 .admin-time span {
@@ -364,7 +386,7 @@ label {
 .action-stack {
   display: grid;
   gap: 14px;
-  margin: 34px 0 56px;
+  margin: 20px 0 44px;
 }
 
 .jarvis-speech {
@@ -376,7 +398,7 @@ label {
 }
 
 .living-board {
-  grid-column: 1 / -1;
+  width: min(1040px, 100%);
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
@@ -385,12 +407,15 @@ label {
 .living-board article {
   opacity: 0;
   transform: translateY(14px);
-  border: 1px solid var(--line);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(248, 239, 230, 0.09);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.032);
   padding: 15px;
-  animation: boardIn 700ms ease forwards;
-  animation-delay: calc(var(--i) * 140ms);
+}
+
+.living-board article.is-visible {
+  animation: boardIn 720ms ease forwards;
+  animation-delay: var(--board-delay, calc(var(--i) * 140ms));
 }
 
 @keyframes boardIn {
@@ -467,6 +492,79 @@ label {
   padding: 7px 10px;
   font-size: 12px;
   font-weight: 900;
+}
+
+.thinking-line {
+  min-height: 18px;
+  margin: 0;
+  color: rgba(248, 239, 230, 0.44);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 900ms ease,
+    transform 900ms ease;
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+[data-reveal].is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+body:not(.jarvis-ready) .living-board article {
+  opacity: 0;
+  animation: none;
+}
+
+body:not(.jarvis-ready) .market-strip,
+body:not(.jarvis-ready) .admin-time,
+body:not(.jarvis-ready) .living-board,
+body:not(.jarvis-ready) .action-reveal,
+body:not(.jarvis-ready) .quiet-panels {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.action-reveal {
+  width: min(920px, 100%);
+  margin: 10px auto 56px;
+  border-top: 1px solid rgba(248, 239, 230, 0.1);
+}
+
+.action-reveal summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 68px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.action-reveal summary::-webkit-details-marker {
+  display: none;
+}
+
+.action-reveal summary::after {
+  content: "+";
+  margin-left: 10px;
+  color: var(--accent);
+  font-size: 17px;
+}
+
+.action-reveal[open] summary::after {
+  content: "–";
 }
 
 .primary-action dl,

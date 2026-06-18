@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/jarvis.css?v=jarvis-v2-orb-20260618" />
+    <link rel="stylesheet" href="/jarvis.css?v=jarvis-v3-immersive-20260618" />
   </head>
   <body>
     <main class="jarvis-shell">
@@ -51,6 +51,7 @@
             <div class="jarvis-orb">
               <span></span>
             </div>
+            <p class="thinking-line" data-thinking-line>Jarvis initialise le briefing...</p>
           </div>
           <div class="spoken-briefing">
             <p class="eyebrow">Briefing</p>
@@ -64,11 +65,14 @@
           <div class="living-board" data-living-board></div>
         </section>
 
-        <section class="action-stack" aria-label="Priorités Jarvis">
-          <article class="primary-action" data-action-card="now"></article>
-          <article class="secondary-action" data-action-card="next"></article>
-          <article class="secondary-action" data-action-card="later"></article>
-        </section>
+        <details class="action-reveal">
+          <summary>Voir le plan d’action</summary>
+          <section class="action-stack" aria-label="Priorités Jarvis">
+            <article class="primary-action" data-action-card="now"></article>
+            <article class="secondary-action" data-action-card="next"></article>
+            <article class="secondary-action" data-action-card="later"></article>
+          </section>
+        </details>
 
         <section class="quiet-panels" aria-label="Détails Jarvis">
           <details>
@@ -153,6 +157,6 @@
       </section>
     </main>
 
-    <script src="/jarvis.js?v=jarvis-v2-orb-20260618" defer></script>
+    <script src="/jarvis.js?v=jarvis-v3-immersive-20260618" defer></script>
   </body>
 </html>

@@ -27,6 +27,7 @@ const replyVerdicts = ["correcte", "à modifier", "incorrecte"];
 let currentEmailFilter = "all";
 let currentContentOpportunities = [];
 let activeStudioOpportunity = null;
+let speechTimer = null;
 
 function oauthMessageFromParams() {
   const params = new URLSearchParams(window.location.search);
@@ -92,6 +93,60 @@ function setSessionView(user) {
   loginPanel.hidden = Boolean(user);
   appPanel.hidden = !user;
   if (user) greeting.textContent = `Bonjour ${user.shortName || user.name || "Max"}`;
+}
+
+function setThinkingLine(text) {
+  const node = document.querySelector("[data-thinking-line]");
+  if (node) node.textContent = text;
+}
+
+function prepareImmersiveReveal() {
+  document.body.classList.remove("jarvis-ready");
+  document.querySelectorAll("[data-reveal]").forEach((node) => {
+    node.classList.remove("is-visible");
+    node.style.removeProperty("--reveal-delay");
+  });
+  document.querySelectorAll(".living-board article").forEach((node) => {
+    node.classList.remove("is-visible");
+  });
+}
+
+function runImmersiveReveal() {
+  const revealTargets = [
+    document.querySelector("[data-ticker]"),
+    document.querySelector(".spoken-briefing"),
+    document.querySelector("[data-living-board]"),
+    document.querySelector(".action-reveal"),
+    document.querySelector(".quiet-panels"),
+  ].filter(Boolean);
+
+  revealTargets.forEach((node, index) => {
+    node.dataset.reveal = "";
+    node.style.setProperty("--reveal-delay", `${280 + index * 420}ms`);
+    requestAnimationFrame(() => node.classList.add("is-visible"));
+  });
+
+  document.querySelectorAll(".living-board article").forEach((node, index) => {
+    node.style.setProperty("--board-delay", `${1100 + index * 260}ms`);
+    requestAnimationFrame(() => node.classList.add("is-visible"));
+  });
+
+  document.body.classList.add("jarvis-ready");
+  setTimeout(() => setThinkingLine("Briefing construit."), 1450);
+}
+
+function typeJarvisSpeech(text) {
+  const node = document.querySelector("[data-jarvis-speech]");
+  if (!node) return;
+  clearInterval(speechTimer);
+  node.textContent = "";
+  let index = 0;
+  const fullText = String(text || "");
+  speechTimer = setInterval(() => {
+    index += 3;
+    node.textContent = fullText.slice(0, index);
+    if (index >= fullText.length) clearInterval(speechTimer);
+  }, 18);
 }
 
 function money(value) {
@@ -297,14 +352,12 @@ function renderTicker(ticker) {
 }
 
 function renderJarvisSpeech(payload, decisions) {
-  const node = document.querySelector("[data-jarvis-speech]");
-  if (!node) return;
   const counts = payload.counts || {};
   const focus = decisions?.[0];
   const urgency = counts.criticalEmails ? `${counts.criticalEmails} email${counts.criticalEmails > 1 ? "s" : ""} critique${counts.criticalEmails > 1 ? "s" : ""}` : "aucune urgence critique";
-  node.textContent = `Bonjour Max. Tu as ${urgency}, ${counts.ordersToShip || 0} commande${counts.ordersToShip > 1 ? "s" : ""} à expédier et ${
+  typeJarvisSpeech(`Bonjour Max. Tu as ${urgency}, ${counts.ordersToShip || 0} commande${counts.ordersToShip > 1 ? "s" : ""} à expédier et ${
     counts.cardShows || 0
-  } opportunité${counts.cardShows > 1 ? "s" : ""} Card Show. Je recommande: ${focus?.title || "ajouter des cartes au site"}. ${focus?.action || ""}`;
+  } opportunité${counts.cardShows > 1 ? "s" : ""} Card Show. Je recommande: ${focus?.title || "ajouter des cartes au site"}. ${focus?.action || ""}`);
 }
 
 function renderLivingBoard(payload, decisions) {
@@ -552,6 +605,7 @@ function groupEmails(emails) {
 }
 
 function renderBriefing(payload) {
+  prepareImmersiveReveal();
   const { briefing, counts, emails, calendar, priorities, contentOpportunities, inventoryIntelligence, growth, integrations, ticker } = payload;
   currentContentOpportunities = contentOpportunities || [];
   const decisions = briefing.decisionMatrix?.all || [];
@@ -630,6 +684,7 @@ function renderBriefing(payload) {
   );
   renderInventoryIntelligence(inventoryIntelligence || {});
   renderGrowthScore(growth, priorities);
+  runImmersiveReveal();
 }
 
 function renderRecommendationList(items) {
@@ -851,6 +906,8 @@ function renderDecisionPreview(items) {
 }
 
 async function loadJarvis() {
+  setThinkingLine("Jarvis analyse les signaux...");
+  prepareImmersiveReveal();
   const payload = await api("/api/jarvis/briefing");
   renderBriefing(payload);
   await loadEmailReview().catch(() => {});
