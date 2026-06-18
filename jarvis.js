@@ -77,6 +77,20 @@ function renderBriefing(payload) {
   const { briefing, counts, emails, ordersToShip, calendar, priorities, growth, integrations } = payload;
   document.querySelector("[data-focus-title]").textContent = briefing.focus.title;
   document.querySelector("[data-focus-reason]").textContent = briefing.focus.reason;
+  const nextAction = document.querySelector("[data-next-action]");
+  nextAction.hidden = !briefing.focus.nextAction;
+  nextAction.innerHTML = briefing.focus.nextAction ? `<strong>Prochaine action:</strong> ${briefing.focus.nextAction}` : "";
+  const aiAnalysis = document.querySelector("[data-ai-analysis]");
+  const analysis = briefing.aiAnalysis || {};
+  const hasAnalysis = analysis.important || analysis.canWait || analysis.bottleneck;
+  aiAnalysis.hidden = !hasAnalysis;
+  aiAnalysis.innerHTML = hasAnalysis
+    ? `
+      ${analysis.important ? `<p><strong>Important:</strong> ${analysis.important}</p>` : ""}
+      ${analysis.canWait ? `<p><strong>Peut attendre:</strong> ${analysis.canWait}</p>` : ""}
+      ${analysis.bottleneck ? `<p><strong>Frein:</strong> ${analysis.bottleneck}</p>` : ""}
+    `
+    : "";
   document.querySelector("[data-briefing-time]").textContent = `Mis à jour ${new Date(briefing.generatedAt).toLocaleString("fr-CA", {
     dateStyle: "medium",
     timeStyle: "short",

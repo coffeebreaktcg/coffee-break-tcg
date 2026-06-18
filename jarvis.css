@@ -168,6 +168,27 @@ button.ghost {
   line-height: 1.6;
 }
 
+.next-action,
+.ai-analysis {
+  max-width: 760px;
+  margin-top: 14px;
+  border: 1px solid rgba(213, 116, 45, 0.18);
+  background: rgba(251, 234, 216, 0.55);
+  color: var(--ink);
+  padding: 12px 14px;
+  line-height: 1.5;
+}
+
+.ai-analysis {
+  display: grid;
+  gap: 8px;
+}
+
+.ai-analysis p {
+  margin: 0;
+  color: var(--muted);
+}
+
 .briefing-time {
   color: var(--muted);
   font-size: 13px;

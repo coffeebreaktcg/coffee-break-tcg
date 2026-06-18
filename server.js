@@ -53,6 +53,9 @@ const jarvisPassword = String(explicitJarvisPassword || (!explicitJarvisPassword
 const jarvisPasswordHash = String(explicitJarvisPasswordHash || (!explicitJarvisPassword ? adminPasswordHash : "") || "");
 const resendApiKey = process.env.RESEND_API_KEY || "";
 const resendFromEmail = process.env.RESEND_FROM_EMAIL || "Coffee Break TCG <orders@coffeebreaktcg.com>";
+const openaiApiKey = process.env.OPENAI_API_KEY || "";
+const openaiModel = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const jarvisSystemPromptPath = path.join(root, "jarvis_system_prompt.txt");
 const squareEnvironment = process.env.SQUARE_ENVIRONMENT || "sandbox";
 const squareAccessToken = process.env.SQUARE_ACCESS_TOKEN || "";
 const squareLocationId = process.env.SQUARE_LOCATION_ID || "";
@@ -1138,7 +1141,7 @@ function buildDecisionMatrix({ emails, ordersToShip, calendar, cardShows, priori
   };
 }
 
-function buildJarvisBriefing(db) {
+async function buildJarvisBriefing(db) {
   const emails = importantJarvisEmails(db);
   const ordersToShip = jarvisOrdersToShip(db);
   const cardShows = jarvisCardShows(db);
@@ -1151,14 +1154,74 @@ function buildJarvisBriefing(db) {
   const decisionMatrix = buildDecisionMatrix({ emails, ordersToShip, calendar, cardShows, priorities, growth });
   const topDecision = decisionMatrix.all[0];
 
-  const focus = topDecision
+  let focus = topDecision
     ? {
         title: topDecision.title,
         reason: `${topDecision.action}. Score Jarvis: ${topDecision.score}/100.`,
+        nextAction: topDecision.action,
         score: topDecision.score,
         source: topDecision.source,
       }
-    : { title: "Ajouter des cartes au site", reason: "Aucun signal urgent. Le meilleur levier est d’alimenter la vitrine.", score: 60, source: "Moteur de croissance" };
+    : {
+        title: "Ajouter des cartes au site",
+        reason: "Aucun signal urgent. Le meilleur levier est d’alimenter la vitrine.",
+        nextAction: "Ajouter ou préparer un lot de cartes à publier aujourd’hui",
+        score: 60,
+        source: "Moteur de croissance",
+      };
+
+  let aiAnalysis = {
+    provider: openaiApiKey ? "openai" : "local",
+    active: false,
+    model: openaiApiKey ? openaiModel : "",
+    message: openaiApiKey
+      ? "OpenAI configuré, mais aucune analyse IA n’a encore été appliquée."
+      : "OPENAI_API_KEY non configurée. Jarvis utilise le moteur local.",
+  };
+
+  try {
+    const ai = await generateJarvisResponse({
+      task:
+        "Analyse le briefing Jarvis. Retourne uniquement un JSON avec: focusTitle, focusReason, nextAction, important, canWait, bottleneck. Respecte le system prompt: une seule prochaine action concrète.",
+      data: {
+        topDecision,
+        decisionMatrix,
+        emails,
+        ordersToShip,
+        cardShows,
+        calendar,
+        growth,
+        priorities: priorities.slice(0, 6),
+      },
+    });
+    if (ai.parsed?.focusTitle && ai.parsed?.focusReason) {
+      focus = {
+        title: String(ai.parsed.focusTitle).trim(),
+        reason: String(ai.parsed.focusReason).trim(),
+        nextAction: String(ai.parsed.nextAction || topDecision?.action || "").trim(),
+        score: Number(topDecision?.score || focus.score || 0),
+        source: "Jarvis IA",
+      };
+      aiAnalysis = {
+        provider: ai.provider,
+        active: ai.provider === "openai",
+        model: ai.model || "",
+        message: ai.provider === "openai" ? "Analyse IA appliquée avec le system prompt Jarvis." : ai.error || "Moteur local actif.",
+        important: ai.parsed.important || "",
+        canWait: ai.parsed.canWait || "",
+        bottleneck: ai.parsed.bottleneck || "",
+      };
+    } else {
+      aiAnalysis.message = ai.error || "Analyse IA non disponible; moteur local utilisé.";
+    }
+  } catch (error) {
+    aiAnalysis = {
+      provider: "local",
+      active: false,
+      model: openaiModel,
+      message: `OpenAI indisponible; moteur local utilisé. ${error.message}`,
+    };
+  }
 
   return {
     briefing: {
@@ -1166,6 +1229,7 @@ function buildJarvisBriefing(db) {
       focus,
       attention: decisionMatrix.all.slice(0, 10),
       decisionMatrix,
+      aiAnalysis,
     },
     counts: {
       criticalEmails: criticalEmails.length,
@@ -1198,8 +1262,9 @@ function buildJarvisBriefing(db) {
           : "Google Calendar prêt à brancher. Les Card Shows du site sont déjà affichés comme événements.",
       },
       ai: {
-        connected: Boolean(process.env.OPENAI_API_KEY),
-        message: process.env.OPENAI_API_KEY ? "Briefing IA prêt pour enrichissement OpenAI." : "Briefing heuristique actif; OpenAI pourra enrichir les résumés plus tard.",
+        connected: Boolean(openaiApiKey),
+        model: openaiApiKey ? openaiModel : "",
+        message: aiAnalysis.message,
       },
     },
   };
@@ -2152,6 +2217,108 @@ function httpsJsonWithHeaders(url, headers = {}) {
   });
 }
 
+function httpsPostJson(url, payload, headers = {}) {
+  const target = typeof url === "string" ? new URL(url) : url;
+  const body = JSON.stringify(payload);
+  return new Promise((resolve, reject) => {
+    const request = https.request(
+      target,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(body),
+          ...headers,
+        },
+      },
+      (response) => {
+        const chunks = [];
+        response.on("data", (chunk) => chunks.push(chunk));
+        response.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf8");
+          if (response.statusCode >= 400) return reject(new Error(`OpenAI ${response.statusCode}: ${text.slice(0, 220)}`));
+          try {
+            resolve(JSON.parse(text));
+          } catch (error) {
+            reject(error);
+          }
+        });
+      }
+    );
+    request.on("error", reject);
+    request.write(body);
+    request.end();
+  });
+}
+
+async function loadJarvisSystemPrompt() {
+  try {
+    const prompt = await fs.readFile(jarvisSystemPromptPath, "utf8");
+    return prompt.trim();
+  } catch {
+    return "Tu es Jarvis, le Chief of Staff personnel de Maxime Legault. Réponds toujours à: Qu'est-ce que Max doit faire maintenant?";
+  }
+}
+
+function extractOpenAIText(response) {
+  if (typeof response?.output_text === "string") return response.output_text;
+  const chunks = [];
+  for (const item of response?.output || []) {
+    for (const content of item.content || []) {
+      if (typeof content.text === "string") chunks.push(content.text);
+    }
+  }
+  return chunks.join("\n").trim();
+}
+
+async function generateJarvisResponse({ task, data, responseFormat = "json_object" }) {
+  const systemPrompt = await loadJarvisSystemPrompt();
+  if (!openaiApiKey) {
+    return {
+      provider: "local",
+      systemPromptLoaded: Boolean(systemPrompt),
+      text: "",
+      parsed: null,
+      error: "OPENAI_API_KEY non configurée.",
+    };
+  }
+  const response = await httpsPostJson(
+    "https://api.openai.com/v1/responses",
+    {
+      model: openaiModel,
+      instructions: systemPrompt,
+      input: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: JSON.stringify({ task, data, responseFormat }, null, 2),
+            },
+          ],
+        },
+      ],
+      text: responseFormat === "json_object" ? { format: { type: "json_object" } } : undefined,
+    },
+    { Authorization: `Bearer ${openaiApiKey}` }
+  );
+  const text = extractOpenAIText(response);
+  let parsed = null;
+  if (responseFormat === "json_object" && text) {
+    try {
+      parsed = JSON.parse(text);
+    } catch {}
+  }
+  return {
+    provider: "openai",
+    model: openaiModel,
+    systemPromptLoaded: true,
+    text,
+    parsed,
+    responseId: response.id || "",
+  };
+}
+
 function squareApiHost() {
   return squareEnvironment === "production" ? "connect.squareup.com" : "connect.squareupsandbox.com";
 }
@@ -2921,7 +3088,7 @@ async function handleApi(req, res) {
   }
 
   if (url.pathname === "/api/jarvis/briefing" && req.method === "GET") {
-    return json(res, 200, buildJarvisBriefing(db));
+    return json(res, 200, await buildJarvisBriefing(db));
   }
 
   if (url.pathname === "/api/admin/login" && req.method === "POST") {
