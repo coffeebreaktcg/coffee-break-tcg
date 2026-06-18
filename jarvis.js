@@ -25,6 +25,7 @@ const emailCategories = [
 const emailPriorities = ["Critique", "Important", "Peut attendre"];
 const replyVerdicts = ["correcte", "à modifier", "incorrecte"];
 let currentEmailFilter = "all";
+let currentContentOpportunities = [];
 
 function oauthMessageFromParams() {
   const params = new URLSearchParams(window.location.search);
@@ -263,6 +264,7 @@ function renderActionCard(slot, item, label) {
         <dd>${escapeHtml(impactFor(item))}</dd>
       </div>
     </dl>
+    ${item.opportunity ? renderOpportunityBlock(item.opportunity, true) : ""}
     <button type="button" data-complete-action="${escapeHtml(id)}">${isDone ? "Terminé" : "Terminé"}</button>
   `;
 }
@@ -316,6 +318,68 @@ function renderGrowthScore(growth, priorities) {
   `;
 }
 
+function opportunityScorePill(opportunity) {
+  return `<span class="opportunity-score">Score opportunité ${Math.round(Number(opportunity?.score || 0))}/100</span>`;
+}
+
+function renderOpportunityBlock(opportunity, compact = false) {
+  if (!opportunity) return "";
+  return `
+    <div class="content-opportunity-card ${compact ? "compact-opportunity" : ""}" data-content-opportunity-id="${escapeHtml(opportunity.id)}">
+      <div class="item-title-row">
+        <div>
+          <strong>${escapeHtml(opportunity.title)}</strong>
+          <p>${escapeHtml(opportunity.whyNow || "Pourquoi maintenant à valider.")}</p>
+        </div>
+        ${opportunityScorePill(opportunity)}
+      </div>
+      <div class="opportunity-meta">
+        <span>Temps: ${escapeHtml(opportunity.timeRequired || "")}</span>
+        <span>Confiance: ${escapeHtml(opportunity.confidence || "Prudent")}</span>
+        <span>Impact: ${escapeHtml(opportunity.impactExpected || "")}</span>
+      </div>
+      <div class="factor-list">
+        ${(opportunity.factors || [])
+          .map(
+            (factor) => `
+              <div>
+                <span>+${Math.round(Number(factor.points || 0))}</span>
+                <p><strong>${escapeHtml(factor.label)}</strong> ${escapeHtml(factor.detail || "")}</p>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+      <div class="content-actions">
+        <button type="button" class="ghost-dark" data-content-generate="reel" data-opportunity-id="${escapeHtml(opportunity.id)}">Générer le Reel</button>
+        <button type="button" class="ghost-dark" data-content-generate="post" data-opportunity-id="${escapeHtml(opportunity.id)}">Générer le Post</button>
+        <button type="button" class="ghost-dark" data-content-generate="story" data-opportunity-id="${escapeHtml(opportunity.id)}">Générer la Story</button>
+      </div>
+      <div class="content-draft" data-content-draft hidden></div>
+    </div>
+  `;
+}
+
+function contentDraft(opportunity, channel) {
+  const labels = { reel: "Reel", post: "Post", story: "Story" };
+  const hook =
+    channel === "story"
+      ? "Disponible aujourd’hui chez Coffee Break TCG."
+      : channel === "post"
+        ? "Powered by coffee and cardboard. Voici pourquoi cette sélection mérite ton attention."
+        : "POV: tu trouves une carte qui mérite vraiment sa place dans une collection.";
+  const cta =
+    channel === "story"
+      ? "Réponds à la story si tu veux réserver ou nous proposer une collection."
+      : "Écris-nous si tu veux réserver, vendre une collection ou voir plus de photos.";
+  return `
+    <strong>Brouillon ${labels[channel] || "contenu"}</strong>
+    <p>${escapeHtml(hook)}</p>
+    <p>${escapeHtml(opportunity.title)}. Angle: ${escapeHtml(opportunity.topic || "croissance CoffeeBreak")}.</p>
+    <p>${escapeHtml(cta)}</p>
+  `;
+}
+
 function groupEmails(emails) {
   const groups = new Map();
   for (const email of emails || []) {
@@ -330,7 +394,8 @@ function groupEmails(emails) {
 }
 
 function renderBriefing(payload) {
-  const { briefing, counts, emails, calendar, priorities, growth, integrations } = payload;
+  const { briefing, counts, emails, calendar, priorities, contentOpportunities, growth, integrations } = payload;
+  currentContentOpportunities = contentOpportunities || [];
   const decisions = briefing.decisionMatrix?.all || [];
   renderTodaySummary(counts || {}, (emails.important || []).filter((email) => email.category === "Card Shows").length || (payload.cardShows || []).length);
   renderActionCard("now", decisions[0], "Faire maintenant");
@@ -395,6 +460,12 @@ function renderBriefing(payload) {
       </div>
     `,
     "Aucune priorité configurée."
+  );
+  renderList(
+    document.querySelector("[data-content-opportunities]"),
+    currentContentOpportunities,
+    (opportunity) => renderOpportunityBlock(opportunity),
+    "Aucune opportunité contenu calculée pour l’instant."
   );
   renderGrowthScore(growth, priorities);
 }
@@ -629,6 +700,7 @@ document.addEventListener("click", async (event) => {
   const testCalendarButton = event.target.closest("[data-test-calendar]");
   const reimportAllButton = event.target.closest("[data-reimport-all]");
   const completeActionButton = event.target.closest("[data-complete-action]");
+  const contentGenerateButton = event.target.closest("[data-content-generate]");
 
   if (completeActionButton) {
     const done = completedActions();
@@ -636,6 +708,16 @@ document.addEventListener("click", async (event) => {
     localStorage.setItem("jarvis_completed_actions", JSON.stringify([...done]));
     completeActionButton.closest("[data-action-card]")?.classList.add("is-complete");
     completeActionButton.textContent = "Terminé";
+    return;
+  }
+
+  if (contentGenerateButton) {
+    const opportunity = currentContentOpportunities.find((item) => item.id === contentGenerateButton.dataset.opportunityId);
+    const card = contentGenerateButton.closest("[data-content-opportunity-id]");
+    const draft = card?.querySelector("[data-content-draft]");
+    if (!opportunity || !draft) return;
+    draft.hidden = false;
+    draft.innerHTML = contentDraft(opportunity, contentGenerateButton.dataset.contentGenerate);
     return;
   }
 

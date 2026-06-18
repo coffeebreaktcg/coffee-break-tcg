@@ -1042,6 +1042,7 @@ function jarvisCalendarEvents(db) {
 function jarvisPriorities(db, context) {
   const inventoryCount = (db.inventory || []).filter((item) => item.status !== "draft" && item.status !== "sold").length;
   const growth = context.growth;
+  const topContentOpportunity = context.contentOpportunities?.[0];
   const urgentPressure = context.ordersToShip.length * 24 + context.emails.filter((email) => email.priority === "Critique").length * 18 + context.calendar.today.length * 12;
   return [
     {
@@ -1056,8 +1057,13 @@ function jarvisPriorities(db, context) {
     },
     {
       title: "Créer du contenu Instagram",
-      reason: growth.instagramPostsThisWeek === 0 ? "Aucune publication suivie cette semaine. Le contenu nourrit la confiance et les ventes." : "Continue de montrer les nouveautés et les beaux slabs.",
-      score: Math.max(36, (growth.instagramPostsThisWeek === 0 ? 78 : 54) - Math.min(24, urgentPressure)),
+      reason: topContentOpportunity
+        ? `${topContentOpportunity.title}. Score opportunité: ${topContentOpportunity.score}/100. ${topContentOpportunity.whyNow}`
+        : growth.instagramPostsThisWeek === 0
+          ? "Aucune publication suivie cette semaine. Le contenu nourrit la confiance et les ventes."
+          : "Continue de montrer les nouveautés et les beaux slabs.",
+      score: Math.max(36, Number(topContentOpportunity?.score || (growth.instagramPostsThisWeek === 0 ? 78 : 54)) - Math.min(24, urgentPressure)),
+      opportunity: topContentOpportunity || null,
     },
     {
       title: "Améliorer le site web",
@@ -1100,12 +1106,126 @@ function jarvisGrowthMetrics(db) {
   };
 }
 
-function decisionItem({ type, title, detail, score, source, action }) {
-  const priority = score >= 85 ? "Critique" : score >= 58 ? "Important" : "Peut attendre";
-  return { type, title, detail, score: Math.max(0, Math.min(100, Math.round(score))), priority, source, action };
+function activeInventoryItems(db) {
+  return (db.inventory || []).filter((item) => !["draft", "sold", "reserved"].includes(item.status) && Number(item.stock || 0) > 0);
 }
 
-function buildDecisionMatrix({ emails, ordersToShip, calendar, cardShows, priorities, growth }) {
+function hasMarketTrendSignal(text) {
+  return /(pikachu|charizard|mew|mewtwo|eevee|evolutions?|151|rocket|poncho|gold star|sir|alt art|trainer|promo|prismatic|surging|journey|black bolt|white flare)/i.test(
+    text || ""
+  );
+}
+
+function contentOpportunityScore(factors) {
+  return Math.max(1, Math.min(100, factors.reduce((sum, factor) => sum + Number(factor.points || 0), 0)));
+}
+
+function contentConfidence(score, signalCount) {
+  if (score >= 82 && signalCount >= 4) return "Élevé";
+  if (score >= 64 && signalCount >= 3) return "Moyen";
+  return "Prudent";
+}
+
+function buildContentOpportunity({ title, format, topic, inventoryMatches, salesMatches, trendMatches, collectionSignal, executionMinutes, businessPotential }) {
+  const formatPoints = format === "Reel" ? 18 : format === "Carrousel" ? 15 : format === "Story" ? 12 : 13;
+  const inventoryPoints = Math.min(22, inventoryMatches * 4);
+  const salesPoints = Math.min(14, salesMatches * 5);
+  const trendPoints = trendMatches ? 15 : 6;
+  const collectionPoints = collectionSignal ? 20 : Math.min(20, businessPotential);
+  const executionPoints = executionMinutes <= 10 ? 12 : executionMinutes <= 20 ? 9 : 6;
+  const factors = [
+    { label: "Historique CoffeeBreak", detail: "Le sujet sert directement la confiance, les ventes ou le sourcing.", points: collectionSignal ? 18 : 10 },
+    { label: `Format ${format}`, detail: "Score basé sur l'engagement moyen attendu du format, sans prédire les vues.", points: formatPoints },
+    { label: "Inventaire actuel", detail: `${inventoryMatches} item${inventoryMatches > 1 ? "s" : ""} aligné${inventoryMatches > 1 ? "s" : ""} avec le sujet.`, points: inventoryPoints },
+    { label: "Ventes récentes", detail: salesMatches ? `${salesMatches} vente${salesMatches > 1 ? "s" : ""} reliée${salesMatches > 1 ? "s" : ""}.` : "Peu ou pas de ventes récentes reliées.", points: salesPoints },
+    { label: "Marché Pokémon", detail: trendMatches ? "Le sujet croise un signal de marché populaire." : "Signal de tendance local faible; à valider manuellement.", points: trendPoints },
+    { label: "Potentiel business", detail: "Peut générer des ventes, des messages ou des collections à acheter.", points: collectionPoints },
+    { label: "Exécution", detail: `${executionMinutes} minutes estimées.`, points: executionPoints },
+  ];
+  const score = contentOpportunityScore(factors);
+  return {
+    id: crypto.createHash("sha1").update(`${title}:${format}:${topic}`).digest("hex").slice(0, 12),
+    title,
+    format,
+    topic,
+    score,
+    scoreLabel: "Score opportunité",
+    scoreType: "opportunity",
+    factors,
+    whyNow:
+      inventoryMatches > 0
+        ? "Tu as déjà de la matière en inventaire, donc le contenu peut être produit rapidement et ramener l’attention vers la boutique."
+        : "Le sujet aide CoffeeBreakTCG à rester visible même sans gros nouveau stock à montrer.",
+    timeRequired: `${executionMinutes} minutes`,
+    impactExpected: collectionSignal ? "Messages entrants et collections à acheter." : "Visibilité, confiance et trafic vers la boutique.",
+    confidence: contentConfidence(score, [inventoryMatches, salesMatches, trendMatches ? 1 : 0, businessPotential].filter(Boolean).length),
+    actions: {
+      reel: `Générer un script Reel pour: ${title}`,
+      post: `Générer un texte de post pour: ${title}`,
+      story: `Générer une séquence Story pour: ${title}`,
+    },
+  };
+}
+
+function jarvisContentOpportunities(db, context) {
+  const inventory = activeInventoryItems(db);
+  const since = startOfWeek();
+  const recentInventory = inventory.filter((item) => isSince(item.createdAt || item.updatedAt, since));
+  const recentOrders = paidOrders(db).filter((order) => isSince(order.paidAt || order.createdAt, since));
+  const recentOrderText = recentOrders.map((order) => JSON.stringify(order.items || [])).join(" ");
+  const inventoryText = inventory.map((item) => [item.name, item.setName, item.rarity, item.category, item.gradingCompany].filter(Boolean).join(" ")).join(" ");
+  const slabs = inventory.filter((item) => item.category === "Graded");
+  const sealed = inventory.filter((item) => item.category === "Sealed");
+  const singles = inventory.filter((item) => item.category === "Singles");
+  const bestCategory = [
+    { name: "slabs", count: slabs.length },
+    { name: "sealed", count: sealed.length },
+    { name: "singles", count: singles.length },
+  ].sort((a, b) => b.count - a.count)[0];
+  const ideas = [
+    buildContentOpportunity({
+      title: recentInventory.length ? "Montrer les nouveautés arrivées cette semaine" : `Mettre en valeur les meilleurs ${bestCategory?.name || "items"} disponibles`,
+      format: "Reel",
+      topic: "Nouveautés boutique",
+      inventoryMatches: Math.max(recentInventory.length, bestCategory?.count || 0),
+      salesMatches: recentOrders.length,
+      trendMatches: hasMarketTrendSignal(inventoryText),
+      collectionSignal: false,
+      executionMinutes: 12,
+      businessPotential: 16,
+    }),
+    buildContentOpportunity({
+      title: "Appel à collections: ce qu’on recherche cette semaine",
+      format: "Story",
+      topic: "Collections à acheter",
+      inventoryMatches: Math.max(1, inventory.length),
+      salesMatches: Number(context.growth.collectionsBoughtThisWeek || 0),
+      trendMatches: hasMarketTrendSignal(inventoryText + " " + recentOrderText),
+      collectionSignal: true,
+      executionMinutes: 8,
+      businessPotential: 20,
+    }),
+    buildContentOpportunity({
+      title: sealed.length ? "Présenter le sealed disponible et pourquoi il vaut le détour" : "Créer un carrousel confiance: comment CoffeeBreak protège les cartes",
+      format: "Carrousel",
+      topic: sealed.length ? "Sealed disponible" : "Confiance client",
+      inventoryMatches: sealed.length || inventory.length,
+      salesMatches: recentOrders.filter((order) => /sealed|etb|booster|pack/i.test(JSON.stringify(order.items || []))).length,
+      trendMatches: hasMarketTrendSignal(inventoryText),
+      collectionSignal: false,
+      executionMinutes: 18,
+      businessPotential: 14,
+    }),
+  ];
+  return ideas.sort((a, b) => b.score - a.score).slice(0, 3);
+}
+
+function decisionItem({ type, title, detail, score, source, action, opportunity }) {
+  const priority = score >= 85 ? "Critique" : score >= 58 ? "Important" : "Peut attendre";
+  return { type, title, detail, score: Math.max(0, Math.min(100, Math.round(score))), priority, source, action, opportunity: opportunity || null };
+}
+
+function buildDecisionMatrix({ emails, ordersToShip, calendar, cardShows, priorities, growth, contentOpportunities }) {
   const decisions = [];
   for (const order of ordersToShip) {
     decisions.push(
@@ -1168,14 +1288,18 @@ function buildDecisionMatrix({ emails, ordersToShip, calendar, cardShows, priori
     );
   }
   if (growth.instagramPostsThisWeek === 0) {
+    const opportunity = contentOpportunities?.[0];
     decisions.push(
       decisionItem({
         type: "Croissance",
-        title: "Créer du contenu Instagram",
-        detail: "Aucune publication Instagram suivie cette semaine.",
-        score: 58,
-        source: "Historique d’activité",
-        action: "Préparer une publication courte avec une nouveauté ou un beau slab",
+        title: opportunity?.title || "Créer du contenu Instagram",
+        detail: opportunity
+          ? `${opportunity.scoreLabel}: ${opportunity.score}/100. ${opportunity.whyNow}`
+          : "Aucune publication Instagram suivie cette semaine.",
+        score: opportunity?.score || 58,
+        source: "Moteur opportunité contenu",
+        action: opportunity ? `Produire le format ${opportunity.format} recommandé` : "Préparer une publication courte avec une nouveauté ou un beau slab",
+        opportunity,
       })
     );
   }
@@ -1208,9 +1332,11 @@ async function buildJarvisBriefing(db) {
   const growth = jarvisGrowthMetrics(db);
   const invoiceEmails = emails.filter((email) => email.category === "Factures");
   const criticalEmails = emails.filter((email) => email.priority === "Critique");
-  const context = { emails, ordersToShip, cardShows, calendar, growth };
+  const baseContext = { emails, ordersToShip, cardShows, calendar, growth };
+  const contentOpportunities = jarvisContentOpportunities(db, baseContext);
+  const context = { ...baseContext, contentOpportunities };
   const priorities = jarvisPriorities(db, context);
-  const decisionMatrix = buildDecisionMatrix({ emails, ordersToShip, calendar, cardShows, priorities, growth });
+  const decisionMatrix = buildDecisionMatrix({ emails, ordersToShip, calendar, cardShows, priorities, growth, contentOpportunities });
   const topDecision = decisionMatrix.all[0];
 
   let focus = topDecision
@@ -1241,10 +1367,11 @@ async function buildJarvisBriefing(db) {
   try {
     const ai = await generateJarvisResponse({
       task:
-        "Analyse le briefing Jarvis. Retourne uniquement un JSON avec: focusTitle, focusReason, nextAction, important, canWait, bottleneck. Respecte le system prompt: une seule prochaine action concrète.",
+        "Analyse le briefing Jarvis. Retourne uniquement un JSON avec: focusTitle, focusReason, nextAction, important, canWait, bottleneck. Respecte le system prompt: une seule prochaine action concrète. Pour le contenu, parle seulement de score d'opportunité, jamais de score de performance ou de prédiction de vues.",
       data: {
         topDecision,
         decisionMatrix,
+        contentOpportunities,
         emails,
         ordersToShip,
         cardShows,
@@ -1305,6 +1432,7 @@ async function buildJarvisBriefing(db) {
     cardShows,
     calendar,
     priorities: priorities.slice(0, 6),
+    contentOpportunities,
     growth,
     integrations: {
       gmail: {

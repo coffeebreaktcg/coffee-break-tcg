@@ -422,6 +422,7 @@ label {
 .email-review-item,
 .compact-item,
 .focus-item,
+.content-opportunity-card,
 .diagnostic-item,
 .diagnostic-error,
 .test-result,
@@ -453,11 +454,105 @@ label {
 .email-list,
 .compact-list,
 .focus-list,
+.content-opportunity-list,
 .email-review-list,
 .diagnostic-error-list,
 .test-results {
   display: grid;
   gap: 12px;
+}
+
+.content-opportunity-card {
+  display: grid;
+  gap: 14px;
+}
+
+.compact-opportunity {
+  border-radius: 22px;
+  background: rgba(255, 244, 231, 0.62);
+}
+
+.content-opportunity-card > .item-title-row p {
+  margin-top: 6px;
+}
+
+.opportunity-score {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 30px;
+  border: 1px solid rgba(213, 116, 45, 0.26);
+  border-radius: 999px;
+  background: rgba(213, 116, 45, 0.1);
+  color: var(--accent);
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.opportunity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.opportunity-meta span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  padding: 6px 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.factor-list {
+  display: grid;
+  gap: 8px;
+}
+
+.factor-list div {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.factor-list span {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.factor-list p,
+.content-draft p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.factor-list strong {
+  color: var(--ink);
+}
+
+.content-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.content-actions button {
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.content-draft {
+  display: grid;
+  gap: 8px;
+  border-left: 3px solid var(--accent);
+  padding: 4px 0 4px 13px;
 }
 
 .email-group {
