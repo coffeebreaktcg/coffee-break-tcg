@@ -73,6 +73,25 @@ function setCounts(counts) {
   });
 }
 
+function renderGmailState(integrations) {
+  const gmail = integrations.gmail;
+  const accounts = Object.values(gmail.accounts || {});
+  const accountRows = accounts.length
+    ? accounts
+        .map(
+          (account) =>
+            `<span class="gmail-account ${account.connected ? "connected" : ""}">${account.label}: ${
+              account.connected ? `connecté (${account.email})` : "non connecté"
+            }</span>`
+        )
+        .join("")
+    : "";
+  document.querySelector("[data-gmail-state]").innerHTML = `
+    <p>${gmail.message}</p>
+    <div class="gmail-account-row">${accountRows}</div>
+  `;
+}
+
 function renderBriefing(payload) {
   const { briefing, counts, emails, ordersToShip, calendar, priorities, growth, integrations } = payload;
   document.querySelector("[data-focus-title]").textContent = briefing.focus.title;
@@ -134,7 +153,7 @@ function renderBriefing(payload) {
     "Rien à reporter."
   );
 
-  document.querySelector("[data-gmail-state]").innerHTML = `<p>${integrations.gmail.message}</p>`;
+  renderGmailState(integrations);
   renderList(
     document.querySelector("[data-email-list]"),
     emails.important,
@@ -149,9 +168,16 @@ function renderBriefing(payload) {
         <div class="pill-row">
           ${pill(item.category, item.categoryType)}
           ${pill(item.priority, item.priority === "Critique" ? "critical" : item.priority === "Important" ? "important" : "")}
+          ${pill(item.status || "nouveau")}
+          ${item.source ? pill(item.source) : ""}
           ${item.from ? pill(item.from) : ""}
         </div>
         ${item.suggestedReply ? `<p><strong>Réponse suggérée:</strong> ${item.suggestedReply}</p>` : ""}
+        <div class="email-actions">
+          <button type="button" data-email-status="à suivre" data-email-id="${item.id}">À suivre</button>
+          <button type="button" data-email-status="traité" data-email-id="${item.id}">Traité</button>
+          <button type="button" data-email-status="ignoré" data-email-id="${item.id}">Ignorer</button>
+        </div>
       </div>
     `,
     "Aucun email critique importé. Branche Gmail pour activer le tri automatique."
@@ -239,6 +265,54 @@ document.querySelector("[data-refresh]").addEventListener("click", () => {
   loadJarvis().catch((error) => {
     document.querySelector("[data-focus-reason]").textContent = error.message;
   });
+});
+
+document.addEventListener("click", async (event) => {
+  const connectButton = event.target.closest("[data-connect-gmail]");
+  const syncButton = event.target.closest("[data-sync-gmail]");
+  const emailStatusButton = event.target.closest("[data-email-status]");
+
+  if (connectButton) {
+    const source = connectButton.dataset.connectGmail;
+    connectButton.disabled = true;
+    try {
+      const payload = await api(`/api/jarvis/gmail/auth?source=${encodeURIComponent(source)}`);
+      window.location.href = payload.url;
+    } catch (error) {
+      document.querySelector("[data-gmail-state]").innerHTML = `<p>${error.message}</p>`;
+      connectButton.disabled = false;
+    }
+  }
+
+  if (syncButton) {
+    syncButton.disabled = true;
+    syncButton.textContent = "Import en cours...";
+    try {
+      await api("/api/jarvis/gmail/sync", { method: "POST", body: JSON.stringify({ source: "all", maxResults: 15 }) });
+      await loadJarvis();
+    } catch (error) {
+      document.querySelector("[data-gmail-state]").innerHTML = `<p>${error.message}</p>`;
+    } finally {
+      syncButton.disabled = false;
+      syncButton.textContent = "Importer les emails récents";
+    }
+  }
+
+  if (emailStatusButton) {
+    emailStatusButton.disabled = true;
+    try {
+      const payload = await api("/api/jarvis/emails/status", {
+        method: "POST",
+        body: JSON.stringify({
+          id: emailStatusButton.dataset.emailId,
+          status: emailStatusButton.dataset.emailStatus,
+        }),
+      });
+      renderBriefing(payload.briefing);
+    } catch (error) {
+      emailStatusButton.textContent = error.message;
+    }
+  }
 });
 
 document.querySelector("[data-logout]").addEventListener("click", async () => {

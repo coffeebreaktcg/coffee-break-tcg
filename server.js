@@ -68,6 +68,9 @@ const googleDriveServiceAccountJson = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_J
 const googleDriveServiceAccountFile = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE || "";
 const googleDriveClientEmail = process.env.GOOGLE_DRIVE_CLIENT_EMAIL || "";
 const googleDrivePrivateKey = (process.env.GOOGLE_DRIVE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
+const googleOAuthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID || "";
+const googleOAuthClientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET || "";
+const jarvisTokenSecret = process.env.JARVIS_TOKEN_SECRET || adminPasswordHash || adminPassword || "";
 const cardImageSearchCache = new Map();
 const cardImageSearchCacheTtlMs = 1000 * 60 * 30;
 const reservationHoldMs = 10 * 60 * 1000;
@@ -153,6 +156,8 @@ async function readDb() {
     if (!db.jarvisSessions) db.jarvisSessions = {};
     if (!Array.isArray(db.jarvisEmails)) db.jarvisEmails = [];
     if (!Array.isArray(db.jarvisCalendarEvents)) db.jarvisCalendarEvents = [];
+    if (!db.jarvisGoogleTokens) db.jarvisGoogleTokens = {};
+    if (!db.jarvisOAuthStates) db.jarvisOAuthStates = {};
     if (!Array.isArray(db.migrations)) db.migrations = [];
     if (!db.migrations.includes(clearInventoryMigrationId)) {
       db.inventory = [];
@@ -173,6 +178,8 @@ async function readDb() {
       jarvisSessions: {},
       jarvisEmails: [],
       jarvisCalendarEvents: [],
+      jarvisGoogleTokens: {},
+      jarvisOAuthStates: {},
       orders: [],
       emailOutbox: [],
       newsletter: [],
@@ -618,6 +625,14 @@ function json(res, status, payload, extraHeaders = {}) {
   res.end(JSON.stringify(payload));
 }
 
+function redirect(res, location) {
+  res.writeHead(302, {
+    ...securityHeaders,
+    Location: location,
+  });
+  res.end();
+}
+
 function csv(res, filename, rows) {
   const body = rows.map((row) => row.map(csvCell).join(",")).join("\n");
   res.writeHead(200, {
@@ -880,6 +895,10 @@ function importantJarvisEmails(db) {
       const priority = jarvisEmailPriority(email, category);
       return {
         id: email.id || crypto.createHash("sha1").update(`${email.from || ""}${email.subject || ""}`).digest("hex").slice(0, 12),
+        source: email.source || "",
+        sourceLabel: email.sourceLabel || "",
+        account: email.account || "",
+        status: email.status || "nouveau",
         from: email.from || "",
         subject: email.subject || "(Sans sujet)",
         receivedAt: email.receivedAt || email.date || "",
@@ -892,6 +911,7 @@ function importantJarvisEmails(db) {
       };
     })
     .filter((email) => email.categoryType !== "low")
+    .filter((email) => !["ignoré", "traité"].includes(email.status))
     .sort((a, b) => b.score - a.score || String(b.receivedAt || "").localeCompare(String(a.receivedAt || "")))
     .slice(0, 12);
 }
@@ -1250,10 +1270,12 @@ async function buildJarvisBriefing(db) {
     integrations: {
       gmail: {
         connected: (db.jarvisEmails || []).length > 0,
-        accounts: ["coffeebreaktcg@gmail.com", "maximelegault2000@gmail.com"],
+        accounts: googleOAuthStatus(db),
         message: (db.jarvisEmails || []).length
           ? "Gmail: source email importée dans Jarvis."
-          : "Gmail prêt à brancher. Ajoute OAuth Google pour lire les deux boîtes automatiquement.",
+          : googleOAuthConfigured()
+            ? "Gmail OAuth est prêt. Connecte les comptes, puis importe les emails récents."
+            : "Gmail prêt à brancher. Ajoute GOOGLE_OAUTH_CLIENT_ID et GOOGLE_OAUTH_CLIENT_SECRET.",
       },
       calendar: {
         connected: (db.jarvisCalendarEvents || []).length > 0,
@@ -2319,6 +2341,233 @@ async function generateJarvisResponse({ task, data, responseFormat = "json_objec
   };
 }
 
+function jarvisGmailAccounts() {
+  return {
+    business: { label: "Business", email: "coffeebreaktcg@gmail.com" },
+    personal: { label: "Personnel", email: "maximelegault2000@gmail.com" },
+  };
+}
+
+function googleOAuthRedirectUri(req) {
+  return `${publicOrigin(req)}/api/jarvis/gmail/callback`;
+}
+
+function tokenCryptoKey() {
+  const secret = jarvisTokenSecret || "coffee-break-local-jarvis-token-secret";
+  return crypto.createHash("sha256").update(secret).digest();
+}
+
+function encryptTokenPayload(payload) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", tokenCryptoKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(JSON.stringify(payload), "utf8"), cipher.final()]);
+  return {
+    v: 1,
+    iv: iv.toString("base64"),
+    tag: cipher.getAuthTag().toString("base64"),
+    data: encrypted.toString("base64"),
+  };
+}
+
+function decryptTokenPayload(record) {
+  if (!record?.encrypted) return null;
+  const encrypted = record.encrypted;
+  const decipher = crypto.createDecipheriv("aes-256-gcm", tokenCryptoKey(), Buffer.from(encrypted.iv, "base64"));
+  decipher.setAuthTag(Buffer.from(encrypted.tag, "base64"));
+  const decrypted = Buffer.concat([decipher.update(Buffer.from(encrypted.data, "base64")), decipher.final()]).toString("utf8");
+  return JSON.parse(decrypted);
+}
+
+function googleOAuthConfigured() {
+  return Boolean(googleOAuthClientId && googleOAuthClientSecret);
+}
+
+function googleOAuthStatus(db) {
+  const accounts = jarvisGmailAccounts();
+  return Object.fromEntries(
+    Object.entries(accounts).map(([source, account]) => {
+      const record = db.jarvisGoogleTokens?.[source] || null;
+      return [
+        source,
+        {
+          source,
+          label: account.label,
+          expectedEmail: account.email,
+          connected: Boolean(record?.encrypted),
+          email: record?.email || "",
+          connectedAt: record?.connectedAt || "",
+          lastSyncAt: record?.lastSyncAt || "",
+        },
+      ];
+    })
+  );
+}
+
+function storeGoogleToken(db, source, payload, email) {
+  const now = new Date().toISOString();
+  db.jarvisGoogleTokens = db.jarvisGoogleTokens || {};
+  const existing = db.jarvisGoogleTokens[source] || {};
+  const tokenPayload = {
+    access_token: payload.access_token || "",
+    refresh_token: payload.refresh_token || decryptTokenPayload(existing)?.refresh_token || "",
+    token_type: payload.token_type || "Bearer",
+    scope: payload.scope || existing.scope || "",
+    expires_at: Date.now() + Math.max(0, Number(payload.expires_in || 0) - 60) * 1000,
+  };
+  db.jarvisGoogleTokens[source] = {
+    source,
+    email,
+    scope: tokenPayload.scope,
+    encrypted: encryptTokenPayload(tokenPayload),
+    connectedAt: existing.connectedAt || now,
+    updatedAt: now,
+    lastSyncAt: existing.lastSyncAt || "",
+  };
+}
+
+async function exchangeGoogleOAuthCode(req, code) {
+  return httpsPostJson("https://oauth2.googleapis.com/token", {
+    code,
+    client_id: googleOAuthClientId,
+    client_secret: googleOAuthClientSecret,
+    redirect_uri: googleOAuthRedirectUri(req),
+    grant_type: "authorization_code",
+  });
+}
+
+async function refreshGoogleAccessToken(db, source) {
+  const record = db.jarvisGoogleTokens?.[source];
+  const token = decryptTokenPayload(record);
+  if (!token?.refresh_token) throw new Error("Refresh token Gmail manquant.");
+  if (token.access_token && token.expires_at && token.expires_at > Date.now() + 90 * 1000) return token.access_token;
+  const refreshed = await httpsPostJson("https://oauth2.googleapis.com/token", {
+    client_id: googleOAuthClientId,
+    client_secret: googleOAuthClientSecret,
+    refresh_token: token.refresh_token,
+    grant_type: "refresh_token",
+  });
+  storeGoogleToken(db, source, { ...token, ...refreshed, refresh_token: token.refresh_token }, record.email);
+  return refreshed.access_token || token.access_token;
+}
+
+async function googleGetJson(url, accessToken) {
+  return new Promise((resolve, reject) => {
+    https
+      .get(url, { headers: { Authorization: `Bearer ${accessToken}` } }, (response) => {
+        const chunks = [];
+        response.on("data", (chunk) => chunks.push(chunk));
+        response.on("end", () => {
+          const body = Buffer.concat(chunks).toString("utf8");
+          if (response.statusCode >= 400) return reject(new Error(`Google ${response.statusCode}: ${body.slice(0, 220)}`));
+          try {
+            resolve(JSON.parse(body));
+          } catch (error) {
+            reject(error);
+          }
+        });
+      })
+      .on("error", reject);
+  });
+}
+
+function gmailHeader(message, name) {
+  return (message.payload?.headers || []).find((header) => header.name?.toLowerCase() === name.toLowerCase())?.value || "";
+}
+
+function normalizeGmailEmailAddress(value) {
+  const match = String(value || "").match(/<([^>]+)>/);
+  return (match ? match[1] : value || "").trim().toLowerCase();
+}
+
+function jarvisEmailStatus(existing, classification) {
+  if (existing?.status) return existing.status;
+  return classification.priority === "Critique" || classification.priority === "Important" ? "à répondre" : "nouveau";
+}
+
+async function classifyJarvisEmailWithAI(email, local) {
+  const ai = await generateJarvisResponse({
+    task:
+      "Classe cet email pour Jarvis. Retourne un JSON avec category, priority, summary, action, suggestedReply. N'envoie aucun email. La réponse suggérée doit être prête mais non envoyée.",
+    data: { email, localClassification: local },
+  });
+  if (!ai.parsed) return null;
+  return {
+    category: String(ai.parsed.category || local.category).trim(),
+    priority: String(ai.parsed.priority || local.priority).trim(),
+    summary: String(ai.parsed.summary || local.summary).trim(),
+    action: String(ai.parsed.action || local.action).trim(),
+    suggestedReply: String(ai.parsed.suggestedReply || local.suggestedReply || "").trim(),
+    aiProvider: ai.provider,
+  };
+}
+
+async function gmailMessageToJarvisEmail(db, source, message) {
+  const accounts = jarvisGmailAccounts();
+  const id = `${source}:${message.id}`;
+  const existing = (db.jarvisEmails || []).find((email) => email.id === id);
+  const email = {
+    id,
+    gmailId: message.id,
+    threadId: message.threadId || "",
+    source,
+    sourceLabel: accounts[source]?.label || source,
+    account: accounts[source]?.email || "",
+    from: gmailHeader(message, "From"),
+    fromEmail: normalizeGmailEmailAddress(gmailHeader(message, "From")),
+    subject: gmailHeader(message, "Subject") || "(Sans sujet)",
+    receivedAt: new Date(Number(message.internalDate || Date.now())).toISOString(),
+    snippet: message.snippet || "",
+  };
+  const localCategory = jarvisEmailCategory(email);
+  const localPriority = jarvisEmailPriority(email, localCategory);
+  const local = {
+    ...localCategory,
+    priority: localPriority.priority,
+    score: localPriority.score,
+    summary: summarizeJarvisEmail(email, localCategory.category),
+    action: recommendedJarvisEmailAction(email, localCategory.category, localPriority.priority),
+    suggestedReply: suggestedJarvisReply(email, localCategory.category),
+  };
+  const ai = await classifyJarvisEmailWithAI(email, local).catch(() => null);
+  const final = ai || local;
+  return {
+    ...existing,
+    ...email,
+    category: final.category,
+    categoryType: final.categoryType || local.categoryType,
+    priority: final.priority,
+    score: Number(final.score || local.score || 0),
+    summary: final.summary,
+    action: final.action,
+    suggestedReply: final.suggestedReply,
+    aiProvider: final.aiProvider || "local",
+    status: jarvisEmailStatus(existing, final),
+    importedAt: existing?.importedAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function syncGmailSource(db, source, { maxResults = 15 } = {}) {
+  const token = await refreshGoogleAccessToken(db, source);
+  const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+  listUrl.searchParams.set("maxResults", String(maxResults));
+  listUrl.searchParams.set("q", "newer_than:14d");
+  const listed = await googleGetJson(listUrl, token);
+  const messages = [];
+  for (const item of (listed.messages || []).slice(0, maxResults)) {
+    const messageUrl = new URL(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(item.id)}`);
+    messageUrl.searchParams.set("format", "metadata");
+    ["From", "Subject", "Date"].forEach((header) => messageUrl.searchParams.append("metadataHeaders", header));
+    const message = await googleGetJson(messageUrl, token);
+    messages.push(await gmailMessageToJarvisEmail(db, source, message));
+  }
+  const byId = new Map((db.jarvisEmails || []).map((email) => [email.id, email]));
+  for (const email of messages) byId.set(email.id, email);
+  db.jarvisEmails = [...byId.values()].sort((a, b) => String(b.receivedAt || "").localeCompare(String(a.receivedAt || ""))).slice(0, 250);
+  if (db.jarvisGoogleTokens?.[source]) db.jarvisGoogleTokens[source].lastSyncAt = new Date().toISOString();
+  return { source, imported: messages.length };
+}
+
 function squareApiHost() {
   return squareEnvironment === "production" ? "connect.squareup.com" : "connect.squareupsandbox.com";
 }
@@ -3083,12 +3332,110 @@ async function handleApi(req, res) {
     return json(res, 200, { user: publicJarvisUser(getJarvisSession(req, db)) });
   }
 
+  if (url.pathname === "/api/jarvis/gmail/callback" && req.method === "GET") {
+    if (!googleOAuthConfigured()) return redirect(res, "/jarvis?gmail=missing-config");
+    const state = url.searchParams.get("state") || "";
+    const code = url.searchParams.get("code") || "";
+    const oauthState = db.jarvisOAuthStates?.[state];
+    if (!state || !code || !oauthState) return redirect(res, "/jarvis?gmail=invalid-state");
+    if (new Date(oauthState.expiresAt || 0).getTime() < Date.now()) {
+      delete db.jarvisOAuthStates[state];
+      await writeDb(db);
+      return redirect(res, "/jarvis?gmail=expired");
+    }
+    try {
+      const token = await exchangeGoogleOAuthCode(req, code);
+      const source = oauthState.source;
+      const accessToken = token.access_token;
+      const profile = await googleGetJson("https://gmail.googleapis.com/gmail/v1/users/me/profile", accessToken);
+      const expectedEmail = jarvisGmailAccounts()[source]?.email;
+      const email = String(profile.emailAddress || "").trim().toLowerCase();
+      if (expectedEmail && email !== expectedEmail) {
+        return redirect(res, `/jarvis?gmail=wrong-account&expected=${encodeURIComponent(expectedEmail)}`);
+      }
+      storeGoogleToken(db, source, token, email);
+      delete db.jarvisOAuthStates[state];
+      await writeDb(db);
+      return redirect(res, "/jarvis?gmail=connected");
+    } catch (error) {
+      return redirect(res, `/jarvis?gmail=error&message=${encodeURIComponent(error.message)}`);
+    }
+  }
+
   if (url.pathname.startsWith("/api/jarvis/") && !getJarvisSession(req, db)) {
     return json(res, 401, { error: "Connexion Jarvis requise." });
   }
 
   if (url.pathname === "/api/jarvis/briefing" && req.method === "GET") {
     return json(res, 200, await buildJarvisBriefing(db));
+  }
+
+  if (url.pathname === "/api/jarvis/gmail/status" && req.method === "GET") {
+    return json(res, 200, {
+      configured: googleOAuthConfigured(),
+      tokenEncryption: Boolean(jarvisTokenSecret),
+      accounts: googleOAuthStatus(db),
+    });
+  }
+
+  if (url.pathname === "/api/jarvis/gmail/auth" && req.method === "GET") {
+    if (!googleOAuthConfigured()) {
+      return json(res, 400, { error: "Google OAuth n’est pas configuré. Ajoute GOOGLE_OAUTH_CLIENT_ID et GOOGLE_OAUTH_CLIENT_SECRET." });
+    }
+    const source = url.searchParams.get("source") || "business";
+    const account = jarvisGmailAccounts()[source];
+    if (!account) return json(res, 400, { error: "Source Gmail inconnue." });
+    const state = crypto.randomBytes(18).toString("hex");
+    db.jarvisOAuthStates = db.jarvisOAuthStates || {};
+    db.jarvisOAuthStates[state] = {
+      source,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    };
+    await writeDb(db);
+    const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+    authUrl.searchParams.set("client_id", googleOAuthClientId);
+    authUrl.searchParams.set("redirect_uri", googleOAuthRedirectUri(req));
+    authUrl.searchParams.set("response_type", "code");
+    authUrl.searchParams.set("scope", "https://www.googleapis.com/auth/gmail.readonly");
+    authUrl.searchParams.set("access_type", "offline");
+    authUrl.searchParams.set("include_granted_scopes", "true");
+    authUrl.searchParams.set("prompt", "consent");
+    authUrl.searchParams.set("login_hint", account.email);
+    authUrl.searchParams.set("state", state);
+    return json(res, 200, { url: authUrl.toString(), source, expectedEmail: account.email });
+  }
+
+  if (url.pathname === "/api/jarvis/gmail/sync" && req.method === "POST") {
+    if (!googleOAuthConfigured()) return json(res, 400, { error: "Google OAuth n’est pas configuré." });
+    const body = await readBody(req);
+    const requestedSource = String(body.source || "all");
+    const sources = requestedSource === "all" ? Object.keys(jarvisGmailAccounts()) : [requestedSource];
+    const results = [];
+    for (const source of sources) {
+      if (!db.jarvisGoogleTokens?.[source]) {
+        results.push({ source, imported: 0, skipped: "not_connected" });
+        continue;
+      }
+      results.push(await syncGmailSource(db, source, { maxResults: Number(body.maxResults || 15) }));
+    }
+    await writeDb(db);
+    return json(res, 200, { results, emails: importantJarvisEmails(db), status: googleOAuthStatus(db) });
+  }
+
+  if (url.pathname === "/api/jarvis/emails/status" && req.method === "POST") {
+    const body = await readBody(req);
+    const id = String(body.id || "");
+    const status = String(body.status || "");
+    if (!["nouveau", "à répondre", "traité", "ignoré", "à suivre"].includes(status)) {
+      return json(res, 400, { error: "Statut email invalide." });
+    }
+    const email = (db.jarvisEmails || []).find((item) => item.id === id);
+    if (!email) return json(res, 404, { error: "Email Jarvis introuvable." });
+    email.status = status;
+    email.updatedAt = new Date().toISOString();
+    await writeDb(db);
+    return json(res, 200, { email, briefing: await buildJarvisBriefing(db) });
   }
 
   if (url.pathname === "/api/admin/login" && req.method === "POST") {
