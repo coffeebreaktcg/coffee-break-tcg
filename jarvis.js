@@ -71,6 +71,13 @@ function shortDate(value) {
   return date.toLocaleDateString("fr-CA", { weekday: "short", month: "short", day: "numeric" });
 }
 
+function shortDateTime(value) {
+  if (!value) return "Jamais";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("fr-CA", { dateStyle: "medium", timeStyle: "short" });
+}
+
 function renderList(container, items, renderer, emptyText) {
   container.innerHTML = "";
   if (!items.length) {
@@ -366,10 +373,105 @@ async function loadEmailReview(filter = currentEmailFilter) {
   renderEmailReviewList(payload);
 }
 
+function diagnosticValue(label, value, status = "") {
+  return `
+    <div class="diagnostic-item ${status}">
+      <span>${label}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>
+  `;
+}
+
+function renderDiagnostic(payload) {
+  const grid = document.querySelector("[data-diagnostic-grid]");
+  const errors = document.querySelector("[data-diagnostic-errors]");
+  if (!grid || !errors) return;
+  grid.innerHTML = [
+    diagnosticValue("Gmail business", payload.connections?.gmailBusiness ? "Oui" : "Non", payload.connections?.gmailBusiness ? "ok" : "warn"),
+    diagnosticValue("Gmail personnel", payload.connections?.gmailPersonal ? "Oui" : "Non", payload.connections?.gmailPersonal ? "ok" : "warn"),
+    diagnosticValue("Calendar", payload.connections?.calendar ? "Oui" : "Non", payload.connections?.calendar ? "ok" : "warn"),
+    diagnosticValue("Emails importés", String(payload.counts?.emailsImported || 0)),
+    diagnosticValue("Événements importés", String(payload.counts?.eventsImported || 0)),
+    diagnosticValue("Feedback sauvegardé", String(payload.counts?.feedbackSaved || 0)),
+    diagnosticValue("Dernier import réussi", shortDateTime(payload.imports?.lastSuccessfulImportAt)),
+    diagnosticValue("System prompt + IA", payload.configured?.openai ? "OpenAI actif" : "Moteur local", payload.configured?.openai ? "ok" : "warn"),
+  ].join("");
+  const activeErrors = payload.errors || [];
+  errors.innerHTML = activeErrors.length
+    ? `
+      <h3>Erreurs OAuth / API</h3>
+      <div class="diagnostic-error-list">
+        ${activeErrors
+          .map(
+            (error) => `
+              <div class="diagnostic-error">
+                <strong>${escapeHtml(error.service || "service")}</strong>
+                <p>${escapeHtml(error.message || "Erreur inconnue")}</p>
+                <span>${escapeHtml(error.context || "")} · ${shortDateTime(error.at)}</span>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+    `
+    : `<p class="empty">Aucune erreur OAuth/API enregistrée.</p>`;
+}
+
+async function loadDiagnostic() {
+  const payload = await api("/api/jarvis/diagnostic");
+  renderDiagnostic(payload);
+}
+
+function renderTestBriefing(payload) {
+  const output = document.querySelector("[data-test-briefing-output]");
+  const test = payload.test || {};
+  const focus = payload.briefing?.briefing?.focus || {};
+  output.hidden = false;
+  output.innerHTML = `
+    <h3>Briefing test</h3>
+    <div class="test-focus">
+      <span>Prochaine action concrète</span>
+      <strong>${escapeHtml(test.nextAction || focus.nextAction || "Aucune action générée.")}</strong>
+      ${focus.reason ? `<p>${escapeHtml(focus.reason)}</p>` : ""}
+    </div>
+    <div class="test-columns">
+      <div>
+        <h4>Urgent</h4>
+        ${renderDecisionPreview(test.urgent || [])}
+      </div>
+      <div>
+        <h4>Important</h4>
+        ${renderDecisionPreview(test.important || [])}
+      </div>
+      <div>
+        <h4>Peut attendre</h4>
+        ${renderDecisionPreview(test.waiting || [])}
+      </div>
+    </div>
+  `;
+}
+
+function renderDecisionPreview(items) {
+  if (!items.length) return `<p class="empty">Rien ici.</p>`;
+  return items
+    .slice(0, 4)
+    .map(
+      (item) => `
+        <div class="test-decision">
+          <strong>${escapeHtml(item.title || "")}</strong>
+          <p>${escapeHtml(item.action || item.detail || "")}</p>
+          <div class="pill-row">${pill(item.priority || "Important")} ${scorePill(item.score)}</div>
+        </div>
+      `
+    )
+    .join("");
+}
+
 async function loadJarvis() {
   const payload = await api("/api/jarvis/briefing");
   renderBriefing(payload);
   await loadEmailReview().catch(() => {});
+  await loadDiagnostic().catch(() => {});
 }
 
 loginForm.addEventListener("submit", async (event) => {
@@ -406,6 +508,8 @@ document.addEventListener("click", async (event) => {
   const emailStatusButton = event.target.closest("[data-email-status]");
   const emailFilterButton = event.target.closest("[data-email-filter]");
   const saveFeedbackButton = event.target.closest("[data-save-email-feedback]");
+  const testBriefingButton = event.target.closest("[data-test-briefing]");
+  const reimportAllButton = event.target.closest("[data-reimport-all]");
 
   if (emailFilterButton) {
     document.querySelectorAll("[data-email-filter]").forEach((button) => {
@@ -460,6 +564,7 @@ document.addEventListener("click", async (event) => {
     try {
       const payload = await api("/api/jarvis/calendar/sync", { method: "POST", body: "{}" });
       renderBriefing(payload.briefing);
+      await loadDiagnostic().catch(() => {});
     } catch (error) {
       document.querySelector("[data-calendar-state]").innerHTML = `<p>${escapeHtml(error.message)}</p>`;
     } finally {
@@ -482,6 +587,39 @@ document.addEventListener("click", async (event) => {
       await loadEmailReview().catch(() => {});
     } catch (error) {
       emailStatusButton.textContent = error.message;
+    }
+  }
+
+  if (testBriefingButton) {
+    testBriefingButton.disabled = true;
+    testBriefingButton.textContent = "Génération...";
+    try {
+      const payload = await api("/api/jarvis/briefing-test", { method: "POST", body: "{}" });
+      renderBriefing(payload.briefing);
+      renderDiagnostic(payload.diagnostic);
+      renderTestBriefing(payload);
+    } catch (error) {
+      document.querySelector("[data-test-briefing-output]").hidden = false;
+      document.querySelector("[data-test-briefing-output]").innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
+    } finally {
+      testBriefingButton.disabled = false;
+      testBriefingButton.textContent = "Générer briefing test";
+    }
+  }
+
+  if (reimportAllButton) {
+    reimportAllButton.disabled = true;
+    reimportAllButton.textContent = "Réimport...";
+    try {
+      const payload = await api("/api/jarvis/reimport", { method: "POST", body: "{}" });
+      renderBriefing(payload.briefing);
+      renderDiagnostic(payload.diagnostic);
+      await loadEmailReview().catch(() => {});
+    } catch (error) {
+      document.querySelector("[data-diagnostic-errors]").innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
+    } finally {
+      reimportAllButton.disabled = false;
+      reimportAllButton.textContent = "Tout réimporter";
     }
   }
 

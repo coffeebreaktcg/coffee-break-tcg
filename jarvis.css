@@ -385,6 +385,125 @@ button.ghost-dark,
   grid-column: 1 / -1;
 }
 
+.diagnostic-card {
+  grid-column: 1 / -1;
+}
+
+.diagnostic-actions {
+  justify-content: flex-end;
+  margin-bottom: 0;
+}
+
+.diagnostic-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.diagnostic-item {
+  display: grid;
+  gap: 7px;
+  border: 1px solid var(--line);
+  background: rgba(251, 234, 216, 0.45);
+  padding: 12px;
+}
+
+.diagnostic-item span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.diagnostic-item strong {
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.diagnostic-item.ok strong {
+  color: var(--green);
+}
+
+.diagnostic-item.warn strong {
+  color: var(--red);
+}
+
+.diagnostic-errors {
+  margin-top: 10px;
+}
+
+.diagnostic-errors h3,
+.test-briefing h3,
+.test-columns h4 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.diagnostic-error-list {
+  display: grid;
+  gap: 8px;
+}
+
+.diagnostic-error,
+.test-focus,
+.test-decision {
+  border: 1px solid rgba(185, 74, 58, 0.18);
+  background: rgba(255, 247, 235, 0.7);
+  padding: 12px;
+}
+
+.diagnostic-error strong,
+.test-focus strong,
+.test-decision strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.diagnostic-error p,
+.diagnostic-error span,
+.test-focus p,
+.test-decision p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.test-briefing {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.test-focus {
+  border-color: rgba(213, 116, 45, 0.28);
+}
+
+.test-focus span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--orange);
+  font-size: 11px;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.test-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.test-columns > div {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
 .email-review-list {
   display: grid;
   gap: 12px;
@@ -575,6 +694,8 @@ button.ghost-dark,
 
   .status-grid,
   .priority-layout,
+  .diagnostic-grid,
+  .test-columns,
   .growth-grid {
     grid-template-columns: 1fr;
   }

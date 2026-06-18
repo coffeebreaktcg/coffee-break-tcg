@@ -160,6 +160,8 @@ async function readDb() {
     if (!db.jarvisGoogleTokens) db.jarvisGoogleTokens = {};
     if (!db.jarvisCalendarTokens) db.jarvisCalendarTokens = {};
     if (!db.jarvisOAuthStates) db.jarvisOAuthStates = {};
+    if (!db.jarvisDiagnostics) db.jarvisDiagnostics = { errors: [] };
+    if (!Array.isArray(db.jarvisDiagnostics.errors)) db.jarvisDiagnostics.errors = [];
     if (!Array.isArray(db.migrations)) db.migrations = [];
     if (!db.migrations.includes(clearInventoryMigrationId)) {
       db.inventory = [];
@@ -184,6 +186,7 @@ async function readDb() {
       jarvisGoogleTokens: {},
       jarvisCalendarTokens: {},
       jarvisOAuthStates: {},
+      jarvisDiagnostics: { errors: [] },
       orders: [],
       emailOutbox: [],
       newsletter: [],
@@ -2448,6 +2451,65 @@ function googleOAuthStatus(db) {
   );
 }
 
+function recordJarvisIntegrationError(db, service, error, context = "") {
+  db.jarvisDiagnostics = db.jarvisDiagnostics || { errors: [] };
+  db.jarvisDiagnostics.errors = Array.isArray(db.jarvisDiagnostics.errors) ? db.jarvisDiagnostics.errors : [];
+  db.jarvisDiagnostics.errors.unshift({
+    service,
+    context,
+    message: error?.message ? String(error.message).slice(0, 500) : String(error || "Erreur inconnue").slice(0, 500),
+    at: new Date().toISOString(),
+  });
+  db.jarvisDiagnostics.errors = db.jarvisDiagnostics.errors.slice(0, 25);
+}
+
+function clearJarvisIntegrationError(db, service) {
+  db.jarvisDiagnostics = db.jarvisDiagnostics || { errors: [] };
+  db.jarvisDiagnostics.errors = (db.jarvisDiagnostics.errors || []).filter((error) => error.service !== service);
+}
+
+function latestJarvisImportAt(db) {
+  const dates = [
+    ...Object.values(db.jarvisGoogleTokens || {}).map((token) => token.lastSyncAt),
+    db.jarvisCalendarTokens?.primary?.lastSyncAt,
+  ].filter(Boolean);
+  return dates.sort().reverse()[0] || "";
+}
+
+function buildJarvisDiagnostic(db) {
+  const gmailStatus = googleOAuthStatus(db);
+  const calendarStatus = googleCalendarOAuthStatus(db);
+  return {
+    generatedAt: new Date().toISOString(),
+    configured: {
+      googleOAuth: googleOAuthConfigured(),
+      tokenEncryption: Boolean(jarvisTokenSecret),
+      openai: Boolean(openaiApiKey),
+    },
+    connections: {
+      gmailBusiness: Boolean(gmailStatus.business?.connected),
+      gmailPersonal: Boolean(gmailStatus.personal?.connected),
+      calendar: Boolean(calendarStatus.primary?.connected),
+    },
+    accounts: {
+      gmail: gmailStatus,
+      calendar: calendarStatus,
+    },
+    counts: {
+      emailsImported: (db.jarvisEmails || []).length,
+      eventsImported: (db.jarvisCalendarEvents || []).length,
+      feedbackSaved: (db.jarvisEmailFeedback || []).length,
+    },
+    imports: {
+      lastSuccessfulImportAt: latestJarvisImportAt(db),
+      gmailBusinessLastSyncAt: gmailStatus.business?.lastSyncAt || "",
+      gmailPersonalLastSyncAt: gmailStatus.personal?.lastSyncAt || "",
+      calendarLastSyncAt: calendarStatus.primary?.lastSyncAt || "",
+    },
+    errors: (db.jarvisDiagnostics?.errors || []).slice(0, 8),
+  };
+}
+
 function googleCalendarOAuthStatus(db) {
   const record = db.jarvisCalendarTokens?.primary || null;
   return {
@@ -3609,6 +3671,8 @@ async function handleApi(req, res) {
       await writeDb(db);
       return redirect(res, "/jarvis?gmail=connected");
     } catch (error) {
+      recordJarvisIntegrationError(db, "gmail", error, "oauth-callback");
+      await writeDb(db);
       return redirect(res, `/jarvis?gmail=error&message=${encodeURIComponent(error.message)}`);
     }
   }
@@ -3637,6 +3701,8 @@ async function handleApi(req, res) {
       await writeDb(db);
       return redirect(res, "/jarvis?calendar=connected");
     } catch (error) {
+      recordJarvisIntegrationError(db, "calendar", error, "oauth-callback");
+      await writeDb(db);
       return redirect(res, `/jarvis?calendar=error&message=${encodeURIComponent(error.message)}`);
     }
   }
@@ -3647,6 +3713,25 @@ async function handleApi(req, res) {
 
   if (url.pathname === "/api/jarvis/briefing" && req.method === "GET") {
     return json(res, 200, await buildJarvisBriefing(db));
+  }
+
+  if (url.pathname === "/api/jarvis/diagnostic" && req.method === "GET") {
+    return json(res, 200, buildJarvisDiagnostic(db));
+  }
+
+  if (url.pathname === "/api/jarvis/briefing-test" && req.method === "POST") {
+    const briefing = await buildJarvisBriefing(db);
+    return json(res, 200, {
+      generatedAt: new Date().toISOString(),
+      diagnostic: buildJarvisDiagnostic(db),
+      briefing,
+      test: {
+        urgent: briefing.briefing.decisionMatrix?.urgent || [],
+        important: briefing.briefing.decisionMatrix?.important || [],
+        waiting: briefing.briefing.decisionMatrix?.waiting || [],
+        nextAction: briefing.briefing.focus?.nextAction || "",
+      },
+    });
   }
 
   if (url.pathname === "/api/jarvis/gmail/status" && req.method === "GET") {
@@ -3723,9 +3808,16 @@ async function handleApi(req, res) {
   if (url.pathname === "/api/jarvis/calendar/sync" && req.method === "POST") {
     if (!googleOAuthConfigured()) return json(res, 400, { error: "Google OAuth n’est pas configuré." });
     if (!db.jarvisCalendarTokens?.primary) return json(res, 400, { error: "Google Calendar n’est pas connecté." });
-    const result = await syncGoogleCalendar(db);
-    await writeDb(db);
-    return json(res, 200, { result, calendar: jarvisCalendarEvents(db), briefing: await buildJarvisBriefing(db), status: googleCalendarOAuthStatus(db) });
+    try {
+      const result = await syncGoogleCalendar(db);
+      clearJarvisIntegrationError(db, "calendar");
+      await writeDb(db);
+      return json(res, 200, { result, calendar: jarvisCalendarEvents(db), briefing: await buildJarvisBriefing(db), status: googleCalendarOAuthStatus(db) });
+    } catch (error) {
+      recordJarvisIntegrationError(db, "calendar", error, "sync");
+      await writeDb(db);
+      return json(res, 502, { error: error.message, diagnostic: buildJarvisDiagnostic(db) });
+    }
   }
 
   if (url.pathname === "/api/jarvis/gmail/sync" && req.method === "POST") {
@@ -3739,10 +3831,55 @@ async function handleApi(req, res) {
         results.push({ source, imported: 0, skipped: "not_connected" });
         continue;
       }
-      results.push(await syncGmailSource(db, source, { maxResults: Number(body.maxResults || 15) }));
+      try {
+        results.push(await syncGmailSource(db, source, { maxResults: Number(body.maxResults || 15) }));
+      } catch (error) {
+        recordJarvisIntegrationError(db, `gmail:${source}`, error, "sync");
+        results.push({ source, imported: 0, error: error.message });
+      }
+    }
+    if (!results.some((result) => result.error)) {
+      clearJarvisIntegrationError(db, "gmail");
+      clearJarvisIntegrationError(db, "gmail:business");
+      clearJarvisIntegrationError(db, "gmail:personal");
     }
     await writeDb(db);
     return json(res, 200, { results, emails: importantJarvisEmails(db), status: googleOAuthStatus(db) });
+  }
+
+  if (url.pathname === "/api/jarvis/reimport" && req.method === "POST") {
+    if (!googleOAuthConfigured()) return json(res, 400, { error: "Google OAuth n’est pas configuré." });
+    const results = { gmail: [], calendar: null };
+    for (const source of Object.keys(jarvisGmailAccounts())) {
+      if (!db.jarvisGoogleTokens?.[source]) {
+        results.gmail.push({ source, imported: 0, skipped: "not_connected" });
+        continue;
+      }
+      try {
+        results.gmail.push(await syncGmailSource(db, source, { maxResults: 15 }));
+        clearJarvisIntegrationError(db, `gmail:${source}`);
+      } catch (error) {
+        recordJarvisIntegrationError(db, `gmail:${source}`, error, "reimport");
+        results.gmail.push({ source, imported: 0, error: error.message });
+      }
+    }
+    if (db.jarvisCalendarTokens?.primary) {
+      try {
+        results.calendar = await syncGoogleCalendar(db);
+        clearJarvisIntegrationError(db, "calendar");
+      } catch (error) {
+        recordJarvisIntegrationError(db, "calendar", error, "reimport");
+        results.calendar = { imported: 0, error: error.message };
+      }
+    } else {
+      results.calendar = { imported: 0, skipped: "not_connected" };
+    }
+    await writeDb(db);
+    return json(res, 200, {
+      results,
+      diagnostic: buildJarvisDiagnostic(db),
+      briefing: await buildJarvisBriefing(db),
+    });
   }
 
   if (url.pathname === "/api/jarvis/emails" && req.method === "GET") {
