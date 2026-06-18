@@ -158,6 +158,7 @@ async function readDb() {
     if (!Array.isArray(db.jarvisEmailFeedback)) db.jarvisEmailFeedback = [];
     if (!Array.isArray(db.jarvisCalendarEvents)) db.jarvisCalendarEvents = [];
     if (!db.jarvisGoogleTokens) db.jarvisGoogleTokens = {};
+    if (!db.jarvisCalendarTokens) db.jarvisCalendarTokens = {};
     if (!db.jarvisOAuthStates) db.jarvisOAuthStates = {};
     if (!Array.isArray(db.migrations)) db.migrations = [];
     if (!db.migrations.includes(clearInventoryMigrationId)) {
@@ -181,6 +182,7 @@ async function readDb() {
       jarvisEmailFeedback: [],
       jarvisCalendarEvents: [],
       jarvisGoogleTokens: {},
+      jarvisCalendarTokens: {},
       jarvisOAuthStates: {},
       orders: [],
       emailOutbox: [],
@@ -890,6 +892,18 @@ function suggestedJarvisReply(email, category) {
   return "";
 }
 
+function emailCalendarSuggestion(email) {
+  const text = `${email.subject || ""} ${email.snippet || ""} ${email.body || ""}`;
+  const hasDateSignal =
+    /\b(20\d{2}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}\s+(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)|tomorrow|demain|today|aujourd'hui|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/i.test(text) ||
+    /\b(invitation|calendar|calendrier|rendez-vous|meeting|événement|evenement|card show|expo|table)\b/i.test(text);
+  if (!hasDateSignal) return null;
+  return {
+    label: "Créer un événement?",
+    action: "Vérifier la date dans l’email et préparer un événement seulement après validation.",
+  };
+}
+
 function importantJarvisEmails(db) {
   return (db.jarvisEmails || [])
     .map((email) => {
@@ -916,6 +930,7 @@ function importantJarvisEmails(db) {
         summary: learnedEmail.summary || summarizeJarvisEmail(learnedEmail, category.category),
         action: learnedEmail.learnedFromMax ? learnedEmail.action : recommendedJarvisEmailAction(learnedEmail, category.category, priority.priority),
         suggestedReply: learnedEmail.learnedFromMax ? learnedEmail.suggestedReply : suggestedJarvisReply(learnedEmail, category.category),
+        calendarSuggestion: emailCalendarSuggestion(learnedEmail),
         feedbackVerdict: learnedEmail.feedbackVerdict || "",
         learnedFromMax: Boolean(learnedEmail.learnedFromMax),
       };
@@ -985,12 +1000,22 @@ function jarvisCalendarEvents(db) {
   const now = new Date();
   const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const today = dateOnlyString(now);
+  const tomorrow = dateOnlyString(new Date(now.getTime() + 24 * 60 * 60 * 1000));
   const externalEvents = (db.jarvisCalendarEvents || []).map((event) => ({
     id: event.id || crypto.randomBytes(6).toString("hex"),
     title: event.title || "Événement",
+    date: event.date || String(event.start || "").slice(0, 10),
     start: event.start || event.date || "",
+    end: event.end || "",
+    startTime: event.startTime || "",
+    endTime: event.endTime || "",
     location: event.location || "",
-    type: event.type || "Calendrier",
+    type: event.category || event.type || "Calendrier",
+    category: event.category || event.type || "Calendrier",
+    calendarSource: event.calendarSource || "Google Calendar",
+    priority: event.priority || "Important",
+    score: Number(event.score || 62),
+    action: event.action || "Vérifier si une action est nécessaire",
     colorLabel: event.colorLabel || "Calendrier",
     colorType: event.colorType || "",
   }));
@@ -1006,6 +1031,7 @@ function jarvisCalendarEvents(db) {
     .slice(0, 12);
   return {
     today: week.filter((event) => String(event.start || "").slice(0, 10) === today),
+    tomorrow: week.filter((event) => String(event.start || "").slice(0, 10) === tomorrow),
     week,
   };
 }
@@ -1107,10 +1133,10 @@ function buildDecisionMatrix({ emails, ordersToShip, calendar, cardShows, priori
       decisionItem({
         type: "Calendrier",
         title: event.title,
-        detail: event.location || event.type || "Événement aujourd’hui",
-        score: event.type === "Card Show" ? 84 : 72,
-        source: "Google Calendar",
-        action: "Vérifier les préparatifs aujourd’hui",
+        detail: `${event.category || event.type || "Événement"}${event.location ? ` · ${event.location}` : ""}`,
+        score: Number(event.score || (event.type === "Card Show" ? 84 : 72)),
+        source: event.calendarSource || "Google Calendar",
+        action: event.action || "Vérifier les préparatifs aujourd’hui",
       })
     );
   }
@@ -1288,10 +1314,15 @@ async function buildJarvisBriefing(db) {
             : "Gmail prêt à brancher. Ajoute GOOGLE_OAUTH_CLIENT_ID et GOOGLE_OAUTH_CLIENT_SECRET.",
       },
       calendar: {
-        connected: (db.jarvisCalendarEvents || []).length > 0,
-        message: (db.jarvisCalendarEvents || []).length
-          ? "Google Calendar: événements importés."
-          : "Google Calendar prêt à brancher. Les Card Shows du site sont déjà affichés comme événements.",
+        connected: Boolean(db.jarvisCalendarTokens?.primary?.encrypted),
+        accounts: googleCalendarOAuthStatus(db),
+        message: db.jarvisCalendarTokens?.primary?.encrypted
+          ? (db.jarvisCalendarEvents || []).length
+            ? "Google Calendar: événements importés dans Jarvis."
+            : "Google Calendar connecté. Importe les événements pour alimenter le briefing."
+          : googleOAuthConfigured()
+            ? "Google Calendar OAuth est prêt. Connecte ton calendrier, puis importe les 7 prochains jours."
+            : "Google Calendar prêt à brancher. Ajoute GOOGLE_OAUTH_CLIENT_ID et GOOGLE_OAUTH_CLIENT_SECRET.",
       },
       ai: {
         connected: Boolean(openaiApiKey),
@@ -2362,6 +2393,10 @@ function googleOAuthRedirectUri(req) {
   return `${publicOrigin(req)}/api/jarvis/gmail/callback`;
 }
 
+function googleCalendarOAuthRedirectUri(req) {
+  return `${publicOrigin(req)}/api/jarvis/calendar/callback`;
+}
+
 function tokenCryptoKey() {
   const secret = jarvisTokenSecret || "coffee-break-local-jarvis-token-secret";
   return crypto.createHash("sha256").update(secret).digest();
@@ -2413,6 +2448,21 @@ function googleOAuthStatus(db) {
   );
 }
 
+function googleCalendarOAuthStatus(db) {
+  const record = db.jarvisCalendarTokens?.primary || null;
+  return {
+    primary: {
+      source: "primary",
+      label: "Google Calendar",
+      connected: Boolean(record?.encrypted),
+      email: record?.email || "",
+      connectedAt: record?.connectedAt || "",
+      lastSyncAt: record?.lastSyncAt || "",
+      calendars: record?.calendars || [],
+    },
+  };
+}
+
 function storeGoogleToken(db, source, payload, email) {
   const now = new Date().toISOString();
   db.jarvisGoogleTokens = db.jarvisGoogleTokens || {};
@@ -2435,12 +2485,45 @@ function storeGoogleToken(db, source, payload, email) {
   };
 }
 
+function storeGoogleCalendarToken(db, payload, email) {
+  const now = new Date().toISOString();
+  db.jarvisCalendarTokens = db.jarvisCalendarTokens || {};
+  const existing = db.jarvisCalendarTokens.primary || {};
+  const tokenPayload = {
+    access_token: payload.access_token || "",
+    refresh_token: payload.refresh_token || decryptTokenPayload(existing)?.refresh_token || "",
+    token_type: payload.token_type || "Bearer",
+    scope: payload.scope || existing.scope || "",
+    expires_at: Date.now() + Math.max(0, Number(payload.expires_in || 0) - 60) * 1000,
+  };
+  db.jarvisCalendarTokens.primary = {
+    source: "primary",
+    email,
+    scope: tokenPayload.scope,
+    encrypted: encryptTokenPayload(tokenPayload),
+    connectedAt: existing.connectedAt || now,
+    updatedAt: now,
+    lastSyncAt: existing.lastSyncAt || "",
+    calendars: existing.calendars || [],
+  };
+}
+
 async function exchangeGoogleOAuthCode(req, code) {
   return httpsPostJson("https://oauth2.googleapis.com/token", {
     code,
     client_id: googleOAuthClientId,
     client_secret: googleOAuthClientSecret,
     redirect_uri: googleOAuthRedirectUri(req),
+    grant_type: "authorization_code",
+  });
+}
+
+async function exchangeGoogleCalendarOAuthCode(req, code) {
+  return httpsPostJson("https://oauth2.googleapis.com/token", {
+    code,
+    client_id: googleOAuthClientId,
+    client_secret: googleOAuthClientSecret,
+    redirect_uri: googleCalendarOAuthRedirectUri(req),
     grant_type: "authorization_code",
   });
 }
@@ -2457,6 +2540,21 @@ async function refreshGoogleAccessToken(db, source) {
     grant_type: "refresh_token",
   });
   storeGoogleToken(db, source, { ...token, ...refreshed, refresh_token: token.refresh_token }, record.email);
+  return refreshed.access_token || token.access_token;
+}
+
+async function refreshGoogleCalendarAccessToken(db) {
+  const record = db.jarvisCalendarTokens?.primary;
+  const token = decryptTokenPayload(record);
+  if (!token?.refresh_token) throw new Error("Refresh token Google Calendar manquant.");
+  if (token.access_token && token.expires_at && token.expires_at > Date.now() + 90 * 1000) return token.access_token;
+  const refreshed = await httpsPostJson("https://oauth2.googleapis.com/token", {
+    client_id: googleOAuthClientId,
+    client_secret: googleOAuthClientSecret,
+    refresh_token: token.refresh_token,
+    grant_type: "refresh_token",
+  });
+  storeGoogleCalendarToken(db, { ...token, ...refreshed, refresh_token: token.refresh_token }, record.email);
   return refreshed.access_token || token.access_token;
 }
 
@@ -2606,6 +2704,119 @@ async function syncGmailSource(db, source, { maxResults = 15 } = {}) {
   db.jarvisEmails = [...byId.values()].sort((a, b) => String(b.receivedAt || "").localeCompare(String(a.receivedAt || ""))).slice(0, 250);
   if (db.jarvisGoogleTokens?.[source]) db.jarvisGoogleTokens[source].lastSyncAt = new Date().toISOString();
   return { source, imported: messages.length };
+}
+
+function calendarWindow() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+  const weekEnd = new Date(today.getTime() + 8 * 24 * 60 * 60 * 1000);
+  return { today, tomorrow, weekEnd };
+}
+
+function calendarEventDateValue(value) {
+  if (!value) return "";
+  return value.dateTime || value.date || "";
+}
+
+function calendarEventCategory(event, calendar) {
+  const text = `${event.summary || ""} ${event.description || ""} ${event.location || ""} ${calendar.summary || ""}`.toLowerCase();
+  if (/card show|collect-a-con|expo|convention|kiosque|booth|table|tcg show/.test(text)) return { category: "Card Show", colorLabel: "Bleu - Card Show", colorType: "card-show" };
+  if (/coffee|coffeebreak|cbtcg|pokemon|pokémon|tcg|carte|collection|commande|client/.test(text)) return { category: "CoffeeBreak", colorLabel: "Violet - CoffeeBreak", colorType: "coffee" };
+  if (/urgent|important|deadline|limite|rappel|à faire|a faire/.test(text)) return { category: "Important", colorLabel: "Rouge - Important", colorType: "critical" };
+  if (/travail|shift|resto|restaurant|job|boss|manager|cuisine|service/.test(text)) return { category: "Travail", colorLabel: "Vert - Travail", colorType: "work" };
+  return { category: "Personnel", colorLabel: "Orange - Personnel", colorType: "personal" };
+}
+
+function calendarEventPriority(event, classification) {
+  const start = new Date(calendarEventDateValue(event.start));
+  const now = new Date();
+  const hoursUntil = Number.isNaN(start.getTime()) ? 999 : (start.getTime() - now.getTime()) / (60 * 60 * 1000);
+  let score = classification.category === "Important" ? 90 : classification.category === "Card Show" ? 84 : classification.category === "CoffeeBreak" ? 76 : 52;
+  if (hoursUntil >= 0 && hoursUntil <= 24) score += 12;
+  if (hoursUntil > 24 && hoursUntil <= 48) score += 6;
+  if (event.attendees?.some((attendee) => attendee.responseStatus === "needsAction")) score += 8;
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const priority = score >= 86 ? "Critique" : score >= 62 ? "Important" : "Peut attendre";
+  return { score, priority };
+}
+
+function recommendedCalendarAction(event, category, priority) {
+  if (priority === "Critique") return "Vérifier les préparatifs et confirmer ce qui doit être fait aujourd’hui";
+  if (category === "Card Show") return "Confirmer tables, heure d’arrivée, matériel et inventaire à apporter";
+  if (category === "CoffeeBreak") return "Identifier l’action CoffeeBreak liée à cet événement";
+  if (category === "Travail") return "Protéger un bloc CoffeeBreak autour du travail si possible";
+  if (category === "Important") return "Décider aujourd’hui si une action ou une réponse est nécessaire";
+  return "Garder en tête, aucune action immédiate";
+}
+
+function normalizeCalendarEvent(event, calendar) {
+  const start = calendarEventDateValue(event.start);
+  const end = calendarEventDateValue(event.end);
+  const classification = calendarEventCategory(event, calendar);
+  const priority = calendarEventPriority(event, classification);
+  return {
+    id: `${calendar.id}:${event.id}`,
+    googleEventId: event.id || "",
+    calendarId: calendar.id || "",
+    calendarSource: calendar.summary || calendar.id || "Google Calendar",
+    title: event.summary || "(Sans titre)",
+    date: String(start || "").slice(0, 10),
+    start,
+    end,
+    startTime: event.start?.dateTime ? String(event.start.dateTime).slice(11, 16) : "",
+    endTime: event.end?.dateTime ? String(event.end.dateTime).slice(11, 16) : "",
+    location: event.location || "",
+    description: event.description || "",
+    type: classification.category,
+    category: classification.category,
+    colorLabel: classification.colorLabel,
+    colorType: classification.colorType,
+    priority: priority.priority,
+    score: priority.score,
+    action: recommendedCalendarAction(event, classification.category, priority.priority),
+    htmlLink: event.htmlLink || "",
+    importedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function syncGoogleCalendar(db) {
+  const token = await refreshGoogleCalendarAccessToken(db);
+  const { today, weekEnd } = calendarWindow();
+  const listUrl = new URL("https://www.googleapis.com/calendar/v3/users/me/calendarList");
+  listUrl.searchParams.set("minAccessRole", "reader");
+  const calendarList = await googleGetJson(listUrl, token);
+  const calendars = (calendarList.items || []).filter((calendar) => !calendar.deleted && !calendar.hidden).slice(0, 12);
+  const events = [];
+  for (const calendar of calendars) {
+    const eventsUrl = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.id)}/events`);
+    eventsUrl.searchParams.set("timeMin", today.toISOString());
+    eventsUrl.searchParams.set("timeMax", weekEnd.toISOString());
+    eventsUrl.searchParams.set("singleEvents", "true");
+    eventsUrl.searchParams.set("orderBy", "startTime");
+    eventsUrl.searchParams.set("maxResults", "30");
+    const calendarEvents = await googleGetJson(eventsUrl, token);
+    for (const event of calendarEvents.items || []) {
+      if (event.status === "cancelled") continue;
+      events.push(normalizeCalendarEvent(event, calendar));
+    }
+  }
+  db.jarvisCalendarEvents = events
+    .sort((a, b) => String(a.start || "").localeCompare(String(b.start || "")))
+    .slice(0, 160);
+  if (db.jarvisCalendarTokens?.primary) {
+    db.jarvisCalendarTokens.primary.lastSyncAt = new Date().toISOString();
+    db.jarvisCalendarTokens.primary.calendars = calendars.map((calendar) => ({
+      id: calendar.id,
+      summary: calendar.summary || calendar.id,
+      primary: Boolean(calendar.primary),
+    }));
+  }
+  return {
+    imported: db.jarvisCalendarEvents.length,
+    calendars: calendars.map((calendar) => calendar.summary || calendar.id),
+  };
 }
 
 function squareApiHost() {
@@ -3402,6 +3613,34 @@ async function handleApi(req, res) {
     }
   }
 
+  if (url.pathname === "/api/jarvis/calendar/callback" && req.method === "GET") {
+    if (!googleOAuthConfigured()) return redirect(res, "/jarvis?calendar=missing-config");
+    const state = url.searchParams.get("state") || "";
+    const code = url.searchParams.get("code") || "";
+    const oauthState = db.jarvisOAuthStates?.[state];
+    if (!state || !code || !oauthState || oauthState.service !== "calendar") return redirect(res, "/jarvis?calendar=invalid-state");
+    if (new Date(oauthState.expiresAt || 0).getTime() < Date.now()) {
+      delete db.jarvisOAuthStates[state];
+      await writeDb(db);
+      return redirect(res, "/jarvis?calendar=expired");
+    }
+    try {
+      const token = await exchangeGoogleCalendarOAuthCode(req, code);
+      const accessToken = token.access_token;
+      const profile = await googleGetJson("https://www.googleapis.com/oauth2/v2/userinfo", accessToken);
+      const email = String(profile.email || "").trim().toLowerCase();
+      if (email && !jarvisAllowedEmails.includes(email)) {
+        return redirect(res, `/jarvis?calendar=wrong-account&email=${encodeURIComponent(email)}`);
+      }
+      storeGoogleCalendarToken(db, token, email || "google-calendar");
+      delete db.jarvisOAuthStates[state];
+      await writeDb(db);
+      return redirect(res, "/jarvis?calendar=connected");
+    } catch (error) {
+      return redirect(res, `/jarvis?calendar=error&message=${encodeURIComponent(error.message)}`);
+    }
+  }
+
   if (url.pathname.startsWith("/api/jarvis/") && !getJarvisSession(req, db)) {
     return json(res, 401, { error: "Connexion Jarvis requise." });
   }
@@ -3444,6 +3683,49 @@ async function handleApi(req, res) {
     authUrl.searchParams.set("login_hint", account.email);
     authUrl.searchParams.set("state", state);
     return json(res, 200, { url: authUrl.toString(), source, expectedEmail: account.email });
+  }
+
+  if (url.pathname === "/api/jarvis/calendar/status" && req.method === "GET") {
+    return json(res, 200, {
+      configured: googleOAuthConfigured(),
+      tokenEncryption: Boolean(jarvisTokenSecret),
+      accounts: googleCalendarOAuthStatus(db),
+      events: (db.jarvisCalendarEvents || []).length,
+    });
+  }
+
+  if (url.pathname === "/api/jarvis/calendar/auth" && req.method === "GET") {
+    if (!googleOAuthConfigured()) {
+      return json(res, 400, { error: "Google OAuth n’est pas configuré. Ajoute GOOGLE_OAUTH_CLIENT_ID et GOOGLE_OAUTH_CLIENT_SECRET." });
+    }
+    const state = crypto.randomBytes(18).toString("hex");
+    db.jarvisOAuthStates = db.jarvisOAuthStates || {};
+    db.jarvisOAuthStates[state] = {
+      service: "calendar",
+      source: "primary",
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    };
+    await writeDb(db);
+    const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+    authUrl.searchParams.set("client_id", googleOAuthClientId);
+    authUrl.searchParams.set("redirect_uri", googleCalendarOAuthRedirectUri(req));
+    authUrl.searchParams.set("response_type", "code");
+    authUrl.searchParams.set("scope", "openid email https://www.googleapis.com/auth/calendar.readonly");
+    authUrl.searchParams.set("access_type", "offline");
+    authUrl.searchParams.set("include_granted_scopes", "true");
+    authUrl.searchParams.set("prompt", "consent");
+    authUrl.searchParams.set("login_hint", "maximelegault2000@gmail.com");
+    authUrl.searchParams.set("state", state);
+    return json(res, 200, { url: authUrl.toString(), source: "primary" });
+  }
+
+  if (url.pathname === "/api/jarvis/calendar/sync" && req.method === "POST") {
+    if (!googleOAuthConfigured()) return json(res, 400, { error: "Google OAuth n’est pas configuré." });
+    if (!db.jarvisCalendarTokens?.primary) return json(res, 400, { error: "Google Calendar n’est pas connecté." });
+    const result = await syncGoogleCalendar(db);
+    await writeDb(db);
+    return json(res, 200, { result, calendar: jarvisCalendarEvents(db), briefing: await buildJarvisBriefing(db), status: googleCalendarOAuthStatus(db) });
   }
 
   if (url.pathname === "/api/jarvis/gmail/sync" && req.method === "POST") {

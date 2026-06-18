@@ -129,6 +129,25 @@ function renderGmailState(integrations) {
   `;
 }
 
+function renderCalendarState(integrations) {
+  const calendar = integrations.calendar;
+  const accounts = Object.values(calendar.accounts || {});
+  const accountRows = accounts.length
+    ? accounts
+        .map((account) => {
+          const calendarCount = account.calendars?.length ? ` · ${account.calendars.length} calendrier${account.calendars.length > 1 ? "s" : ""}` : "";
+          return `<span class="gmail-account ${account.connected ? "connected" : ""}">${account.label}: ${
+            account.connected ? `connecté (${account.email || "Google"})${calendarCount}` : "non connecté"
+          }</span>`;
+        })
+        .join("")
+    : "";
+  document.querySelector("[data-calendar-state]").innerHTML = `
+    <p>${calendar.message}</p>
+    <div class="gmail-account-row">${accountRows}</div>
+  `;
+}
+
 function renderBriefing(payload) {
   const { briefing, counts, emails, ordersToShip, calendar, priorities, growth, integrations } = payload;
   document.querySelector("[data-focus-title]").textContent = briefing.focus.title;
@@ -209,7 +228,8 @@ function renderBriefing(payload) {
           ${item.source ? pill(item.source) : ""}
           ${item.from ? pill(item.from) : ""}
         </div>
-        ${item.suggestedReply ? `<p><strong>Réponse suggérée:</strong> ${item.suggestedReply}</p>` : ""}
+          ${item.calendarSuggestion ? `<p><strong>Calendrier:</strong> ${item.calendarSuggestion.action}</p>` : ""}
+          ${item.suggestedReply ? `<p><strong>Réponse suggérée:</strong> ${item.suggestedReply}</p>` : ""}
         <div class="email-actions">
           <button type="button" data-email-status="à suivre" data-email-id="${item.id}">À suivre</button>
           <button type="button" data-email-status="traité" data-email-id="${item.id}">Traité</button>
@@ -232,15 +252,19 @@ function renderBriefing(payload) {
     "Aucune commande payée à expédier."
   );
 
-  document.querySelector("[data-calendar-state]").innerHTML = `<p>${integrations.calendar.message}</p>`;
+  renderCalendarState(integrations);
   renderList(
     document.querySelector("[data-event-list]"),
     calendar.week,
     (event) => `
       <div class="compact-item">
-        <strong>${shortDate(event.start)} - ${event.title}</strong>
-        <p>${event.location || event.type || "Événement"}</p>
-        <div class="pill-row">${pill(event.colorLabel || event.type || "Calendrier", event.colorType || "")}</div>
+        <strong>${shortDate(event.start)}${event.startTime ? ` · ${event.startTime}` : ""} - ${event.title}</strong>
+        <p>${event.action || event.location || event.type || "Événement"}</p>
+        <div class="pill-row">
+          ${pill(event.colorLabel || event.category || event.type || "Calendrier", event.colorType || "")}
+          ${pill(event.priority || "Important", event.priority === "Critique" ? "critical" : event.priority === "Important" ? "important" : "")}
+          ${event.calendarSource ? pill(event.calendarSource) : ""}
+        </div>
       </div>
     `,
     "Aucun événement importé pour cette semaine."
@@ -376,7 +400,9 @@ document.querySelector("[data-refresh]").addEventListener("click", () => {
 
 document.addEventListener("click", async (event) => {
   const connectButton = event.target.closest("[data-connect-gmail]");
+  const connectCalendarButton = event.target.closest("[data-connect-calendar]");
   const syncButton = event.target.closest("[data-sync-gmail]");
+  const syncCalendarButton = event.target.closest("[data-sync-calendar]");
   const emailStatusButton = event.target.closest("[data-email-status]");
   const emailFilterButton = event.target.closest("[data-email-filter]");
   const saveFeedbackButton = event.target.closest("[data-save-email-feedback]");
@@ -403,6 +429,17 @@ document.addEventListener("click", async (event) => {
     }
   }
 
+  if (connectCalendarButton) {
+    connectCalendarButton.disabled = true;
+    try {
+      const payload = await api("/api/jarvis/calendar/auth");
+      window.location.href = payload.url;
+    } catch (error) {
+      document.querySelector("[data-calendar-state]").innerHTML = `<p>${escapeHtml(error.message)}</p>`;
+      connectCalendarButton.disabled = false;
+    }
+  }
+
   if (syncButton) {
     syncButton.disabled = true;
     syncButton.textContent = "Import en cours...";
@@ -414,6 +451,20 @@ document.addEventListener("click", async (event) => {
     } finally {
       syncButton.disabled = false;
       syncButton.textContent = "Importer les emails récents";
+    }
+  }
+
+  if (syncCalendarButton) {
+    syncCalendarButton.disabled = true;
+    syncCalendarButton.textContent = "Import en cours...";
+    try {
+      const payload = await api("/api/jarvis/calendar/sync", { method: "POST", body: "{}" });
+      renderBriefing(payload.briefing);
+    } catch (error) {
+      document.querySelector("[data-calendar-state]").innerHTML = `<p>${escapeHtml(error.message)}</p>`;
+    } finally {
+      syncCalendarButton.disabled = false;
+      syncCalendarButton.textContent = "Importer les 7 prochains jours";
     }
   }
 
