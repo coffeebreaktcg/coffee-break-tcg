@@ -111,6 +111,7 @@ function shortDateTime(value) {
 }
 
 function renderList(container, items, renderer, emptyText) {
+  if (!container) return;
   container.innerHTML = "";
   if (!items.length) {
     container.innerHTML = `<p class="empty">${emptyText}</p>`;
@@ -187,108 +188,180 @@ function renderCalendarState(integrations) {
   `;
 }
 
-function renderBriefing(payload) {
-  const { briefing, counts, emails, ordersToShip, calendar, priorities, growth, integrations } = payload;
-  document.querySelector("[data-focus-title]").textContent = briefing.focus.title;
-  document.querySelector("[data-focus-reason]").textContent = briefing.focus.reason;
-  const nextAction = document.querySelector("[data-next-action]");
-  nextAction.hidden = !briefing.focus.nextAction;
-  nextAction.innerHTML = briefing.focus.nextAction ? `<strong>Prochaine action:</strong> ${briefing.focus.nextAction}` : "";
-  const aiAnalysis = document.querySelector("[data-ai-analysis]");
-  const analysis = briefing.aiAnalysis || {};
-  const hasAnalysis = analysis.important || analysis.canWait || analysis.bottleneck;
-  aiAnalysis.hidden = !hasAnalysis;
-  aiAnalysis.innerHTML = hasAnalysis
-    ? `
-      ${analysis.important ? `<p><strong>Important:</strong> ${analysis.important}</p>` : ""}
-      ${analysis.canWait ? `<p><strong>Peut attendre:</strong> ${analysis.canWait}</p>` : ""}
-      ${analysis.bottleneck ? `<p><strong>Frein:</strong> ${analysis.bottleneck}</p>` : ""}
-    `
-    : "";
-  document.querySelector("[data-briefing-time]").textContent = `Mis à jour ${new Date(briefing.generatedAt).toLocaleString("fr-CA", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  })}`;
-  setCounts(counts);
+function estimateMinutes(item) {
+  const type = String(item?.type || "").toLowerCase();
+  const title = String(item?.title || "").toLowerCase();
+  if (type.includes("commande") || title.includes("expédier")) return 4;
+  if (type.includes("email") || title.includes("répondre")) return 2;
+  if (type.includes("calendrier") || type.includes("card show")) return 3;
+  if (title.includes("instagram")) return 15;
+  if (title.includes("cartes")) return 30;
+  return 8;
+}
 
-  const renderDecision = (item) => `
-    <div class="attention-item">
-      <div class="item-title-row">
-        <strong>${item.title}</strong>
-        ${scorePill(item.score)}
+function impactFor(item) {
+  const type = String(item?.type || "").toLowerCase();
+  const title = String(item?.title || "").toLowerCase();
+  if (type.includes("commande")) return "Satisfaction client immédiate.";
+  if (type.includes("email")) return "Réduit le bruit mental et évite les suivis oubliés.";
+  if (type.includes("card show") || title.includes("card show")) return "Croissance.";
+  if (title.includes("instagram")) return "Visibilité.";
+  if (title.includes("cartes")) return "Vitrine plus forte et plus de chances de vente.";
+  return "Clarté opérationnelle.";
+}
+
+function whyFor(item) {
+  const detail = String(item?.detail || "").trim();
+  if (detail) return detail;
+  const type = String(item?.type || "").toLowerCase();
+  if (type.includes("commande")) return "Une commande client est en attente.";
+  if (type.includes("email")) return "Un message demande une décision ou une réponse.";
+  return "Jarvis estime que c’est le meilleur levier maintenant.";
+}
+
+function actionId(item) {
+  return btoa(unescape(encodeURIComponent(`${item?.type || ""}:${item?.title || ""}:${item?.action || ""}`))).replace(/=+$/g, "");
+}
+
+function completedActions() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem("jarvis_completed_actions") || "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+function renderActionCard(slot, item, label) {
+  const node = document.querySelector(`[data-action-card="${slot}"]`);
+  if (!node) return;
+  if (!item) {
+    node.innerHTML = `
+      <p class="action-label">${label}</p>
+      <h2>Rien à traiter.</h2>
+      <p class="action-muted">Jarvis ne voit pas d’action prioritaire dans cette zone.</p>
+    `;
+    node.classList.add("is-empty");
+    return;
+  }
+  const id = actionId(item);
+  const isDone = completedActions().has(id);
+  node.classList.toggle("is-complete", isDone);
+  node.classList.remove("is-empty");
+  node.innerHTML = `
+    <p class="action-label">${label}</p>
+    <div class="action-title-row">
+      <h2>${escapeHtml(item.title || "Action sans titre")}</h2>
+      <span>${estimateMinutes(item)} min</span>
+    </div>
+    <dl>
+      <div>
+        <dt>Pourquoi</dt>
+        <dd>${escapeHtml(whyFor(item))}</dd>
       </div>
-      <p>${item.detail}</p>
-      <p><strong>Action:</strong> ${item.action}</p>
-      <div class="pill-row">
-        ${pill(item.priority, item.priority === "Critique" ? "critical" : item.priority === "Important" ? "important" : "")}
-        ${pill(item.type)}
-        ${item.source ? pill(item.source) : ""}
+      <div>
+        <dt>Impact</dt>
+        <dd>${escapeHtml(impactFor(item))}</dd>
       </div>
+    </dl>
+    <button type="button" data-complete-action="${escapeHtml(id)}">${isDone ? "Terminé" : "Terminé"}</button>
+  `;
+}
+
+function shortTaskLabel(count, singular, plural = `${singular}s`) {
+  if (!count) return "";
+  return `${count} ${count > 1 ? plural : singular}`;
+}
+
+function renderTodaySummary(counts, cardShowsCount) {
+  const items = [
+    shortTaskLabel(counts.ordersToShip || 0, "commande à expédier", "commandes à expédier"),
+    shortTaskLabel(counts.invoices || 0, "facture à vérifier", "factures à vérifier"),
+    shortTaskLabel(cardShowsCount || 0, "opportunité Card Show", "opportunités Card Show"),
+  ].filter(Boolean);
+  document.querySelector("[data-today-summary]").innerHTML = items.length
+    ? `<div class="summary-lines">${items.map((item) => `<p>${escapeHtml(item)}</p>`).join("")}</div>`
+    : `<p>Aucun feu administratif majeur. Tu peux passer à une action de croissance.</p>`;
+  const adminMinutes = Math.max(0, (counts.ordersToShip || 0) * 4 + (counts.invoices || 0) * 2 + Math.min(cardShowsCount || 0, 3) * 2);
+  document.querySelector("[data-admin-time]").textContent = `${adminMinutes || 8} minutes`;
+}
+
+function growthScoreFrom(growth, priorities) {
+  let score = 72;
+  if ((growth.cardsAddedThisWeek || 0) >= 20) score += 8;
+  if ((growth.instagramPostsThisWeek || 0) > 0) score += 7;
+  if ((growth.cardShowsThisWeek || 0) > 0) score += 6;
+  if ((growth.collectionsBoughtThisWeek || 0) > 0) score += 4;
+  score = Math.max(35, Math.min(100, score));
+  const missing = [];
+  if ((growth.instagramPostsThisWeek || 0) === 0) missing.push("publier Instagram");
+  if ((growth.cardShowsThisWeek || 0) === 0) missing.push("confirmer un Card Show");
+  if ((growth.cardsAddedThisWeek || 0) < 20) missing.push("ajouter 20 cartes");
+  if (!missing.length && priorities?.[0]) missing.push(priorities[0].title.toLowerCase());
+  return { score, missing };
+}
+
+function renderGrowthScore(growth, priorities) {
+  const node = document.querySelector("[data-growth-score]");
+  if (!node) return;
+  const result = growthScoreFrom(growth || {}, priorities || []);
+  node.innerHTML = `
+    <div class="growth-number">
+      <span>Score croissance</span>
+      <strong>${result.score} / 100</strong>
+    </div>
+    <div class="growth-missing">
+      <span>Pour atteindre 85</span>
+      <ul>${result.missing.map((item) => `<li>+ ${escapeHtml(item)}</li>`).join("")}</ul>
     </div>
   `;
+}
 
-  renderList(
-    document.querySelector("[data-urgent-list]"),
-    briefing.decisionMatrix?.urgent || [],
-    renderDecision,
-    "Aucune urgence active."
-  );
+function groupEmails(emails) {
+  const groups = new Map();
+  for (const email of emails || []) {
+    const key = email.category || "Important";
+    const group = groups.get(key) || { category: key, score: 0, items: [], actions: new Set() };
+    group.items.push(email);
+    group.score = Math.max(group.score, Number(email.score || 0));
+    if (email.action) group.actions.add(email.action);
+    groups.set(key, group);
+  }
+  return [...groups.values()].sort((a, b) => b.score - a.score);
+}
 
-  renderList(
-    document.querySelector("[data-important-list]"),
-    briefing.decisionMatrix?.important || [],
-    renderDecision,
-    "Rien d’important en attente."
-  );
-
-  renderList(
-    document.querySelector("[data-waiting-list]"),
-    briefing.decisionMatrix?.waiting || [],
-    renderDecision,
-    "Rien à reporter."
-  );
+function renderBriefing(payload) {
+  const { briefing, counts, emails, calendar, priorities, growth, integrations } = payload;
+  const decisions = briefing.decisionMatrix?.all || [];
+  renderTodaySummary(counts || {}, (emails.important || []).filter((email) => email.category === "Card Shows").length || (payload.cardShows || []).length);
+  renderActionCard("now", decisions[0], "Faire maintenant");
+  renderActionCard("next", decisions[1], "Ensuite");
+  renderActionCard("later", decisions[2], "Après");
 
   renderGmailState(integrations);
   renderList(
     document.querySelector("[data-email-list]"),
-    emails.important,
-    (item) => `
-      <div class="email-item">
+    groupEmails(emails.important),
+    (group) => `
+      <div class="email-item email-group">
         <div class="item-title-row">
-          <strong>${item.subject}</strong>
-          ${scorePill(item.score)}
+          <strong>${escapeHtml(group.category)}</strong>
+          ${scorePill(group.score)}
         </div>
-        <p>${item.summary}</p>
-        <p><strong>Action recommandée:</strong> ${item.action}</p>
+        <p>${group.items.length} email${group.items.length > 1 ? "s" : ""} relié${group.items.length > 1 ? "s" : ""}.</p>
+        <ul class="group-list">
+          ${group.items
+            .slice(0, 4)
+            .map((item) => `<li>${escapeHtml(item.subject || "(Sans sujet)")}</li>`)
+            .join("")}
+        </ul>
+        <p><strong>Action:</strong> ${escapeHtml([...group.actions][0] || "Décider quoi faire avec ce groupe.")}</p>
         <div class="pill-row">
-          ${pill(item.category, item.categoryType)}
-          ${pill(item.priority, item.priority === "Critique" ? "critical" : item.priority === "Important" ? "important" : "")}
-          ${pill(item.status || "nouveau")}
-          ${item.source ? pill(item.source) : ""}
-          ${item.from ? pill(item.from) : ""}
-        </div>
-          ${item.calendarSuggestion ? `<p><strong>Calendrier:</strong> ${item.calendarSuggestion.action}</p>` : ""}
-          ${item.suggestedReply ? `<p><strong>Réponse suggérée:</strong> ${item.suggestedReply}</p>` : ""}
-        <div class="email-actions">
-          <button type="button" data-email-status="à suivre" data-email-id="${item.id}">À suivre</button>
-          <button type="button" data-email-status="traité" data-email-id="${item.id}">Traité</button>
-          <button type="button" data-email-status="ignoré" data-email-id="${item.id}">Ignorer</button>
+          ${pill(group.category)}
+          ${pill(`${group.items.length} emails`)}
         </div>
       </div>
     `,
     "Aucun email critique importé. Branche Gmail pour activer le tri automatique."
-  );
-
-  renderList(
-    document.querySelector("[data-order-list]"),
-    ordersToShip,
-    (order) => `
-      <div class="compact-item">
-        <strong>${order.id} - ${money(order.totalAmount)}</strong>
-        <p>${order.customerName || "Client"} · ${order.itemsSummary}</p>
-      </div>
-    `,
-    "Aucune commande payée à expédier."
   );
 
   renderCalendarState(integrations);
@@ -323,17 +396,7 @@ function renderBriefing(payload) {
     `,
     "Aucune priorité configurée."
   );
-
-  const growthItems = [
-    ["Cartes ajoutées", growth.cardsAddedThisWeek],
-    ["Publications Instagram", growth.instagramPostsThisWeek],
-    ["Card Shows", growth.cardShowsThisWeek],
-    ["Collections achetées", growth.collectionsBoughtThisWeek],
-    ["Partenariats", growth.partnershipsThisWeek],
-  ];
-  document.querySelector("[data-growth-list]").innerHTML = growthItems
-    .map(([label, value]) => `<div class="growth-item"><span>${label}</span><strong>${value}</strong></div>`)
-    .join("");
+  renderGrowthScore(growth, priorities);
 }
 
 function renderEmailReviewList(payload) {
@@ -544,7 +607,11 @@ loginForm.addEventListener("submit", async (event) => {
 
 document.querySelector("[data-refresh]").addEventListener("click", () => {
   loadJarvis().catch((error) => {
-    document.querySelector("[data-focus-reason]").textContent = error.message;
+    const alert = document.querySelector("[data-oauth-alert]");
+    if (!alert) return;
+    alert.hidden = false;
+    alert.classList.remove("ok");
+    alert.textContent = error.message;
   });
 });
 
@@ -561,6 +628,16 @@ document.addEventListener("click", async (event) => {
   const testGmailButton = event.target.closest("[data-test-gmail]");
   const testCalendarButton = event.target.closest("[data-test-calendar]");
   const reimportAllButton = event.target.closest("[data-reimport-all]");
+  const completeActionButton = event.target.closest("[data-complete-action]");
+
+  if (completeActionButton) {
+    const done = completedActions();
+    done.add(completeActionButton.dataset.completeAction);
+    localStorage.setItem("jarvis_completed_actions", JSON.stringify([...done]));
+    completeActionButton.closest("[data-action-card]")?.classList.add("is-complete");
+    completeActionButton.textContent = "Terminé";
+    return;
+  }
 
   if (emailFilterButton) {
     document.querySelectorAll("[data-email-filter]").forEach((button) => {

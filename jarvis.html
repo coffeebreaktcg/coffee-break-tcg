@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/jarvis.css?v=jarvis-render-preflight-20260618" />
+    <link rel="stylesheet" href="/jarvis.css?v=jarvis-chief-of-staff-v1-20260618" />
   </head>
   <body>
     <main class="jarvis-shell">
@@ -37,7 +37,6 @@
       <section class="assistant-panel" data-app-panel hidden>
         <header class="jarvis-header">
           <div>
-            <p class="eyebrow">Chief of Staff IA</p>
             <h1 data-greeting>Bonjour Max</h1>
           </div>
           <div class="header-actions">
@@ -45,103 +44,81 @@
             <button type="button" class="ghost" data-logout>Déconnexion</button>
           </div>
         </header>
-        <section class="briefing-hero">
+
+        <section class="command-hero">
           <div>
-            <p class="eyebrow">Focus du jour</p>
-            <h2 data-focus-title>Préparer le briefing...</h2>
-            <p data-focus-reason></p>
-            <div class="next-action" data-next-action hidden></div>
-            <div class="ai-analysis" data-ai-analysis hidden></div>
+            <p class="eyebrow">Aujourd’hui</p>
+            <div class="today-summary" data-today-summary>Préparation du briefing...</div>
           </div>
-          <div class="briefing-time" data-briefing-time></div>
+          <div class="admin-time">
+            <span>Temps estimé pour vider l’administratif</span>
+            <strong data-admin-time>...</strong>
+          </div>
         </section>
 
-        <section class="status-grid" aria-label="Résumé Jarvis">
-          <article>
-            <span>Emails critiques</span>
-            <strong data-count="criticalEmails">0</strong>
-          </article>
-          <article>
-            <span>Commandes à expédier</span>
-            <strong data-count="ordersToShip">0</strong>
-          </article>
-          <article>
-            <span>Card Shows</span>
-            <strong data-count="cardShows">0</strong>
-          </article>
-          <article>
-            <span>Factures</span>
-            <strong data-count="invoices">0</strong>
-          </article>
-          <article>
-            <span>Événements du jour</span>
-            <strong data-count="todayEvents">0</strong>
-          </article>
+        <section class="action-stack" aria-label="Priorités Jarvis">
+          <article class="primary-action" data-action-card="now"></article>
+          <article class="secondary-action" data-action-card="next"></article>
+          <article class="secondary-action" data-action-card="later"></article>
         </section>
 
-        <section class="priority-layout">
-          <article class="jarvis-card urgent-card">
-            <div class="section-heading">
-              <p class="eyebrow">Maintenant</p>
-              <h2>Moteur de priorisation</h2>
+        <section class="quiet-panels" aria-label="Détails Jarvis">
+          <details>
+            <summary>Emails</summary>
+            <div class="panel-body">
+              <div class="gmail-controls">
+                <button type="button" data-connect-gmail="business">Connecter Gmail business</button>
+                <button type="button" data-connect-gmail="personal">Connecter Gmail personnel</button>
+                <button type="button" class="ghost-dark" data-sync-gmail>Importer les emails récents</button>
+              </div>
+              <div class="integration-state" data-gmail-state></div>
+              <div class="email-list" data-email-list></div>
             </div>
-            <div class="decision-stack">
-              <div>
-                <h3>Urgent</h3>
-                <div class="attention-list" data-urgent-list></div>
-              </div>
-              <div>
-                <h3>Important</h3>
-                <div class="attention-list" data-important-list></div>
-              </div>
-              <div>
-                <h3>Peut attendre</h3>
-                <div class="attention-list" data-waiting-list></div>
-              </div>
-            </div>
-          </article>
+          </details>
 
-          <article class="jarvis-card">
-            <div class="section-heading">
-              <p class="eyebrow">Gmail</p>
-              <h2>Emails importants</h2>
-            </div>
-            <div class="gmail-controls">
-              <button type="button" data-connect-gmail="business">Connecter Gmail business</button>
-              <button type="button" data-connect-gmail="personal">Connecter Gmail personnel</button>
-              <button type="button" class="ghost-dark" data-sync-gmail>Importer les emails récents</button>
-            </div>
-            <div class="integration-state" data-gmail-state></div>
-            <div class="email-list" data-email-list></div>
-          </article>
-
-          <article class="jarvis-card email-review-card">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Apprentissage</p>
-                <h2>Emails à valider</h2>
+          <details>
+            <summary>Calendrier</summary>
+            <div class="panel-body">
+              <div class="gmail-controls">
+                <button type="button" data-connect-calendar>Connecter Google Calendar</button>
+                <button type="button" class="ghost-dark" data-sync-calendar>Importer les 7 prochains jours</button>
               </div>
-              <p class="feedback-counter" data-feedback-count>0 correction</p>
+              <div class="integration-state" data-calendar-state></div>
+              <div class="compact-list" data-event-list></div>
             </div>
-            <div class="email-filter-row" data-email-filters>
-              <button type="button" class="active" data-email-filter="all">Tous</button>
-              <button type="button" data-email-filter="Critique">Critique</button>
-              <button type="button" data-email-filter="Important">Important</button>
-              <button type="button" data-email-filter="À suivre">À suivre</button>
-              <button type="button" data-email-filter="Traité">Traité</button>
-              <button type="button" data-email-filter="Ignoré">Ignoré</button>
-              <button type="button" data-email-filter="Business">Business</button>
-              <button type="button" data-email-filter="Personnel">Personnel</button>
-            </div>
-            <div class="email-review-list" data-email-review-list></div>
-          </article>
+          </details>
 
-          <article class="jarvis-card diagnostic-card">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Validation V1</p>
-                <h2>Diagnostic Jarvis</h2>
+          <details>
+            <summary>Croissance</summary>
+            <div class="panel-body">
+              <div class="growth-score" data-growth-score></div>
+              <div class="focus-list" data-priority-list></div>
+            </div>
+          </details>
+
+          <details>
+            <summary>Mode apprentissage</summary>
+            <div class="panel-body">
+              <div class="learning-head">
+                <p class="feedback-counter" data-feedback-count>0 correction</p>
               </div>
+              <div class="email-filter-row" data-email-filters>
+                <button type="button" class="active" data-email-filter="all">Tous</button>
+                <button type="button" data-email-filter="Critique">Critique</button>
+                <button type="button" data-email-filter="Important">Important</button>
+                <button type="button" data-email-filter="À suivre">À suivre</button>
+                <button type="button" data-email-filter="Traité">Traité</button>
+                <button type="button" data-email-filter="Ignoré">Ignoré</button>
+                <button type="button" data-email-filter="Business">Business</button>
+                <button type="button" data-email-filter="Personnel">Personnel</button>
+              </div>
+              <div class="email-review-list" data-email-review-list></div>
+            </div>
+          </details>
+
+          <details>
+            <summary>Mode technique</summary>
+            <div class="panel-body">
               <div class="gmail-controls diagnostic-actions">
                 <button type="button" class="ghost-dark" data-test-openai>Tester connexion OpenAI</button>
                 <button type="button" class="ghost-dark" data-test-gmail>Tester Gmail</button>
@@ -149,46 +126,16 @@
                 <button type="button" data-test-briefing>Générer briefing test</button>
                 <button type="button" class="ghost-dark" data-reimport-all>Tout réimporter</button>
               </div>
+              <div class="diagnostic-grid" data-diagnostic-grid></div>
+              <div class="diagnostic-errors" data-diagnostic-errors></div>
+              <div class="test-results" data-test-results></div>
+              <div class="test-briefing" data-test-briefing-output hidden></div>
             </div>
-            <div class="diagnostic-grid" data-diagnostic-grid></div>
-            <div class="diagnostic-errors" data-diagnostic-errors></div>
-            <div class="test-results" data-test-results></div>
-            <div class="test-briefing" data-test-briefing-output hidden></div>
-          </article>
-
-          <article class="jarvis-card">
-            <div class="section-heading">
-              <p class="eyebrow">Boutique</p>
-              <h2>Commandes à expédier</h2>
-            </div>
-            <div class="compact-list" data-order-list></div>
-          </article>
-
-          <article class="jarvis-card">
-            <div class="section-heading">
-              <p class="eyebrow">Calendrier</p>
-              <h2>Aujourd’hui et cette semaine</h2>
-            </div>
-            <div class="gmail-controls">
-              <button type="button" data-connect-calendar>Connecter Google Calendar</button>
-              <button type="button" class="ghost-dark" data-sync-calendar>Importer les 7 prochains jours</button>
-            </div>
-            <div class="integration-state" data-calendar-state></div>
-            <div class="compact-list" data-event-list></div>
-          </article>
-
-          <article class="jarvis-card">
-            <div class="section-heading">
-              <p class="eyebrow">Croissance</p>
-              <h2>Score Coffee Break</h2>
-            </div>
-            <div class="growth-grid" data-growth-list></div>
-            <div class="focus-list" data-priority-list></div>
-          </article>
+          </details>
         </section>
       </section>
     </main>
 
-    <script src="/jarvis.js?v=jarvis-render-preflight-20260618" defer></script>
+    <script src="/jarvis.js?v=jarvis-chief-of-staff-v1-20260618" defer></script>
   </body>
 </html>
