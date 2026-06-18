@@ -47,8 +47,10 @@ const jarvisAllowedEmails = String(
   .split(",")
   .map((email) => email.trim().toLowerCase())
   .filter(Boolean);
-const jarvisPassword = String(process.env.JARVIS_PASSWORD || adminPassword || "");
-const jarvisPasswordHash = String(process.env.JARVIS_PASSWORD_HASH || adminPasswordHash || "");
+const explicitJarvisPassword = process.env.JARVIS_PASSWORD;
+const explicitJarvisPasswordHash = process.env.JARVIS_PASSWORD_HASH;
+const jarvisPassword = String(explicitJarvisPassword || (!explicitJarvisPasswordHash ? adminPassword : "") || "");
+const jarvisPasswordHash = String(explicitJarvisPasswordHash || (!explicitJarvisPassword ? adminPasswordHash : "") || "");
 const resendApiKey = process.env.RESEND_API_KEY || "";
 const resendFromEmail = process.env.RESEND_FROM_EMAIL || "Coffee Break TCG <orders@coffeebreaktcg.com>";
 const squareEnvironment = process.env.SQUARE_ENVIRONMENT || "sandbox";
