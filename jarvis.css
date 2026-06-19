@@ -1014,6 +1014,56 @@ body:not(.jarvis-ready) .quiet-panels {
   min-height: 150px;
 }
 
+.email-confirmation,
+.email-original {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(213, 116, 45, 0.22);
+  border-radius: 22px;
+  background: rgba(213, 116, 45, 0.08);
+  padding: 16px;
+}
+
+.email-confirmation[hidden],
+.email-original[hidden] {
+  display: none;
+}
+
+.email-confirmation > strong,
+.email-original > strong {
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.confirm-meta,
+.original-meta {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.email-confirmation pre,
+.email-original pre {
+  overflow: auto;
+  max-height: 320px;
+  margin: 0;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.22);
+  color: rgba(248, 239, 230, 0.82);
+  padding: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 12px/1.55 "Inter", system-ui, sans-serif;
+}
+
+.email-original h4 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+}
+
 .email-rewrite-actions button,
 .email-secondary-actions button,
 .email-main-actions button {
@@ -1038,6 +1088,60 @@ body:not(.jarvis-ready) .quiet-panels {
   display: grid;
   gap: 8px;
   padding-top: 12px;
+}
+
+.email-treatment-log details {
+  border-top: 1px solid rgba(248, 239, 230, 0.1);
+  padding-top: 12px;
+}
+
+.email-treatment-log summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.email-log-list {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+}
+
+.email-log-list div {
+  display: grid;
+  gap: 3px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 10px 12px;
+}
+
+.email-log-list strong {
+  color: var(--accent);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.email-log-list span,
+.email-log-list small {
+  color: var(--muted);
+}
+
+.email-log-list details {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.email-log-list pre {
+  overflow: auto;
+  max-height: 180px;
+  margin: 8px 0 0;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  color: rgba(248, 239, 230, 0.78);
+  padding: 10px;
+  white-space: pre-wrap;
+  font: 12px/1.5 "Inter", system-ui, sans-serif;
 }
 
 .followup-list div {

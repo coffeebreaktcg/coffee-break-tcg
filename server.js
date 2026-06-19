@@ -156,6 +156,7 @@ async function readDb() {
     if (!db.jarvisSessions) db.jarvisSessions = {};
     if (!Array.isArray(db.jarvisEmails)) db.jarvisEmails = [];
     if (!Array.isArray(db.jarvisEmailFeedback)) db.jarvisEmailFeedback = [];
+    if (!Array.isArray(db.jarvisEmailActions)) db.jarvisEmailActions = [];
     if (!Array.isArray(db.jarvisCalendarEvents)) db.jarvisCalendarEvents = [];
     if (!Array.isArray(db.jarvisTasks)) db.jarvisTasks = [];
     if (!db.jarvisGoogleTokens) db.jarvisGoogleTokens = {};
@@ -183,6 +184,7 @@ async function readDb() {
       jarvisSessions: {},
       jarvisEmails: [],
       jarvisEmailFeedback: [],
+      jarvisEmailActions: [],
       jarvisCalendarEvents: [],
       jarvisTasks: [],
       jarvisGoogleTokens: {},
@@ -2791,6 +2793,7 @@ function googleOAuthStatus(db) {
   return Object.fromEntries(
     Object.entries(accounts).map(([source, account]) => {
       const record = db.jarvisGoogleTokens?.[source] || null;
+      const scope = String(record?.scope || "");
       return [
         source,
         {
@@ -2801,6 +2804,12 @@ function googleOAuthStatus(db) {
           email: record?.email || "",
           connectedAt: record?.connectedAt || "",
           lastSyncAt: record?.lastSyncAt || "",
+          scope,
+          scopes: scope.split(/\s+/).filter(Boolean),
+          canRead: scope.includes("gmail.readonly"),
+          canSend: scope.includes("gmail.send"),
+          canDraft: scope.includes("gmail.compose") || scope.includes("gmail.modify"),
+          canModify: scope.includes("gmail.modify"),
         },
       ];
     })
@@ -3166,9 +3175,43 @@ function base64Url(input) {
   return Buffer.from(input, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
+function decodeBase64UrlText(value) {
+  if (!value) return "";
+  const normalized = String(value).replace(/-/g, "+").replace(/_/g, "/");
+  return Buffer.from(normalized, "base64").toString("utf8");
+}
+
+function gmailTextFromPayload(part) {
+  if (!part) return "";
+  if (part.mimeType === "text/plain" && part.body?.data) return decodeBase64UrlText(part.body.data);
+  if (part.mimeType === "text/html" && part.body?.data) {
+    return decodeBase64UrlText(part.body.data)
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  for (const child of part.parts || []) {
+    const text = gmailTextFromPayload(child);
+    if (text) return text;
+  }
+  return "";
+}
+
 function replySubject(subject) {
   const value = String(subject || "(Sans sujet)").trim();
   return /^re:/i.test(value) ? value : `Re: ${value}`;
+}
+
+function jarvisEmailReplyRaw(email, body) {
+  const headers = [
+    `To: ${email.fromEmail}`,
+    `Subject: ${replySubject(email.subject)}`,
+    "Content-Type: text/plain; charset=utf-8",
+  ];
+  if (email.messageIdHeader) headers.push(`In-Reply-To: ${email.messageIdHeader}`, `References: ${email.messageIdHeader}`);
+  return base64Url(`${headers.join("\r\n")}\r\n\r\n${String(body || "").trim()}`);
 }
 
 async function sendJarvisEmailReply(db, email, body) {
@@ -3180,19 +3223,65 @@ async function sendJarvisEmailReply(db, email, body) {
     throw new Error("Gmail est connecté en lecture seulement. Reconnecte Gmail pour autoriser l’envoi de réponses.");
   }
   const accessToken = await refreshGoogleAccessToken(db, email.source);
-  const from = tokenRecord.email || jarvisGmailAccounts()[email.source]?.email || "";
-  const headers = [
-    `From: ${from}`,
-    `To: ${email.fromEmail}`,
-    `Subject: ${replySubject(email.subject)}`,
-    "Content-Type: text/plain; charset=utf-8",
-  ];
-  if (email.messageIdHeader) headers.push(`In-Reply-To: ${email.messageIdHeader}`, `References: ${email.messageIdHeader}`);
-  const raw = base64Url(`${headers.join("\r\n")}\r\n\r\n${String(body || "").trim()}`);
   return gmailApiJson("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", "POST", accessToken, {
-    raw,
+    raw: jarvisEmailReplyRaw(email, body),
     threadId: email.threadId || undefined,
   });
+}
+
+async function createJarvisEmailDraft(db, email, body) {
+  if (!email?.source || !db.jarvisGoogleTokens?.[email.source]) throw new Error("Compte Gmail source non connecté.");
+  if (!email.fromEmail) throw new Error("Destinataire introuvable pour cet email.");
+  const tokenRecord = db.jarvisGoogleTokens[email.source];
+  const tokenPayload = decryptTokenPayload(tokenRecord);
+  if (!String(tokenPayload?.scope || "").includes("gmail.compose") && !String(tokenPayload?.scope || "").includes("gmail.modify")) {
+    throw new Error("Gmail n’a pas encore l’autorisation de créer des brouillons. Reconnecte Gmail avec les nouveaux scopes.");
+  }
+  const accessToken = await refreshGoogleAccessToken(db, email.source);
+  return gmailApiJson("https://gmail.googleapis.com/gmail/v1/users/me/drafts", "POST", accessToken, {
+    message: {
+      raw: jarvisEmailReplyRaw(email, body),
+      threadId: email.threadId || undefined,
+    },
+  });
+}
+
+async function getJarvisOriginalEmail(db, email) {
+  if (!email?.source || !db.jarvisGoogleTokens?.[email.source]) throw new Error("Compte Gmail source non connecté.");
+  const accessToken = await refreshGoogleAccessToken(db, email.source);
+  const messageUrl = new URL(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(email.gmailId)}`);
+  messageUrl.searchParams.set("format", "full");
+  const message = await googleGetJson(messageUrl, accessToken);
+  return {
+    from: gmailHeader(message, "From") || email.from || "",
+    to: gmailHeader(message, "To") || "",
+    date: gmailHeader(message, "Date") || email.receivedAt || "",
+    subject: gmailHeader(message, "Subject") || email.subject || "",
+    snippet: message.snippet || email.snippet || "",
+    body: gmailTextFromPayload(message.payload).slice(0, 6000),
+  };
+}
+
+function recordJarvisEmailAction(db, email, action, details = {}) {
+  db.jarvisEmailActions = Array.isArray(db.jarvisEmailActions) ? db.jarvisEmailActions : [];
+  const log = {
+    id: `email-action-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`,
+    emailId: email?.id || "",
+    gmailId: email?.gmailId || "",
+    source: email?.source || "",
+    from: email?.from || "",
+    fromEmail: email?.fromEmail || "",
+    subject: email?.subject || "",
+    action,
+    result: details.result || action,
+    responseBody: details.responseBody || "",
+    draftId: details.draftId || "",
+    sentId: details.sentId || "",
+    createdAt: new Date().toISOString(),
+  };
+  db.jarvisEmailActions.unshift(log);
+  db.jarvisEmailActions = db.jarvisEmailActions.slice(0, 250);
+  return log;
 }
 
 function rewriteEmailReplyFallback(text, tone) {
@@ -4304,7 +4393,10 @@ async function handleApi(req, res) {
     authUrl.searchParams.set("client_id", googleOAuthClientId);
     authUrl.searchParams.set("redirect_uri", googleOAuthRedirectUri(req));
     authUrl.searchParams.set("response_type", "code");
-    authUrl.searchParams.set("scope", "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send");
+    authUrl.searchParams.set(
+      "scope",
+      "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.modify"
+    );
     authUrl.searchParams.set("access_type", "offline");
     authUrl.searchParams.set("include_granted_scopes", "true");
     authUrl.searchParams.set("prompt", "consent");
@@ -4476,6 +4568,10 @@ async function handleApi(req, res) {
     return json(res, 200, { emails, feedbackCount: (db.jarvisEmailFeedback || []).length });
   }
 
+  if (url.pathname === "/api/jarvis/emails/actions" && req.method === "GET") {
+    return json(res, 200, { actions: (db.jarvisEmailActions || []).slice(0, 40) });
+  }
+
   if (url.pathname === "/api/jarvis/emails/status" && req.method === "POST") {
     const body = await readBody(req);
     const id = String(body.id || "");
@@ -4487,6 +4583,10 @@ async function handleApi(req, res) {
     if (!email) return json(res, 404, { error: "Email Jarvis introuvable." });
     email.status = status;
     email.updatedAt = new Date().toISOString();
+    recordJarvisEmailAction(db, email, status === "ignoré" ? "ignoré" : status === "traité" ? "traité" : "pending", {
+      result: status,
+      responseBody: email.suggestedReply || "",
+    });
     await writeDb(db);
     return json(res, 200, { email, briefing: await buildJarvisBriefing(db) });
   }
@@ -4496,6 +4596,7 @@ async function handleApi(req, res) {
     const id = String(body.id || "");
     const replyBody = String(body.body || "").trim();
     if (!replyBody) return json(res, 400, { error: "Réponse vide." });
+    if (body.confirm !== true) return json(res, 400, { error: "Confirmation obligatoire avant l’envoi réel." });
     const email = (db.jarvisEmails || []).find((item) => item.id === id);
     if (!email) return json(res, 404, { error: "Email Jarvis introuvable." });
     try {
@@ -4505,10 +4606,48 @@ async function handleApi(req, res) {
       email.sentReplyId = sent.id || "";
       email.suggestedReply = replyBody;
       email.updatedAt = new Date().toISOString();
+      recordJarvisEmailAction(db, email, "envoyé", { result: "envoyé", sentId: sent.id || "", responseBody: replyBody });
       await writeDb(db);
       return json(res, 200, { email, sent: { id: sent.id || "" }, briefing: await buildJarvisBriefing(db) });
     } catch (error) {
       recordJarvisIntegrationError(db, `gmail:${email.source || "unknown"}`, error, "send");
+      await writeDb(db);
+      return json(res, 502, { error: error.message, diagnostic: buildJarvisDiagnostic(db) });
+    }
+  }
+
+  if (url.pathname === "/api/jarvis/emails/draft" && req.method === "POST") {
+    const body = await readBody(req);
+    const id = String(body.id || "");
+    const replyBody = String(body.body || "").trim();
+    if (!replyBody) return json(res, 400, { error: "Réponse vide." });
+    const email = (db.jarvisEmails || []).find((item) => item.id === id);
+    if (!email) return json(res, 404, { error: "Email Jarvis introuvable." });
+    try {
+      const draft = await createJarvisEmailDraft(db, email, replyBody);
+      email.status = "à suivre";
+      email.draftCreatedAt = new Date().toISOString();
+      email.draftId = draft.id || "";
+      email.suggestedReply = replyBody;
+      email.updatedAt = new Date().toISOString();
+      recordJarvisEmailAction(db, email, "brouillon", { result: "brouillon", draftId: draft.id || "", responseBody: replyBody });
+      await writeDb(db);
+      return json(res, 200, { email, draft: { id: draft.id || "" }, briefing: await buildJarvisBriefing(db) });
+    } catch (error) {
+      recordJarvisIntegrationError(db, `gmail:${email.source || "unknown"}`, error, "draft");
+      await writeDb(db);
+      return json(res, 502, { error: error.message, diagnostic: buildJarvisDiagnostic(db) });
+    }
+  }
+
+  if (url.pathname === "/api/jarvis/emails/original" && req.method === "GET") {
+    const id = String(url.searchParams.get("id") || "");
+    const email = (db.jarvisEmails || []).find((item) => item.id === id);
+    if (!email) return json(res, 404, { error: "Email Jarvis introuvable." });
+    try {
+      return json(res, 200, { email: await getJarvisOriginalEmail(db, email) });
+    } catch (error) {
+      recordJarvisIntegrationError(db, `gmail:${email.source || "unknown"}`, error, "original");
       await writeDb(db);
       return json(res, 502, { error: error.message, diagnostic: buildJarvisDiagnostic(db) });
     }
@@ -4534,6 +4673,7 @@ async function handleApi(req, res) {
     const task = createTaskFromEmail(db, email);
     email.status = "à suivre";
     email.updatedAt = new Date().toISOString();
+    recordJarvisEmailAction(db, email, "tâche créée", { result: "pending", responseBody: email.suggestedReply || "" });
     await writeDb(db);
     return json(res, 200, { task, email, briefing: await buildJarvisBriefing(db) });
   }
@@ -4552,6 +4692,7 @@ async function handleApi(req, res) {
     task.timeRequired = "3 minutes";
     email.status = "à suivre";
     email.updatedAt = new Date().toISOString();
+    recordJarvisEmailAction(db, email, "événement suggéré", { result: "pending", responseBody: email.suggestedReply || "" });
     await writeDb(db);
     return json(res, 200, { task, email, briefing: await buildJarvisBriefing(db) });
   }

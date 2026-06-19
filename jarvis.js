@@ -298,25 +298,28 @@ function renderEmailFocus(emails = []) {
           <p>${escapeHtml(active.action || "Décider si une réponse est nécessaire.")}</p>
         </div>
         <label class="email-reply-box">
-          Réponse suggérée prête à envoyer
+          Réponse préparée par Jarvis
           <textarea data-email-reply rows="5">${escapeHtml(active.suggestedReply || "")}</textarea>
         </label>
         <div class="email-main-actions">
-          <button type="button" data-email-send="${escapeHtml(active.id)}">Envoyer réponse suggérée</button>
-          <button type="button" class="ghost-dark" data-email-manual-send="${escapeHtml(active.id)}">Envoyer réponse manuelle</button>
+          <button type="button" data-email-draft="${escapeHtml(active.id)}">Créer brouillon Gmail</button>
+          <button type="button" class="ghost-dark" data-email-confirm-open="${escapeHtml(active.id)}">Envoyer après confirmation</button>
           <button type="button" class="ghost-dark" data-email-status="à suivre" data-email-id="${escapeHtml(active.id)}">Mettre en attente</button>
         </div>
+        <div class="email-confirmation" data-email-confirmation hidden></div>
         <div class="email-rewrite-actions">
           ${["plus professionnel", "plus gentil", "plus direct", "plus ferme", "plus court", "plus chaleureux"]
             .map((tone) => `<button type="button" class="ghost-dark" data-email-rewrite="${escapeHtml(active.id)}" data-tone="${escapeHtml(tone)}">${escapeHtml(tone)}</button>`)
             .join("")}
         </div>
         <div class="email-secondary-actions">
+          <button type="button" class="ghost-dark" data-email-original="${escapeHtml(active.id)}">Voir l’email original</button>
           <button type="button" class="ghost-dark" data-email-status="ignoré" data-email-id="${escapeHtml(active.id)}">Ignorer</button>
           <button type="button" class="ghost-dark" data-email-status="traité" data-email-id="${escapeHtml(active.id)}">Marquer traité</button>
           <button type="button" class="ghost-dark" data-email-task="${escapeHtml(active.id)}">Créer tâche</button>
           ${active.calendarSuggestion ? `<button type="button" class="ghost-dark" data-email-event="${escapeHtml(active.id)}">Créer événement</button>` : ""}
         </div>
+        <div class="email-original" data-email-original-panel hidden></div>
       </article>
     `;
   }
@@ -337,9 +340,39 @@ function renderEmailFocus(emails = []) {
   }
 }
 
+async function loadEmailActionLog() {
+  const node = document.querySelector("[data-email-treatment-log]");
+  if (!node) return;
+  const payload = await api("/api/jarvis/emails/actions");
+  const actions = payload.actions || [];
+  node.innerHTML = actions.length
+    ? `
+      <details>
+        <summary>Journal des emails traités (${actions.length})</summary>
+        <div class="email-log-list">
+          ${actions
+            .slice(0, 12)
+            .map(
+              (action) => `
+                <div>
+                  <strong>${escapeHtml(action.action || "action")}</strong>
+                  <span>${escapeHtml(action.subject || "(Sans sujet)")}</span>
+                  <small>${escapeHtml(action.from || "")} · ${shortDateTime(action.createdAt)}</small>
+                  ${action.responseBody ? `<details><summary>Voir la réponse</summary><pre>${escapeHtml(action.responseBody)}</pre></details>` : ""}
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+      </details>
+    `
+    : "";
+}
+
 async function loadEmailFocus() {
   const payload = await api("/api/jarvis/emails?filter=all");
   renderEmailFocus(payload.emails || []);
+  await loadEmailActionLog().catch(() => {});
   return payload;
 }
 
@@ -1191,8 +1224,11 @@ document.addEventListener("click", async (event) => {
   const connectCalendarButton = event.target.closest("[data-connect-calendar]");
   const syncButton = event.target.closest("[data-sync-gmail]");
   const syncCalendarButton = event.target.closest("[data-sync-calendar]");
-  const emailSendButton = event.target.closest("[data-email-send]");
-  const emailManualSendButton = event.target.closest("[data-email-manual-send]");
+  const emailDraftButton = event.target.closest("[data-email-draft]");
+  const emailConfirmOpenButton = event.target.closest("[data-email-confirm-open]");
+  const emailConfirmSendButton = event.target.closest("[data-email-confirm-send]");
+  const emailConfirmCancelButton = event.target.closest("[data-email-confirm-cancel]");
+  const emailOriginalButton = event.target.closest("[data-email-original]");
   const emailRewriteButton = event.target.closest("[data-email-rewrite]");
   const emailTaskButton = event.target.closest("[data-email-task]");
   const emailEventButton = event.target.closest("[data-email-event]");
@@ -1363,23 +1399,89 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  if (emailSendButton || emailManualSendButton) {
-    const button = emailSendButton || emailManualSendButton;
+  if (emailOriginalButton) {
+    const card = emailOriginalButton.closest("[data-active-email-id]");
+    const panel = card?.querySelector("[data-email-original-panel]");
+    if (!panel) return;
+    emailOriginalButton.disabled = true;
+    panel.hidden = false;
+    panel.innerHTML = `<p class="empty">Chargement de l’email original...</p>`;
+    try {
+      const payload = await api(`/api/jarvis/emails/original?id=${encodeURIComponent(emailOriginalButton.dataset.emailOriginal)}`);
+      const original = payload.email || {};
+      panel.innerHTML = `
+        <strong>Email original</strong>
+        <div class="original-meta">
+          <span>De: ${escapeHtml(original.from || "")}</span>
+          <span>À: ${escapeHtml(original.to || "")}</span>
+          <span>Date: ${escapeHtml(original.date || "")}</span>
+        </div>
+        <h4>${escapeHtml(original.subject || "(Sans sujet)")}</h4>
+        <pre>${escapeHtml(original.body || original.snippet || "Aucun contenu texte lisible.")}</pre>
+      `;
+    } catch (error) {
+      panel.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
+    } finally {
+      emailOriginalButton.disabled = false;
+    }
+    return;
+  }
+
+  if (emailConfirmOpenButton) {
+    const card = emailConfirmOpenButton.closest("[data-active-email-id]");
+    const textarea = card?.querySelector("[data-email-reply]");
+    const confirmBox = card?.querySelector("[data-email-confirmation]");
+    const active = currentEmailQueue.find((email) => email.id === emailConfirmOpenButton.dataset.emailConfirmOpen);
+    if (!confirmBox || !active) return;
+    confirmBox.hidden = false;
+    confirmBox.innerHTML = `
+      <p class="eyebrow">Confirmation obligatoire</p>
+      <strong>Vérifie avant d’envoyer réellement</strong>
+      <div class="confirm-meta">
+        <span>Destinataire: ${escapeHtml(active.fromEmail || active.from || "")}</span>
+        <span>Objet: ${escapeHtml(active.subject || "(Sans sujet)")}</span>
+      </div>
+      <pre>${escapeHtml(textarea?.value || "")}</pre>
+      <div class="email-main-actions">
+        <button type="button" data-email-confirm-send="${escapeHtml(active.id)}">Confirmer l’envoi</button>
+        <button type="button" class="ghost-dark" data-email-confirm-cancel>Annuler</button>
+      </div>
+    `;
+    confirmBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    return;
+  }
+
+  if (emailConfirmCancelButton) {
+    const confirmBox = emailConfirmCancelButton.closest("[data-email-confirmation]");
+    if (confirmBox) {
+      confirmBox.hidden = true;
+      confirmBox.innerHTML = "";
+    }
+    return;
+  }
+
+  if (emailDraftButton || emailConfirmSendButton) {
+    const button = emailDraftButton || emailConfirmSendButton;
     const card = button.closest("[data-active-email-id]");
     const textarea = card?.querySelector("[data-email-reply]");
+    const isDraft = Boolean(emailDraftButton);
     button.disabled = true;
-    button.textContent = "Envoi...";
+    button.textContent = isDraft ? "Création..." : "Envoi...";
     try {
-      await api("/api/jarvis/emails/send", {
+      await api(isDraft ? "/api/jarvis/emails/draft" : "/api/jarvis/emails/send", {
         method: "POST",
-        body: JSON.stringify({ id: button.dataset.emailSend || button.dataset.emailManualSend, body: textarea?.value || "" }),
+        body: JSON.stringify({
+          id: button.dataset.emailDraft || button.dataset.emailConfirmSend,
+          body: textarea?.value || "",
+          confirm: !isDraft,
+        }),
       });
       await loadJarvis({ skipAutoSync: true });
     } catch (error) {
-      if (textarea) textarea.value = `${textarea.value}\n\n[Envoi impossible: ${error.message}]`;
+      if (textarea) textarea.value = `${textarea.value}\n\n[${isDraft ? "Brouillon impossible" : "Envoi impossible"}: ${error.message}]`;
     } finally {
       button.disabled = false;
-      button.textContent = emailSendButton ? "Envoyer réponse suggérée" : "Envoyer réponse manuelle";
+      button.textContent = isDraft ? "Créer brouillon Gmail" : "Confirmer l’envoi";
     }
     return;
   }
