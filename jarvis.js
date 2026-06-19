@@ -227,6 +227,14 @@ function renderGmailState(integrations) {
   `;
 }
 
+function renderGmailNotice(integrations) {
+  const node = document.querySelector("[data-gmail-notice]");
+  if (!node) return;
+  const accounts = Object.values(integrations?.gmail?.accounts || {});
+  const connected = accounts.some((account) => account.connected);
+  node.hidden = connected;
+}
+
 function renderCalendarState(integrations) {
   const calendar = integrations.calendar;
   const accounts = Object.values(calendar.accounts || {});
@@ -702,6 +710,7 @@ function renderBriefing(payload) {
   renderTodaySidebar(decisions);
 
   renderGmailState(integrations);
+  renderGmailNotice(integrations);
   renderList(
     document.querySelector("[data-email-list]"),
     groupEmails(emails.important),

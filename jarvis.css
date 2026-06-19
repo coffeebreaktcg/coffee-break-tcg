@@ -434,6 +434,33 @@ label {
   line-height: 1.45;
 }
 
+.gmail-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: min(680px, 100%);
+  border: 1px solid rgba(213, 116, 45, 0.18);
+  border-radius: 999px;
+  background: rgba(213, 116, 45, 0.075);
+  padding: 9px 10px 9px 17px;
+}
+
+.gmail-notice p {
+  margin: 0;
+  color: rgba(248, 239, 230, 0.72);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.gmail-notice button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
 .living-board {
   width: min(1040px, 100%);
   display: grid;

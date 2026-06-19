@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/jarvis.css?v=jarvis-test-reset-20260618" />
+    <link rel="stylesheet" href="/jarvis.css?v=gmail-connect-notice-20260618" />
   </head>
   <body>
     <main class="jarvis-shell">
@@ -58,6 +58,10 @@
               <p class="eyebrow">Briefing</p>
               <div class="today-summary" data-today-summary>Préparation du briefing...</div>
               <p class="jarvis-speech" data-jarvis-speech>Jarvis analyse les signaux CoffeeBreak.</p>
+              <div class="gmail-notice" data-gmail-notice hidden>
+                <p>Gmail n’est pas connecté. Jarvis ne peut pas lire tes emails pour l’instant.</p>
+                <button type="button" data-connect-gmail="business">Connecter Gmail maintenant</button>
+              </div>
               <form class="ask-jarvis" data-ask-jarvis-form>
                 <input type="text" name="question" placeholder="Demander à Jarvis..." autocomplete="off" />
                 <button type="submit">Parler à Jarvis</button>
@@ -169,6 +173,6 @@
       </section>
     </main>
 
-    <script src="/jarvis.js?v=jarvis-test-reset-20260618" defer></script>
+    <script src="/jarvis.js?v=gmail-connect-notice-20260618" defer></script>
   </body>
 </html>
