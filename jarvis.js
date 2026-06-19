@@ -602,8 +602,11 @@ function renderActionCard(slot, item, label) {
   if (!item) {
     node.innerHTML = `
       <p class="action-label">${label}</p>
-      <h2>Rien à traiter.</h2>
-      <p class="action-muted">Jarvis ne voit pas d’action prioritaire dans cette zone.</p>
+      <div class="action-title-row">
+        <button type="button" class="task-check" disabled aria-label="Aucune tâche"></button>
+        <h2>Rien à traiter.</h2>
+      </div>
+      <p class="action-muted">Jarvis ne voit pas d’action prioritaire.</p>
     `;
     node.classList.add("is-empty");
     return;
@@ -613,11 +616,12 @@ function renderActionCard(slot, item, label) {
   node.classList.toggle("is-complete", isDone);
   node.classList.remove("is-empty");
   node.innerHTML = `
-    <p class="action-label">${label}</p>
     <div class="action-title-row">
+      <button type="button" class="task-check" data-complete-action="${escapeHtml(id)}" aria-label="Terminer"></button>
       <h2>${escapeHtml(item.title || "Action sans titre")}</h2>
       <span>${estimateMinutes(item)} min</span>
     </div>
+    <p class="action-label">${label}</p>
     <dl>
       <div>
         <dt>Pourquoi</dt>
@@ -628,7 +632,6 @@ function renderActionCard(slot, item, label) {
         <dd>${escapeHtml(impactFor(item))}</dd>
       </div>
     </dl>
-    <button type="button" data-complete-action="${escapeHtml(id)}">${isDone ? "Terminé" : "Terminé"}</button>
   `;
 }
 
@@ -653,8 +656,9 @@ function renderTodaySummary(counts, cardShowsCount) {
 function renderTicker(ticker) {
   const node = document.querySelector("[data-ticker]");
   if (!node) return;
+  const icons = ["↗", "□", "◇", "◷", "▱", "◌"];
   node.innerHTML = (ticker || [])
-    .map((item) => `<div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong></div>`)
+    .map((item, index) => `<div><em>${icons[index % icons.length]}</em><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong></div>`)
     .join("");
 }
 
