@@ -259,6 +259,28 @@ function sortedEmailQueue(emails = []) {
     .sort((a, b) => Number(b.score || 0) - Number(a.score || 0) || String(b.receivedAt || "").localeCompare(String(a.receivedAt || "")));
 }
 
+function emailTrustMode(email) {
+  const existing = email?.trustMode;
+  if (existing?.level) return existing;
+  const category = String(email?.category || "");
+  const priority = String(email?.priority || "");
+  if (category === "Card Shows") return { level: 2, label: "Niveau 2", action: "Créer brouillon", reason: "Opportunité business: Max valide avant l’envoi." };
+  if (["Questions clients", "Commandes", "Livraison"].includes(category)) {
+    return { level: 2, label: "Niveau 2", action: "Créer brouillon", reason: "Réponse simple, validation humaine au début." };
+  }
+  if (["Emails de mon boss", "Personnel", "Registraire des entreprises", "Factures", "Fournisseurs importants"].includes(category) || priority === "Critique") {
+    return { level: 1, label: "Niveau 1", action: "Suggérer seulement", reason: "Sujet sensible: Max garde le contrôle." };
+  }
+  if (["Faible", "Marketing", "Newsletters", "Promotions", "Spam"].includes(category)) {
+    return { level: 3, label: "Niveau 3", action: "Ignorer / archiver seulement", reason: "Aucune réponse à envoyer pour ce type d’email." };
+  }
+  return { level: 1, label: "Niveau 1", action: "Suggérer seulement", reason: "Autonomie basse tant que Jarvis apprend." };
+}
+
+function emailCanReply(email) {
+  return !["Faible", "Marketing", "Newsletters", "Promotions", "Spam"].includes(String(email?.category || ""));
+}
+
 function renderEmailFocus(emails = []) {
   const node = document.querySelector("[data-email-focus]");
   const followupNode = document.querySelector("[data-email-followup]");
@@ -279,13 +301,22 @@ function renderEmailFocus(emails = []) {
       .split(/(?<=[.!?])\s+/)
       .filter(Boolean)
       .slice(0, 3);
+    const trust = emailTrustMode(active);
+    const canReply = emailCanReply(active);
+    const canDraft = canReply && Number(trust.level || 1) >= 2;
+    const canSend = canReply && Number(trust.level || 1) >= 3;
     node.innerHTML = `
       <article class="email-focus-card" data-active-email-id="${escapeHtml(active.id)}">
         <div class="email-progress">Email 1 sur ${currentEmailQueue.length} importants</div>
         <div class="email-focus-top">
           <span class="email-priority">${escapeHtml(active.priority || "Important")}</span>
+          <span class="email-trust">Confiance ${escapeHtml(trust.label || `Niveau ${trust.level || 1}`)} · ${escapeHtml(trust.action || "Suggérer seulement")}</span>
           <span>${escapeHtml(active.sourceLabel || active.source || "")}</span>
           <span>${shortDateTime(active.receivedAt)}</span>
+        </div>
+        <div class="email-trust-box">
+          <strong>Mode Confiance</strong>
+          <p>${escapeHtml(trust.reason || "Jarvis reste prudent pour ce type d’email.")}</p>
         </div>
         <h3>${escapeHtml(active.subject || "(Sans sujet)")}</h3>
         <p class="email-from">${escapeHtml(active.from || active.fromEmail || "")}</p>
@@ -302,8 +333,16 @@ function renderEmailFocus(emails = []) {
           <textarea data-email-reply rows="5">${escapeHtml(active.suggestedReply || "")}</textarea>
         </label>
         <div class="email-main-actions">
-          <button type="button" data-email-draft="${escapeHtml(active.id)}">Créer brouillon Gmail</button>
-          <button type="button" class="ghost-dark" data-email-confirm-open="${escapeHtml(active.id)}">Envoyer après confirmation</button>
+          ${
+            canDraft
+              ? `<button type="button" data-email-draft="${escapeHtml(active.id)}">Créer brouillon Gmail</button>`
+              : `<button type="button" disabled title="${escapeHtml(trust.reason || "")}">Brouillon désactivé</button>`
+          }
+          ${
+            canSend
+              ? `<button type="button" class="ghost-dark" data-email-confirm-open="${escapeHtml(active.id)}">Envoyer après confirmation</button>`
+              : `<button type="button" class="ghost-dark" disabled>Envoi désactivé</button>`
+          }
           <button type="button" class="ghost-dark" data-email-status="à suivre" data-email-id="${escapeHtml(active.id)}">Mettre en attente</button>
         </div>
         <div class="email-confirmation" data-email-confirmation hidden></div>

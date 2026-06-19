@@ -962,6 +962,33 @@ body:not(.jarvis-ready) .quiet-panels {
   color: var(--accent);
 }
 
+.email-trust {
+  border-color: rgba(248, 239, 230, 0.16);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.email-trust-box {
+  display: grid;
+  gap: 5px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 12px 14px;
+}
+
+.email-trust-box strong {
+  color: var(--soft);
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.email-trust-box p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .email-focus-card h3,
 .email-focus-empty h3 {
   margin: 0;

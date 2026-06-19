@@ -899,6 +899,31 @@ function suggestedJarvisReply(email, category) {
   return "";
 }
 
+function jarvisEmailTrustMode(category, priority = "") {
+  const name = String(category || "");
+  const importantLegal = ["Registraire des entreprises", "Factures", "Fournisseurs importants"];
+  const lowNoise = ["Faible", "Marketing", "Newsletters", "Promotions", "Spam"];
+  if (name === "Card Shows") {
+    return { level: 2, label: "Niveau 2", action: "Créer brouillon", reason: "Opportunité business importante, mais Max doit valider avant tout envoi." };
+  }
+  if (name === "Questions clients" || name === "Commandes" || name === "Livraison") {
+    return { level: 2, label: "Niveau 2", action: "Créer brouillon", reason: "Réponses souvent simples, mais validation humaine au début." };
+  }
+  if (name === "Emails de mon boss" || name === "Personnel") {
+    return { level: 1, label: "Niveau 1", action: "Suggérer seulement", reason: "Email personnel ou sensible: Jarvis ne doit pas prendre de liberté." };
+  }
+  if (importantLegal.includes(name)) {
+    return { level: 1, label: "Niveau 1", action: "Suggérer seulement", reason: "Sujet légal, financier ou administratif: lecture humaine requise." };
+  }
+  if (lowNoise.includes(name)) {
+    return { level: 3, label: "Niveau 3", action: "Ignorer / archiver seulement", reason: "Peut être traité rapidement, mais Jarvis ne doit jamais répondre à ce type d’email." };
+  }
+  if (priority === "Critique") {
+    return { level: 1, label: "Niveau 1", action: "Suggérer seulement", reason: "Critique: Max doit garder le contrôle." };
+  }
+  return { level: 1, label: "Niveau 1", action: "Suggérer seulement", reason: "Autonomie basse par défaut tant que Jarvis apprend ton jugement." };
+}
+
 function emailCalendarSuggestion(email) {
   const text = `${email.subject || ""} ${email.snippet || ""} ${email.body || ""}`;
   const hasDateSignal =
@@ -934,6 +959,7 @@ function importantJarvisEmails(db) {
         ...category,
         priority: priority.priority,
         score: priority.score,
+        trustMode: learnedEmail.trustMode || jarvisEmailTrustMode(category.category, priority.priority),
         summary: learnedEmail.summary || summarizeJarvisEmail(learnedEmail, category.category),
         action: learnedEmail.learnedFromMax ? learnedEmail.action : recommendedJarvisEmailAction(learnedEmail, category.category, priority.priority),
         suggestedReply: learnedEmail.learnedFromMax ? learnedEmail.suggestedReply : suggestedJarvisReply(learnedEmail, category.category),
@@ -3135,6 +3161,7 @@ async function gmailMessageToJarvisEmail(db, source, message) {
     categoryType: final.categoryType || local.categoryType,
     priority: final.priority,
     score: Number(final.score || local.score || 0),
+    trustMode: jarvisEmailTrustMode(final.category, final.priority),
     summary: final.summary,
     action: final.action,
     suggestedReply: final.suggestedReply,
@@ -3282,6 +3309,21 @@ function recordJarvisEmailAction(db, email, action, details = {}) {
   db.jarvisEmailActions.unshift(log);
   db.jarvisEmailActions = db.jarvisEmailActions.slice(0, 250);
   return log;
+}
+
+function assertJarvisEmailAutonomy(email, action) {
+  const trust = email.trustMode || jarvisEmailTrustMode(email.category, email.priority);
+  const category = String(email.category || "");
+  if (["Faible", "Marketing", "Newsletters", "Promotions", "Spam"].includes(category) && (action === "draft" || action === "send")) {
+    throw new Error("Mode Confiance: Jarvis ne répond jamais aux emails faibles, marketing, newsletters ou promotions.");
+  }
+  if (action === "draft" && Number(trust.level || 1) < 2) {
+    throw new Error("Mode Confiance niveau 1: Jarvis peut seulement suggérer une réponse pour ce type d’email.");
+  }
+  if (action === "send" && Number(trust.level || 1) < 3) {
+    throw new Error("Mode Confiance: l’envoi est désactivé pour ce type d’email. Crée un brouillon ou réponds manuellement dans Gmail.");
+  }
+  return trust;
 }
 
 function rewriteEmailReplyFallback(text, tone) {
@@ -4554,7 +4596,10 @@ async function handleApi(req, res) {
   if (url.pathname === "/api/jarvis/emails" && req.method === "GET") {
     const filter = String(url.searchParams.get("filter") || "all");
     const emails = (db.jarvisEmails || [])
-      .map((email) => applyEmailFeedback(email, latestEmailFeedback(db, email.id)))
+      .map((email) => {
+        const learned = applyEmailFeedback(email, latestEmailFeedback(db, email.id));
+        return { ...learned, trustMode: learned.trustMode || jarvisEmailTrustMode(learned.category, learned.priority) };
+      })
       .filter((email) => {
         if (filter === "all") return true;
         if (filter === "Critique" || filter === "Important") return email.priority === filter;
@@ -4600,6 +4645,8 @@ async function handleApi(req, res) {
     const email = (db.jarvisEmails || []).find((item) => item.id === id);
     if (!email) return json(res, 404, { error: "Email Jarvis introuvable." });
     try {
+      email.trustMode = email.trustMode || jarvisEmailTrustMode(email.category, email.priority);
+      assertJarvisEmailAutonomy(email, "send");
       const sent = await sendJarvisEmailReply(db, email, replyBody);
       email.status = "traité";
       email.sentReplyAt = new Date().toISOString();
@@ -4624,6 +4671,8 @@ async function handleApi(req, res) {
     const email = (db.jarvisEmails || []).find((item) => item.id === id);
     if (!email) return json(res, 404, { error: "Email Jarvis introuvable." });
     try {
+      email.trustMode = email.trustMode || jarvisEmailTrustMode(email.category, email.priority);
+      assertJarvisEmailAutonomy(email, "draft");
       const draft = await createJarvisEmailDraft(db, email, replyBody);
       email.status = "à suivre";
       email.draftCreatedAt = new Date().toISOString();
