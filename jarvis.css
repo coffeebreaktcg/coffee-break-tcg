@@ -907,6 +907,154 @@ body:not(.jarvis-ready) .quiet-panels {
   gap: 12px;
 }
 
+.sync-line {
+  margin: -4px 0 0;
+  color: rgba(248, 239, 230, 0.48);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.email-focus,
+.email-followup {
+  display: grid;
+  gap: 12px;
+}
+
+.email-focus-card,
+.email-focus-empty {
+  display: grid;
+  gap: 16px;
+  border: 1px solid rgba(248, 239, 230, 0.11);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.038);
+  padding: clamp(18px, 3vw, 28px);
+}
+
+.email-progress {
+  color: rgba(248, 239, 230, 0.48);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.email-focus-top,
+.email-main-actions,
+.email-rewrite-actions,
+.email-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.email-focus-top span,
+.email-priority {
+  border: 1px solid rgba(248, 239, 230, 0.12);
+  border-radius: 999px;
+  color: var(--muted);
+  padding: 6px 9px;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.email-priority {
+  border-color: rgba(213, 116, 45, 0.28);
+  color: var(--accent);
+}
+
+.email-focus-card h3,
+.email-focus-empty h3 {
+  margin: 0;
+  font-size: clamp(26px, 4vw, 42px);
+  line-height: 1.05;
+}
+
+.email-from,
+.email-focus-empty p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.email-summary,
+.email-decision {
+  display: grid;
+  gap: 8px;
+}
+
+.email-summary strong,
+.email-decision strong {
+  color: var(--soft);
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.email-summary ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.email-decision p {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.email-reply-box {
+  color: var(--soft);
+}
+
+.email-reply-box textarea {
+  min-height: 150px;
+}
+
+.email-rewrite-actions button,
+.email-secondary-actions button,
+.email-main-actions button {
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.email-followup details {
+  border-top: 1px solid rgba(248, 239, 230, 0.1);
+  padding-top: 12px;
+}
+
+.email-followup summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.followup-list {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+}
+
+.followup-list div {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+}
+
+.followup-list strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.followup-list span {
+  font-size: 12px;
+}
+
 .content-opportunity-card {
   display: grid;
   gap: 14px;

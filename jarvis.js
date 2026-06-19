@@ -29,6 +29,9 @@ let currentContentOpportunities = [];
 let activeStudioOpportunity = null;
 let speechTimer = null;
 let currentActionDecisions = [];
+let currentEmailQueue = [];
+let currentFollowupEmails = [];
+let gmailAutoSyncTimer = null;
 
 function oauthMessageFromParams() {
   const params = new URLSearchParams(window.location.search);
@@ -168,6 +171,13 @@ function shortDateTime(value) {
   return date.toLocaleString("fr-CA", { dateStyle: "medium", timeStyle: "short" });
 }
 
+function timeOnly(value) {
+  if (!value) return "jamais";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" });
+}
+
 function renderList(container, items, renderer, emptyText) {
   if (!container) return;
   container.innerHTML = "";
@@ -211,6 +221,13 @@ function setCounts(counts) {
 function renderGmailState(integrations) {
   const gmail = integrations.gmail;
   const accounts = Object.values(gmail.accounts || {});
+  const latestSync = accounts
+    .map((account) => account.lastSyncAt)
+    .filter(Boolean)
+    .sort()
+    .reverse()[0];
+  const syncLine = document.querySelector("[data-gmail-sync-line]");
+  if (syncLine) syncLine.textContent = `Dernière synchro : ${timeOnly(latestSync)}`;
   const accountRows = accounts.length
     ? accounts
         .map(
@@ -225,6 +242,132 @@ function renderGmailState(integrations) {
     <p>${gmail.message}</p>
     <div class="gmail-account-row">${accountRows}</div>
   `;
+}
+
+function emailIsHandled(email) {
+  return ["traité", "ignoré"].includes(String(email.status || "").toLowerCase());
+}
+
+function emailIsFollowup(email) {
+  return ["à suivre", "pending"].includes(String(email.status || "").toLowerCase());
+}
+
+function sortedEmailQueue(emails = []) {
+  return emails
+    .filter((email) => !emailIsHandled(email) && !emailIsFollowup(email))
+    .filter((email) => ["Critique", "Important"].includes(email.priority) || Number(email.score || 0) >= 62)
+    .sort((a, b) => Number(b.score || 0) - Number(a.score || 0) || String(b.receivedAt || "").localeCompare(String(a.receivedAt || "")));
+}
+
+function renderEmailFocus(emails = []) {
+  const node = document.querySelector("[data-email-focus]");
+  const followupNode = document.querySelector("[data-email-followup]");
+  if (!node) return;
+  currentEmailQueue = sortedEmailQueue(emails);
+  currentFollowupEmails = emails.filter(emailIsFollowup).sort((a, b) => String(b.receivedAt || "").localeCompare(String(a.receivedAt || "")));
+  const active = currentEmailQueue[0];
+  if (!active) {
+    node.innerHTML = `
+      <div class="email-focus-empty">
+        <p class="eyebrow">Email Focus</p>
+        <h3>Boîte prioritaire vidée.</h3>
+        <p>Jarvis peut maintenant revenir à la prochaine priorité: contenu, inventaire, ajout de cartes ou Card Shows.</p>
+      </div>
+    `;
+  } else {
+    const bullets = String(active.summary || active.snippet || "Aucun résumé disponible.")
+      .split(/(?<=[.!?])\s+/)
+      .filter(Boolean)
+      .slice(0, 3);
+    node.innerHTML = `
+      <article class="email-focus-card" data-active-email-id="${escapeHtml(active.id)}">
+        <div class="email-progress">Email 1 sur ${currentEmailQueue.length} importants</div>
+        <div class="email-focus-top">
+          <span class="email-priority">${escapeHtml(active.priority || "Important")}</span>
+          <span>${escapeHtml(active.sourceLabel || active.source || "")}</span>
+          <span>${shortDateTime(active.receivedAt)}</span>
+        </div>
+        <h3>${escapeHtml(active.subject || "(Sans sujet)")}</h3>
+        <p class="email-from">${escapeHtml(active.from || active.fromEmail || "")}</p>
+        <div class="email-summary">
+          <strong>Résumé</strong>
+          <ul>${bullets.map((item) => `<li>${escapeHtml(item)}</li>`).join("") || "<li>Aucun résumé disponible.</li>"}</ul>
+        </div>
+        <div class="email-decision">
+          <strong>Action recommandée</strong>
+          <p>${escapeHtml(active.action || "Décider si une réponse est nécessaire.")}</p>
+        </div>
+        <label class="email-reply-box">
+          Réponse suggérée prête à envoyer
+          <textarea data-email-reply rows="5">${escapeHtml(active.suggestedReply || "")}</textarea>
+        </label>
+        <div class="email-main-actions">
+          <button type="button" data-email-send="${escapeHtml(active.id)}">Envoyer réponse suggérée</button>
+          <button type="button" class="ghost-dark" data-email-manual-send="${escapeHtml(active.id)}">Envoyer réponse manuelle</button>
+          <button type="button" class="ghost-dark" data-email-status="à suivre" data-email-id="${escapeHtml(active.id)}">Mettre en attente</button>
+        </div>
+        <div class="email-rewrite-actions">
+          ${["plus professionnel", "plus gentil", "plus direct", "plus ferme", "plus court", "plus chaleureux"]
+            .map((tone) => `<button type="button" class="ghost-dark" data-email-rewrite="${escapeHtml(active.id)}" data-tone="${escapeHtml(tone)}">${escapeHtml(tone)}</button>`)
+            .join("")}
+        </div>
+        <div class="email-secondary-actions">
+          <button type="button" class="ghost-dark" data-email-status="ignoré" data-email-id="${escapeHtml(active.id)}">Ignorer</button>
+          <button type="button" class="ghost-dark" data-email-status="traité" data-email-id="${escapeHtml(active.id)}">Marquer traité</button>
+          <button type="button" class="ghost-dark" data-email-task="${escapeHtml(active.id)}">Créer tâche</button>
+          ${active.calendarSuggestion ? `<button type="button" class="ghost-dark" data-email-event="${escapeHtml(active.id)}">Créer événement</button>` : ""}
+        </div>
+      </article>
+    `;
+  }
+  if (followupNode) {
+    followupNode.innerHTML = currentFollowupEmails.length
+      ? `
+        <details>
+          <summary>À suivre (${currentFollowupEmails.length})</summary>
+          <div class="followup-list">
+            ${currentFollowupEmails
+              .slice(0, 8)
+              .map((email) => `<div><strong>${escapeHtml(email.subject || "(Sans sujet)")}</strong><span>${escapeHtml(email.from || "")}</span></div>`)
+              .join("")}
+          </div>
+        </details>
+      `
+      : "";
+  }
+}
+
+async function loadEmailFocus() {
+  const payload = await api("/api/jarvis/emails?filter=all");
+  renderEmailFocus(payload.emails || []);
+  return payload;
+}
+
+async function syncGmail({ silent = false } = {}) {
+  const syncButton = document.querySelector("[data-sync-gmail]");
+  if (syncButton && !silent) {
+    syncButton.disabled = true;
+    syncButton.textContent = "Synchro...";
+  }
+  try {
+    await api("/api/jarvis/gmail/sync", { method: "POST", body: JSON.stringify({ source: "all", maxResults: 15 }) });
+    await loadJarvis({ skipAutoSync: true });
+    await loadEmailFocus().catch(() => {});
+  } catch (error) {
+    if (!silent) document.querySelector("[data-gmail-state]").innerHTML = `<p>${escapeHtml(error.message)}</p>`;
+  } finally {
+    if (syncButton && !silent) {
+      syncButton.disabled = false;
+      syncButton.textContent = "Synchroniser maintenant";
+    }
+  }
+}
+
+function startGmailAutoSync() {
+  clearInterval(gmailAutoSyncTimer);
+  gmailAutoSyncTimer = setInterval(() => {
+    syncGmail({ silent: true }).catch(() => {});
+  }, 5 * 60 * 1000);
 }
 
 function renderGmailNotice(integrations) {
@@ -711,31 +854,7 @@ function renderBriefing(payload) {
 
   renderGmailState(integrations);
   renderGmailNotice(integrations);
-  renderList(
-    document.querySelector("[data-email-list]"),
-    groupEmails(emails.important),
-    (group) => `
-      <div class="email-item email-group">
-        <div class="item-title-row">
-          <strong>${escapeHtml(group.category)}</strong>
-          ${scorePill(group.score)}
-        </div>
-        <p>${group.items.length} email${group.items.length > 1 ? "s" : ""} relié${group.items.length > 1 ? "s" : ""}.</p>
-        <ul class="group-list">
-          ${group.items
-            .slice(0, 4)
-            .map((item) => `<li>${escapeHtml(item.subject || "(Sans sujet)")}</li>`)
-            .join("")}
-        </ul>
-        <p><strong>Action:</strong> ${escapeHtml([...group.actions][0] || "Décider quoi faire avec ce groupe.")}</p>
-        <div class="pill-row">
-          ${pill(group.category)}
-          ${pill(`${group.items.length} emails`)}
-        </div>
-      </div>
-    `,
-    "Aucun email critique importé. Branche Gmail pour activer le tri automatique."
-  );
+  renderEmailFocus(emails.important || []);
 
   renderCalendarState(integrations);
   renderList(
@@ -998,13 +1117,31 @@ function renderDecisionPreview(items) {
     .join("");
 }
 
-async function loadJarvis() {
+function gmailHasConnectedAccount(payload) {
+  return Object.values(payload?.integrations?.gmail?.accounts || {}).some((account) => account.connected);
+}
+
+function gmailLastSyncMs(payload) {
+  const latest = Object.values(payload?.integrations?.gmail?.accounts || {})
+    .map((account) => account.lastSyncAt)
+    .filter(Boolean)
+    .sort()
+    .reverse()[0];
+  return latest ? new Date(latest).getTime() : 0;
+}
+
+async function loadJarvis({ skipAutoSync = false } = {}) {
   setThinkingLine("Jarvis analyse les signaux...");
   prepareImmersiveReveal();
   const payload = await api("/api/jarvis/briefing");
   renderBriefing(payload);
   await loadEmailReview().catch(() => {});
   await loadDiagnostic().catch(() => {});
+  await loadEmailFocus().catch(() => {});
+  if (!skipAutoSync && gmailHasConnectedAccount(payload) && Date.now() - gmailLastSyncMs(payload) > 60 * 1000) {
+    syncGmail({ silent: true }).catch(() => {});
+  }
+  if (gmailHasConnectedAccount(payload)) startGmailAutoSync();
 }
 
 loginForm.addEventListener("submit", async (event) => {
@@ -1054,6 +1191,11 @@ document.addEventListener("click", async (event) => {
   const connectCalendarButton = event.target.closest("[data-connect-calendar]");
   const syncButton = event.target.closest("[data-sync-gmail]");
   const syncCalendarButton = event.target.closest("[data-sync-calendar]");
+  const emailSendButton = event.target.closest("[data-email-send]");
+  const emailManualSendButton = event.target.closest("[data-email-manual-send]");
+  const emailRewriteButton = event.target.closest("[data-email-rewrite]");
+  const emailTaskButton = event.target.closest("[data-email-task]");
+  const emailEventButton = event.target.closest("[data-email-event]");
   const emailStatusButton = event.target.closest("[data-email-status]");
   const emailFilterButton = event.target.closest("[data-email-filter]");
   const saveFeedbackButton = event.target.closest("[data-save-email-feedback]");
@@ -1195,17 +1337,77 @@ document.addEventListener("click", async (event) => {
   }
 
   if (syncButton) {
-    syncButton.disabled = true;
-    syncButton.textContent = "Import en cours...";
+    await syncGmail({ silent: false });
+    return;
+  }
+
+  if (emailRewriteButton) {
+    const card = emailRewriteButton.closest("[data-active-email-id]");
+    const textarea = card?.querySelector("[data-email-reply]");
+    emailRewriteButton.disabled = true;
     try {
-      await api("/api/jarvis/gmail/sync", { method: "POST", body: JSON.stringify({ source: "all", maxResults: 15 }) });
-      await loadJarvis();
+      const payload = await api("/api/jarvis/emails/rewrite", {
+        method: "POST",
+        body: JSON.stringify({
+          id: emailRewriteButton.dataset.emailRewrite,
+          tone: emailRewriteButton.dataset.tone,
+          body: textarea?.value || "",
+        }),
+      });
+      if (textarea) textarea.value = payload.suggestedReply || "";
     } catch (error) {
-      document.querySelector("[data-gmail-state]").innerHTML = `<p>${error.message}</p>`;
+      if (textarea) textarea.value = `${textarea.value}\n\n[Erreur Jarvis: ${error.message}]`;
     } finally {
-      syncButton.disabled = false;
-      syncButton.textContent = "Importer les emails récents";
+      emailRewriteButton.disabled = false;
     }
+    return;
+  }
+
+  if (emailSendButton || emailManualSendButton) {
+    const button = emailSendButton || emailManualSendButton;
+    const card = button.closest("[data-active-email-id]");
+    const textarea = card?.querySelector("[data-email-reply]");
+    button.disabled = true;
+    button.textContent = "Envoi...";
+    try {
+      await api("/api/jarvis/emails/send", {
+        method: "POST",
+        body: JSON.stringify({ id: button.dataset.emailSend || button.dataset.emailManualSend, body: textarea?.value || "" }),
+      });
+      await loadJarvis({ skipAutoSync: true });
+    } catch (error) {
+      if (textarea) textarea.value = `${textarea.value}\n\n[Envoi impossible: ${error.message}]`;
+    } finally {
+      button.disabled = false;
+      button.textContent = emailSendButton ? "Envoyer réponse suggérée" : "Envoyer réponse manuelle";
+    }
+    return;
+  }
+
+  if (emailTaskButton) {
+    emailTaskButton.disabled = true;
+    try {
+      await api("/api/jarvis/emails/task", { method: "POST", body: JSON.stringify({ id: emailTaskButton.dataset.emailTask }) });
+      await loadJarvis({ skipAutoSync: true });
+    } catch (error) {
+      document.querySelector("[data-gmail-state]").innerHTML = `<p>${escapeHtml(error.message)}</p>`;
+    } finally {
+      emailTaskButton.disabled = false;
+    }
+    return;
+  }
+
+  if (emailEventButton) {
+    emailEventButton.disabled = true;
+    try {
+      await api("/api/jarvis/emails/event", { method: "POST", body: JSON.stringify({ id: emailEventButton.dataset.emailEvent }) });
+      await loadJarvis({ skipAutoSync: true });
+    } catch (error) {
+      document.querySelector("[data-gmail-state]").innerHTML = `<p>${escapeHtml(error.message)}</p>`;
+    } finally {
+      emailEventButton.disabled = false;
+    }
+    return;
   }
 
   if (syncCalendarButton) {
@@ -1235,6 +1437,7 @@ document.addEventListener("click", async (event) => {
       });
       renderBriefing(payload.briefing);
       await loadEmailReview().catch(() => {});
+      await loadEmailFocus().catch(() => {});
     } catch (error) {
       emailStatusButton.textContent = error.message;
     }

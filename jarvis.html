@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/jarvis.css?v=gmail-connect-notice-20260618" />
+    <link rel="stylesheet" href="/jarvis.css?v=email-focus-v1-20260619" />
   </head>
   <body>
     <main class="jarvis-shell">
@@ -96,10 +96,12 @@
               <div class="gmail-controls">
                 <button type="button" data-connect-gmail="business">Connecter Gmail business</button>
                 <button type="button" data-connect-gmail="personal">Connecter Gmail personnel</button>
-                <button type="button" class="ghost-dark" data-sync-gmail>Importer les emails récents</button>
+                <button type="button" class="ghost-dark" data-sync-gmail>Synchroniser maintenant</button>
               </div>
+              <p class="sync-line" data-gmail-sync-line>Dernière synchro : jamais</p>
               <div class="integration-state" data-gmail-state></div>
-              <div class="email-list" data-email-list></div>
+              <div class="email-focus" data-email-focus></div>
+              <div class="email-followup" data-email-followup></div>
             </div>
           </details>
 
@@ -173,6 +175,6 @@
       </section>
     </main>
 
-    <script src="/jarvis.js?v=gmail-connect-notice-20260618" defer></script>
+    <script src="/jarvis.js?v=email-focus-v1-20260619" defer></script>
   </body>
 </html>
