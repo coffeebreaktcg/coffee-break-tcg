@@ -2931,3 +2931,329 @@ body:not(.jarvis-ready) .living-board .signal-chip {
     max-width: 180px;
   }
 }
+
+/* Mobile Jarvis: one clean vertical command path. */
+@media (max-width: 720px) {
+  html {
+    background: #030303;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  .jarvis-shell {
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  .assistant-panel {
+    width: 100%;
+    min-height: 100vh;
+    padding: 0 15px 42px;
+    border: 0;
+    border-radius: 0;
+    background:
+      radial-gradient(circle at 50% 12%, rgba(255, 138, 36, 0.1), transparent 34%),
+      #030303;
+  }
+
+  .market-strip {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    display: flex;
+    grid-template-columns: none;
+    gap: 16px;
+    width: calc(100% + 30px);
+    margin: 0 -15px;
+    padding: 11px 15px;
+    overflow-x: auto;
+    border-bottom: 1px solid rgba(245, 245, 247, 0.08);
+    background: rgba(3, 3, 3, 0.88);
+    backdrop-filter: blur(18px);
+    scroll-snap-type: x proximity;
+  }
+
+  .market-strip div {
+    flex: 0 0 auto;
+    min-width: 112px;
+    scroll-snap-align: start;
+  }
+
+  .market-strip em {
+    font-size: 13px;
+  }
+
+  .market-strip span {
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .market-strip strong {
+    font-size: 13px;
+  }
+
+  .jarvis-header {
+    padding: 18px 0 4px;
+    border-bottom: 0;
+  }
+
+  .jarvis-header h1 {
+    font-size: 14px;
+    color: rgba(245, 245, 247, 0.66);
+  }
+
+  .header-actions {
+    gap: 7px;
+  }
+
+  .header-actions button {
+    min-height: 32px;
+    padding: 7px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+  }
+
+  .command-center {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    padding: 18px 0 0;
+  }
+
+  .jarvis-stage {
+    display: contents;
+  }
+
+  .orb-wrap {
+    order: 1;
+    width: 100%;
+    max-width: 230px;
+    margin: 0 auto;
+    padding-top: 22px;
+    text-align: center;
+  }
+
+  .jarvis-orb {
+    width: 156px;
+    height: 156px;
+    margin: 0 auto;
+  }
+
+  .thinking-line {
+    margin-top: 12px;
+    font-size: 11px;
+  }
+
+  .spoken-briefing {
+    order: 2;
+    width: 100%;
+    max-width: 430px;
+    justify-items: center;
+    gap: 10px;
+    margin: 0 auto;
+  }
+
+  .spoken-briefing > .eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+  }
+
+  .calm-briefing {
+    width: 100%;
+    align-items: center;
+    text-align: center;
+  }
+
+  .calm-briefing .brief-counts {
+    margin-bottom: 10px;
+    font-size: 16px;
+  }
+
+  .calm-briefing strong {
+    max-width: 100%;
+    font-size: clamp(25px, 9vw, 34px);
+    line-height: 1.02;
+  }
+
+  .calm-briefing p:not(.brief-counts) {
+    max-width: 330px;
+    font-size: 14.5px;
+  }
+
+  .jarvis-speech {
+    max-width: 330px;
+    min-height: auto;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .admin-time {
+    order: 3;
+    display: inline-flex;
+    justify-content: center;
+    width: auto;
+    margin: -2px auto 0;
+    gap: 8px;
+    color: rgba(245, 245, 247, 0.48);
+    font-size: 11px;
+  }
+
+  .admin-time strong {
+    color: rgba(245, 245, 247, 0.84);
+  }
+
+  .ask-jarvis {
+    order: 4;
+    width: 100%;
+    min-height: 48px;
+    margin-top: 4px;
+    padding: 5px;
+    border-radius: 999px;
+  }
+
+  .ask-jarvis input {
+    min-width: 0;
+    padding-left: 11px;
+    font-size: 13px;
+  }
+
+  .ask-jarvis button {
+    min-height: 38px;
+    padding: 9px 13px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .gmail-notice {
+    width: 100%;
+    max-width: 360px;
+    text-align: left;
+  }
+
+  .living-board {
+    order: 6;
+    justify-content: flex-start;
+    width: 100%;
+    max-width: 430px;
+    margin: 2px auto 0;
+    padding: 13px 0 0;
+    border-top: 1px solid rgba(245, 245, 247, 0.07);
+    gap: 8px 14px;
+    text-align: left;
+  }
+
+  .living-board .signal-chip {
+    flex: 1 1 100%;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .living-board .signal-chip strong {
+    max-width: 210px;
+    text-align: right;
+  }
+
+  .today-sidebar {
+    order: 5;
+    width: 100%;
+    max-height: none;
+    padding: 3px 0 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
+  }
+
+  .today-sidebar-inner {
+    max-width: 430px;
+    margin: 0 auto;
+  }
+
+  .today-sidebar .eyebrow {
+    margin: 2px 0 10px;
+    font-size: 13px;
+  }
+
+  .today-sidebar .primary-action::before {
+    left: -8px;
+  }
+
+  .task-details summary {
+    min-height: 48px;
+    padding: 12px 0;
+    grid-template-columns: 26px minmax(0, 1fr) 42px;
+    gap: 10px;
+  }
+
+  .task-title {
+    font-size: 13.5px;
+  }
+
+  .task-time {
+    font-size: 11px;
+  }
+
+  .today-sidebar .action-label,
+  .today-sidebar .primary-action dl,
+  .today-sidebar .secondary-action dl,
+  .task-actions {
+    margin-left: 36px;
+  }
+
+  .quiet-panels {
+    width: 100%;
+    margin-top: 28px;
+    border: 1px solid rgba(245, 245, 247, 0.08);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.018);
+  }
+
+  .quiet-panels summary {
+    min-height: 50px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
+
+  .panel-body {
+    padding: 0 14px 18px;
+  }
+}
+
+@media (max-width: 420px) {
+  .assistant-panel {
+    padding-inline: 12px;
+  }
+
+  .market-strip {
+    width: calc(100% + 24px);
+    margin-inline: -12px;
+    padding-inline: 12px;
+  }
+
+  .jarvis-orb {
+    width: 138px;
+    height: 138px;
+  }
+
+  .calm-briefing strong {
+    font-size: clamp(23px, 8.6vw, 31px);
+  }
+
+  .ask-jarvis {
+    border-radius: 18px;
+  }
+
+  .ask-jarvis button {
+    padding-inline: 11px;
+  }
+
+  .living-board .signal-chip {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .living-board .signal-chip strong {
+    max-width: none;
+  }
+}
