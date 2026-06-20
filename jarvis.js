@@ -105,13 +105,18 @@ function setThinkingLine(text) {
   if (node) node.textContent = text;
 }
 
+function setJarvisState(state) {
+  document.body.dataset.jarvisState = state;
+}
+
 function prepareImmersiveReveal() {
+  setJarvisState("thinking");
   document.body.classList.remove("jarvis-ready");
   document.querySelectorAll("[data-reveal]").forEach((node) => {
     node.classList.remove("is-visible");
     node.style.removeProperty("--reveal-delay");
   });
-  document.querySelectorAll(".living-board article").forEach((node) => {
+  document.querySelectorAll(".living-board article, .living-board .signal-chip").forEach((node) => {
     node.classList.remove("is-visible");
   });
 }
@@ -131,18 +136,22 @@ function runImmersiveReveal() {
     requestAnimationFrame(() => node.classList.add("is-visible"));
   });
 
-  document.querySelectorAll(".living-board article").forEach((node, index) => {
+  document.querySelectorAll(".living-board article, .living-board .signal-chip").forEach((node, index) => {
     node.style.setProperty("--board-delay", `${1100 + index * 260}ms`);
     requestAnimationFrame(() => node.classList.add("is-visible"));
   });
 
   document.body.classList.add("jarvis-ready");
-  setTimeout(() => setThinkingLine("Briefing construit."), 1450);
+  setTimeout(() => {
+    setThinkingLine("Briefing construit.");
+    setJarvisState("idle");
+  }, 1450);
 }
 
 function typeJarvisSpeech(text) {
   const node = document.querySelector("[data-jarvis-speech]");
   if (!node) return;
+  setJarvisState("speaking");
   clearInterval(speechTimer);
   node.textContent = "";
   let index = 0;
@@ -150,7 +159,10 @@ function typeJarvisSpeech(text) {
   speechTimer = setInterval(() => {
     index += 3;
     node.textContent = fullText.slice(0, index);
-    if (index >= fullText.length) clearInterval(speechTimer);
+    if (index >= fullText.length) {
+      clearInterval(speechTimer);
+      setJarvisState("idle");
+    }
   }, 18);
 }
 
@@ -616,6 +628,8 @@ function renderTodaySidebar(decisions = currentActionDecisions) {
 }
 
 function updateBriefingAfterCompletion(nextAction) {
+  setJarvisState("complete");
+  setTimeout(() => setJarvisState("idle"), 1200);
   const summary = document.querySelector("[data-today-summary]");
   if (summary) {
     summary.innerHTML = nextAction
@@ -693,15 +707,19 @@ function renderTodaySummary(counts, cardShowsCount, focus) {
     ? `
       <div class="calm-briefing">
         <span>Aujourd’hui</span>
-        <strong>${items.map(escapeHtml).join(" · ")}</strong>
-        <p><b>Priorité actuelle:</b> ${escapeHtml(focus?.title || "Avancer CoffeeBreak")}</p>
+        <p class="brief-counts">${items.map(escapeHtml).join(" · ")}</p>
+        <small>Priorité actuelle</small>
+        <strong>${escapeHtml(focus?.title || "Avancer CoffeeBreak")}</strong>
+        <p>${escapeHtml(focus?.action || "Traiter la prochaine action concrète.")}</p>
       </div>
     `
     : `
       <div class="calm-briefing">
         <span>Aujourd’hui</span>
-        <strong>Calme opérationnel</strong>
-        <p><b>Priorité actuelle:</b> ${escapeHtml(focus?.title || "Action de croissance")}</p>
+        <p class="brief-counts">Calme opérationnel</p>
+        <small>Priorité actuelle</small>
+        <strong>${escapeHtml(focus?.title || "Action de croissance")}</strong>
+        <p>${escapeHtml(focus?.action || "Avancer CoffeeBreak sans urgence administrative.")}</p>
       </div>
     `;
   const adminMinutes = Math.max(0, (counts.ordersToShip || 0) * 4 + (counts.invoices || 0) * 2 + Math.min(cardShowsCount || 0, 3) * 2);
@@ -729,36 +747,30 @@ function renderLivingBoard(payload, decisions) {
   if (!node) return;
   const emails = payload.emails?.important || [];
   const inventory = payload.inventoryIntelligence || {};
-  const cards = [
-    {
-      label: "Maintenant",
-      title: decisions?.[0]?.title || "Aucune urgence",
-      detail: decisions?.[0]?.action || "Passer à une action de croissance.",
-    },
+  const signals = [
     {
       label: "Email",
       title: emails[0]?.subject || "Aucun email critique",
-      detail: emails[0]?.action || "Gmail reste sous contrôle.",
+      target: "Emails",
     },
     {
       label: "Inventaire",
       title: `${inventory.summary?.dormantCount || 0} item${inventory.summary?.dormantCount > 1 ? "s" : ""} dormant${inventory.summary?.dormantCount > 1 ? "s" : ""}`,
-      detail: inventory.liquidityAlerts?.[0]?.reason || "Aucune alerte de liquidité majeure.",
+      target: "Inventaire & Produits",
     },
     {
       label: "Opportunité",
       title: payload.contentOpportunities?.[0]?.title || "Contenu à définir",
-      detail: payload.contentOpportunities?.[0]?.tier || "Score opportunité à calculer.",
+      target: "Marketing & Contenu",
     },
   ];
-  node.innerHTML = cards
+  node.innerHTML = signals
     .map(
-      (card, index) => `
-        <article style="--i:${index}">
-          <span>${escapeHtml(card.label)}</span>
-          <strong>${escapeHtml(card.title)}</strong>
-          <p>${escapeHtml(card.detail)}</p>
-        </article>
+      (signal, index) => `
+        <button type="button" class="signal-chip" data-signal-target="${escapeHtml(signal.target)}" style="--i:${index}">
+          <span>${escapeHtml(signal.label)}</span>
+          <strong>${escapeHtml(signal.title)}</strong>
+        </button>
       `
     )
     .join("");
@@ -1339,6 +1351,7 @@ document.addEventListener("click", async (event) => {
   const demoResetButton = event.target.closest("[data-demo-reset]");
   const completeActionButton = event.target.closest("[data-complete-action]");
   const actionPendingButton = event.target.closest("[data-action-pending]");
+  const signalButton = event.target.closest("[data-signal-target]");
   const contentGenerateButton = event.target.closest("[data-content-generate]");
   const contentDevelopButton = event.target.closest("[data-content-develop]");
   const contentTaskButton = event.target.closest("[data-content-task]");
@@ -1373,6 +1386,18 @@ document.addEventListener("click", async (event) => {
     renderTodaySidebar(currentActionDecisions);
     updateBriefingAfterCompletion(visibleActionDecisions(currentActionDecisions)[0]);
     renderTestResult("Demo data reset", { message: "Trois tâches de test propres ont été chargées dans la sidebar AUJOURD’HUI." }, true);
+    return;
+  }
+
+  if (signalButton) {
+    const target = signalButton.dataset.signalTarget;
+    const details = [...document.querySelectorAll(".quiet-panels details")].find(
+      (item) => item.querySelector("summary")?.textContent?.trim() === target
+    );
+    if (details) {
+      details.open = true;
+      details.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
     return;
   }
 
