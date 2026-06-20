@@ -1054,6 +1054,7 @@ function jarvisCalendarEvents(db) {
   }));
   const cardShowEvents = jarvisCardShows(db);
   const week = [...externalEvents, ...cardShowEvents]
+    .filter((event) => isRelevantJarvisCalendarEvent(event))
     .filter((event) => {
       if (!event.start) return true;
       const eventDate = new Date(event.start);
@@ -1067,6 +1068,20 @@ function jarvisCalendarEvents(db) {
     tomorrow: week.filter((event) => String(event.start || "").slice(0, 10) === tomorrow),
     week,
   };
+}
+
+function isRelevantJarvisCalendarEvent(event) {
+  const text = `${event.title || ""} ${event.description || ""} ${event.location || ""} ${event.calendarSource || ""} ${event.category || ""}`.toLowerCase();
+  const relevant =
+    /meeting|meet|rendez-vous|rdv|appel|call|zoom|card show|collect-a-con|expo|convention|coffee|coffeebreak|cbtcg|manners|deadline|échéance|echeance|voyage|flight|vol|hotel|anniversaire|birthday|commande|client|fournisseur|supplier/.test(
+      text
+    );
+  const genericHoliday =
+    /holiday|jour férié|jour ferie|fête|fete|observance|canada day|thanksgiving|christmas|no[eë]l|easter|pâques|paques|st-jean|saint-jean|fête du travail|fete du travail/.test(
+      text
+    );
+  if (genericHoliday && !/anniversaire|birthday|coffee|coffeebreak|cbtcg|manners|card show/.test(text)) return false;
+  return relevant || Number(event.score || 0) >= 72 || ["Card Show", "CoffeeBreak", "Important", "Travail"].includes(event.category);
 }
 
 function jarvisPriorities(db, context) {

@@ -29,6 +29,7 @@ let currentContentOpportunities = [];
 let activeStudioOpportunity = null;
 let speechTimer = null;
 let currentActionDecisions = [];
+let currentAllEmails = [];
 let currentEmailQueue = [];
 let currentFollowupEmails = [];
 let gmailAutoSyncTimer = null;
@@ -410,9 +411,32 @@ async function loadEmailActionLog() {
 
 async function loadEmailFocus() {
   const payload = await api("/api/jarvis/emails?filter=all");
+  currentAllEmails = payload.emails || [];
   renderEmailFocus(payload.emails || []);
   await loadEmailActionLog().catch(() => {});
   return payload;
+}
+
+function showEmailSyncMessage(message, tone = "working") {
+  const node = document.querySelector("[data-gmail-sync-line]");
+  if (!node) return;
+  node.dataset.syncTone = tone;
+  node.textContent = message;
+}
+
+function restoreEmailToQueue(email, message) {
+  if (!email) return;
+  currentAllEmails = [email, ...currentAllEmails.filter((item) => item.id !== email.id)];
+  renderEmailFocus(currentAllEmails);
+  showEmailSyncMessage(message || "L’action n’a pas pu être complétée. Email remis dans la pile.", "error");
+}
+
+function optimisticEmailAdvance(id, message) {
+  const email = currentAllEmails.find((item) => item.id === id);
+  currentAllEmails = currentAllEmails.filter((item) => item.id !== id);
+  renderEmailFocus(currentAllEmails);
+  showEmailSyncMessage(message || "Action en cours...", "working");
+  return email;
 }
 
 async function syncGmail({ silent = false } = {}) {
@@ -550,7 +574,14 @@ function demoActionDecisions() {
 
 function visibleActionDecisions(decisions = currentActionDecisions) {
   const done = completedActions();
-  return (decisions || []).filter((item) => !done.has(actionId(item)));
+  const seen = new Set();
+  return (decisions || []).filter((item) => {
+    if (done.has(actionId(item))) return false;
+    const key = String(item.title || "").trim().toLowerCase();
+    if (key && seen.has(key)) return false;
+    if (key) seen.add(key);
+    return true;
+  });
 }
 
 function renderCompletedActions(decisions = currentActionDecisions) {
@@ -576,6 +607,8 @@ function renderCompletedActions(decisions = currentActionDecisions) {
 
 function renderTodaySidebar(decisions = currentActionDecisions) {
   const active = visibleActionDecisions(decisions);
+  const title = document.querySelector(".today-sidebar .eyebrow");
+  if (title) title.innerHTML = `Aujourd’hui <span>${Math.min(active.length, 3)}</span>`;
   renderActionCard("now", active[0], "Faire maintenant");
   renderActionCard("next", active[1], "Ensuite");
   renderActionCard("later", active[2], "Après");
@@ -586,8 +619,8 @@ function updateBriefingAfterCompletion(nextAction) {
   const summary = document.querySelector("[data-today-summary]");
   if (summary) {
     summary.innerHTML = nextAction
-      ? `<p>Prochaine action: ${escapeHtml(nextAction.title || "continuer le plan")}</p>`
-      : `<p>Plan du jour vidé. Jarvis ne voit plus d’action immédiate.</p>`;
+      ? `<div class="calm-briefing"><span>Prochaine priorité</span><strong>${escapeHtml(nextAction.title || "continuer le plan")}</strong><p>${escapeHtml(nextAction.action || "Passe à cette étape maintenant.")}</p></div>`
+      : `<div class="calm-briefing"><span>Aujourd’hui</span><strong>Plan immédiat vidé</strong><p>Relance un briefing ou passe à une action de croissance.</p></div>`;
   }
   typeJarvisSpeech(
     nextAction
@@ -616,22 +649,32 @@ function renderActionCard(slot, item, label) {
   node.classList.toggle("is-complete", isDone);
   node.classList.remove("is-empty");
   node.innerHTML = `
-    <div class="action-title-row">
-      <button type="button" class="task-check" data-complete-action="${escapeHtml(id)}" aria-label="Terminer"></button>
-      <h2>${escapeHtml(item.title || "Action sans titre")}</h2>
-      <span>${estimateMinutes(item)} min</span>
-    </div>
-    <p class="action-label">${label}</p>
-    <dl>
-      <div>
-        <dt>Pourquoi</dt>
-        <dd>${escapeHtml(whyFor(item))}</dd>
+    <details class="task-details">
+      <summary>
+        <button type="button" class="task-check" data-complete-action="${escapeHtml(id)}" aria-label="Terminer"></button>
+        <span class="task-title">${escapeHtml(item.title || "Action sans titre")}</span>
+        <span class="task-time">${estimateMinutes(item)} min</span>
+      </summary>
+      <p class="action-label">${label}</p>
+      <dl>
+        <div>
+          <dt>Pourquoi</dt>
+          <dd>${escapeHtml(whyFor(item))}</dd>
+        </div>
+        <div>
+          <dt>Impact</dt>
+          <dd>${escapeHtml(impactFor(item))}</dd>
+        </div>
+        <div>
+          <dt>Comment faire</dt>
+          <dd>${escapeHtml(item.action || "Faire la prochaine étape concrète, puis marquer terminé.")}</dd>
+        </div>
+      </dl>
+      <div class="task-actions">
+        <button type="button" data-complete-action="${escapeHtml(id)}">Terminé</button>
+        <button type="button" class="ghost-dark" data-action-pending="${escapeHtml(id)}">Mettre en attente</button>
       </div>
-      <div>
-        <dt>Impact</dt>
-        <dd>${escapeHtml(impactFor(item))}</dd>
-      </div>
-    </dl>
+    </details>
   `;
 }
 
@@ -640,17 +683,29 @@ function shortTaskLabel(count, singular, plural = `${singular}s`) {
   return `${count} ${count > 1 ? plural : singular}`;
 }
 
-function renderTodaySummary(counts, cardShowsCount) {
+function renderTodaySummary(counts, cardShowsCount, focus) {
   const items = [
-    shortTaskLabel(counts.ordersToShip || 0, "commande à expédier", "commandes à expédier"),
-    shortTaskLabel(counts.invoices || 0, "facture à vérifier", "factures à vérifier"),
-    shortTaskLabel(cardShowsCount || 0, "opportunité Card Show", "opportunités Card Show"),
+    shortTaskLabel(counts.ordersToShip || 0, "commande", "commandes"),
+    shortTaskLabel(counts.invoices || 0, "facture", "factures"),
+    shortTaskLabel(cardShowsCount || 0, "opportunité", "opportunités"),
   ].filter(Boolean);
   document.querySelector("[data-today-summary]").innerHTML = items.length
-    ? `<div class="summary-lines">${items.map((item) => `<p>${escapeHtml(item)}</p>`).join("")}</div>`
-    : `<p>Aucun feu administratif majeur. Tu peux passer à une action de croissance.</p>`;
+    ? `
+      <div class="calm-briefing">
+        <span>Aujourd’hui</span>
+        <strong>${items.map(escapeHtml).join(" · ")}</strong>
+        <p><b>Priorité actuelle:</b> ${escapeHtml(focus?.title || "Avancer CoffeeBreak")}</p>
+      </div>
+    `
+    : `
+      <div class="calm-briefing">
+        <span>Aujourd’hui</span>
+        <strong>Calme opérationnel</strong>
+        <p><b>Priorité actuelle:</b> ${escapeHtml(focus?.title || "Action de croissance")}</p>
+      </div>
+    `;
   const adminMinutes = Math.max(0, (counts.ordersToShip || 0) * 4 + (counts.invoices || 0) * 2 + Math.min(cardShowsCount || 0, 3) * 2);
-  document.querySelector("[data-admin-time]").textContent = `${adminMinutes || 8} minutes`;
+  document.querySelector("[data-admin-time]").textContent = `${adminMinutes || 8} min`;
 }
 
 function renderTicker(ticker) {
@@ -665,10 +720,8 @@ function renderTicker(ticker) {
 function renderJarvisSpeech(payload, decisions) {
   const counts = payload.counts || {};
   const focus = decisions?.[0];
-  const urgency = counts.criticalEmails ? `${counts.criticalEmails} email${counts.criticalEmails > 1 ? "s" : ""} critique${counts.criticalEmails > 1 ? "s" : ""}` : "aucune urgence critique";
-  typeJarvisSpeech(`Bonjour Max. Tu as ${urgency}, ${counts.ordersToShip || 0} commande${counts.ordersToShip > 1 ? "s" : ""} à expédier et ${
-    counts.cardShows || 0
-  } opportunité${counts.cardShows > 1 ? "s" : ""} Card Show. Je recommande: ${focus?.title || "ajouter des cartes au site"}. ${focus?.action || ""}`);
+  const after = decisions?.[1]?.title ? `Ensuite: ${decisions[1].title}.` : "Ensuite, avance une tâche de croissance.";
+  typeJarvisSpeech(`${focus?.action || "Traite la priorité actuelle."} ${after}`);
 }
 
 function renderLivingBoard(payload, decisions) {
@@ -921,9 +974,9 @@ function renderBriefing(payload) {
   currentContentOpportunities = contentOpportunities || [];
   const decisions = briefing.decisionMatrix?.all || [];
   currentActionDecisions = decisions;
-  renderTodaySummary(counts || {}, (emails.important || []).filter((email) => email.category === "Card Shows").length || (payload.cardShows || []).length);
   renderTicker(ticker || []);
   const visibleDecisions = visibleActionDecisions(decisions);
+  renderTodaySummary(counts || {}, (emails.important || []).filter((email) => email.category === "Card Shows").length || (payload.cardShows || []).length, visibleDecisions[0]);
   renderJarvisSpeech(payload, visibleDecisions);
   renderLivingBoard(payload, visibleDecisions);
   renderTodaySidebar(decisions);
@@ -1285,6 +1338,7 @@ document.addEventListener("click", async (event) => {
   const reimportAllButton = event.target.closest("[data-reimport-all]");
   const demoResetButton = event.target.closest("[data-demo-reset]");
   const completeActionButton = event.target.closest("[data-complete-action]");
+  const actionPendingButton = event.target.closest("[data-action-pending]");
   const contentGenerateButton = event.target.closest("[data-content-generate]");
   const contentDevelopButton = event.target.closest("[data-content-develop]");
   const contentTaskButton = event.target.closest("[data-content-task]");
@@ -1292,8 +1346,21 @@ document.addEventListener("click", async (event) => {
   const studioCloseButton = event.target.closest("[data-content-studio-close]");
 
   if (completeActionButton) {
+    event.preventDefault();
+    event.stopPropagation();
     const done = completedActions();
     done.add(completeActionButton.dataset.completeAction);
+    saveCompletedActions(done);
+    renderTodaySidebar(currentActionDecisions);
+    updateBriefingAfterCompletion(visibleActionDecisions(currentActionDecisions)[0]);
+    return;
+  }
+
+  if (actionPendingButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    const done = completedActions();
+    done.add(actionPendingButton.dataset.actionPending);
     saveCompletedActions(done);
     renderTodaySidebar(currentActionDecisions);
     updateBriefingAfterCompletion(visibleActionDecisions(currentActionDecisions)[0]);
@@ -1508,20 +1575,23 @@ document.addEventListener("click", async (event) => {
     const card = button.closest("[data-active-email-id]");
     const textarea = card?.querySelector("[data-email-reply]");
     const isDraft = Boolean(emailDraftButton);
+    const id = button.dataset.emailDraft || button.dataset.emailConfirmSend;
+    const email = optimisticEmailAdvance(id, isDraft ? "Création du brouillon Gmail..." : "Envoi confirmé en cours...");
     button.disabled = true;
     button.textContent = isDraft ? "Création..." : "Envoi...";
     try {
       await api(isDraft ? "/api/jarvis/emails/draft" : "/api/jarvis/emails/send", {
         method: "POST",
         body: JSON.stringify({
-          id: button.dataset.emailDraft || button.dataset.emailConfirmSend,
+          id,
           body: textarea?.value || "",
           confirm: !isDraft,
         }),
       });
+      showEmailSyncMessage(isDraft ? "Brouillon Gmail créé." : "Email envoyé.", "ok");
       await loadJarvis({ skipAutoSync: true });
     } catch (error) {
-      if (textarea) textarea.value = `${textarea.value}\n\n[${isDraft ? "Brouillon impossible" : "Envoi impossible"}: ${error.message}]`;
+      restoreEmailToQueue(email, `${isDraft ? "Brouillon impossible" : "Envoi impossible"}. ${error.message}`);
     } finally {
       button.disabled = false;
       button.textContent = isDraft ? "Créer brouillon Gmail" : "Confirmer l’envoi";
@@ -1530,12 +1600,14 @@ document.addEventListener("click", async (event) => {
   }
 
   if (emailTaskButton) {
+    const email = optimisticEmailAdvance(emailTaskButton.dataset.emailTask, "Création de la tâche en arrière-plan...");
     emailTaskButton.disabled = true;
     try {
       await api("/api/jarvis/emails/task", { method: "POST", body: JSON.stringify({ id: emailTaskButton.dataset.emailTask }) });
+      showEmailSyncMessage("Tâche créée.", "ok");
       await loadJarvis({ skipAutoSync: true });
     } catch (error) {
-      document.querySelector("[data-gmail-state]").innerHTML = `<p>${escapeHtml(error.message)}</p>`;
+      restoreEmailToQueue(email, `L’action n’a pas pu être complétée. ${error.message}`);
     } finally {
       emailTaskButton.disabled = false;
     }
@@ -1543,12 +1615,14 @@ document.addEventListener("click", async (event) => {
   }
 
   if (emailEventButton) {
+    const email = optimisticEmailAdvance(emailEventButton.dataset.emailEvent, "Préparation de l’événement en arrière-plan...");
     emailEventButton.disabled = true;
     try {
       await api("/api/jarvis/emails/event", { method: "POST", body: JSON.stringify({ id: emailEventButton.dataset.emailEvent }) });
+      showEmailSyncMessage("Événement à valider préparé.", "ok");
       await loadJarvis({ skipAutoSync: true });
     } catch (error) {
-      document.querySelector("[data-gmail-state]").innerHTML = `<p>${escapeHtml(error.message)}</p>`;
+      restoreEmailToQueue(email, `L’action n’a pas pu être complétée. ${error.message}`);
     } finally {
       emailEventButton.disabled = false;
     }
@@ -1571,20 +1645,24 @@ document.addEventListener("click", async (event) => {
   }
 
   if (emailStatusButton) {
+    const id = emailStatusButton.dataset.emailId;
+    const status = emailStatusButton.dataset.emailStatus;
+    const email = optimisticEmailAdvance(id, status === "ignoré" ? "Email ignoré en arrière-plan..." : "Statut mis à jour en arrière-plan...");
     emailStatusButton.disabled = true;
     try {
       const payload = await api("/api/jarvis/emails/status", {
         method: "POST",
         body: JSON.stringify({
-          id: emailStatusButton.dataset.emailId,
-          status: emailStatusButton.dataset.emailStatus,
+          id,
+          status,
         }),
       });
+      showEmailSyncMessage(status === "ignoré" ? "Email ignoré." : "Email mis à jour.", "ok");
       renderBriefing(payload.briefing);
       await loadEmailReview().catch(() => {});
       await loadEmailFocus().catch(() => {});
     } catch (error) {
-      emailStatusButton.textContent = error.message;
+      restoreEmailToQueue(email, `L’action n’a pas pu être complétée. ${error.message}`);
     }
   }
 
