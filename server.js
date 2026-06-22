@@ -1483,9 +1483,9 @@ function jarvisTicker(db, context) {
     { label: "Inventaire", value: String(inventory.length) },
     { label: "Produits populaires", value: topSeller || "—" },
     { label: "Inventaire dormant", value: String(context.inventoryIntelligence.summary?.dormantCount || 0) },
-    { label: "Card Shows à venir", value: String(context.cardShows.length || 0) },
-    { label: "Alertes importantes", value: String(alertCount), tone: alertCount ? "alert" : "" },
-    { label: "Mise à jour", value: updatedAt },
+    { label: "Card Shows", value: String(context.cardShows.length || 0) },
+    { label: "Alertes", value: String(alertCount), tone: alertCount ? "alert" : "" },
+    { label: "Dernière mise à jour", value: updatedAt },
   ];
 }
 

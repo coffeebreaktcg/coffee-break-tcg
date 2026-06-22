@@ -35,6 +35,7 @@ let currentFollowupEmails = [];
 let gmailAutoSyncTimer = null;
 let voiceRecognition = null;
 let voiceListening = false;
+let lastOrbCommandAt = 0;
 
 function oauthMessageFromParams() {
   const params = new URLSearchParams(window.location.search);
@@ -116,6 +117,52 @@ function setVoiceStatus(text, tone = "") {
   if (!node) return;
   node.textContent = text || "";
   node.dataset.tone = tone;
+}
+
+function commandDock() {
+  return document.querySelector("[data-command-dock]");
+}
+
+function commandToggle() {
+  return document.querySelector("[data-command-toggle]");
+}
+
+function openCommandDock(mode = "write") {
+  const dock = commandDock();
+  if (!dock) return;
+  const toggle = commandToggle();
+  if (toggle) toggle.checked = true;
+  dock.dataset.mode = mode;
+  document.body.classList.add("jarvis-command-open");
+  const input = dock.querySelector('input[name="question"]');
+  if (mode !== "voice") window.requestAnimationFrame(() => input?.focus());
+}
+
+function closeCommandDock() {
+  const dock = commandDock();
+  if (!dock) return;
+  const toggle = commandToggle();
+  if (toggle) toggle.checked = false;
+  dock.dataset.mode = "";
+  document.body.classList.remove("jarvis-command-open");
+  setVoiceStatus("");
+}
+
+function startJarvisVoice() {
+  openCommandDock("voice");
+  if (!voiceRecognition) {
+    setVoiceStatus("Micro indisponible. Écris ta demande à Jarvis.", "error");
+    return;
+  }
+  if (voiceListening) {
+    voiceRecognition.stop();
+    return;
+  }
+  try {
+    voiceRecognition.start();
+  } catch {
+    setVoiceStatus("Le micro est déjà en cours d’écoute.", "listening");
+  }
 }
 
 function setBackgroundStatus(text, tone = "working") {
@@ -631,6 +678,7 @@ function renderCompletedActions(decisions = currentActionDecisions) {
         .map(
           (item) => `
             <div class="completed-item">
+              <span class="completed-check">✓</span>
               <strong>${escapeHtml(item.title || "Action")}</strong>
               <span>${estimateMinutes(item)} min</span>
             </div>
@@ -642,11 +690,11 @@ function renderCompletedActions(decisions = currentActionDecisions) {
 
 function renderTodaySidebar(decisions = currentActionDecisions) {
   const active = visibleActionDecisions(decisions);
-  const title = document.querySelector(".today-sidebar .eyebrow");
-  if (title) title.innerHTML = `Aujourd’hui <span>${Math.min(active.length, 3)}</span>`;
-  renderActionCard("now", active[0], "Maintenant");
-  renderActionCard("next", active[1], "Ensuite");
-  renderActionCard("later", active[2], "Après");
+  const count = document.querySelector("[data-today-count]");
+  if (count) count.textContent = String(Math.min(active.length, 7));
+  renderActionGroup("now", active.slice(0, 2), "Maintenant", true);
+  renderActionGroup("next", active.slice(2, 5), "Ensuite", false);
+  renderActionGroup("later", active.slice(5, 7), "Après", false);
   renderCompletedActions(decisions);
 }
 
@@ -656,8 +704,10 @@ function updateBriefingAfterCompletion(nextAction) {
   const summary = document.querySelector("[data-today-summary]");
   if (summary) {
     summary.innerHTML = nextAction
-      ? `<div class="calm-briefing"><span>Prochaine priorité</span><strong>${escapeHtml(nextAction.title || "continuer le plan")}</strong><p>${escapeHtml(nextAction.action || "Passe à cette étape maintenant.")}</p></div>`
-      : `<div class="calm-briefing"><span>Aujourd’hui</span><strong>Plan immédiat vidé</strong><p>Relance un briefing ou passe à une action de croissance.</p></div>`;
+      ? `<div class="calm-briefing"><p class="brief-lead">Voici ce qui compte aujourd’hui.</p><small>Priorité actuelle</small><strong>${escapeHtml(
+          nextAction.title || "continuer le plan"
+        )}</strong><p>${escapeHtml(nextAction.action || "Passe à cette étape maintenant.")}</p></div>`
+      : `<div class="calm-briefing"><p class="brief-lead">Voici ce qui compte aujourd’hui.</p><small>Priorité actuelle</small><strong>Plan immédiat vidé</strong><p>Relance un briefing ou passe à une action de croissance.</p></div>`;
   }
   typeJarvisSpeech(
     nextAction
@@ -666,53 +716,77 @@ function updateBriefingAfterCompletion(nextAction) {
   );
 }
 
-function renderActionCard(slot, item, label) {
+function taskStepsFor(item) {
+  const action = String(item?.action || "Faire la prochaine étape concrète, puis marquer terminé.").trim();
+  const parts = action
+    .split(/(?:\.\s+|;\s+|\n+)/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+  return parts.length ? parts : [action];
+}
+
+function renderTaskLine(item, label, index, openByDefault = false) {
+  const id = actionId(item);
+  return `
+    <details class="task-line ${index === 0 && label === "Maintenant" ? "is-current" : ""}" ${openByDefault ? "open" : ""}>
+      <summary>
+        <button type="button" class="task-check" data-complete-action="${escapeHtml(id)}" aria-label="Terminer ${escapeHtml(
+          item.title || "cette tâche"
+        )}"></button>
+        <span class="task-title">${escapeHtml(item.title || "Action sans titre")}</span>
+        <span class="task-priority">${escapeHtml(item.priority || "")}</span>
+        <span class="task-time">${estimateMinutes(item)} min</span>
+      </summary>
+      <div class="task-expanded">
+        <dl>
+          <div>
+            <dt>Pourquoi</dt>
+            <dd>${escapeHtml(whyFor(item))}</dd>
+          </div>
+          <div>
+            <dt>Impact</dt>
+            <dd>${escapeHtml(impactFor(item))}</dd>
+          </div>
+          <div>
+            <dt>Comment faire</dt>
+            <dd><ol>${taskStepsFor(item)
+              .map((step) => `<li>${escapeHtml(step)}</li>`)
+              .join("")}</ol></dd>
+          </div>
+        </dl>
+        <div class="task-actions">
+          <button type="button" data-complete-action="${escapeHtml(id)}">Terminé</button>
+          <button type="button" class="ghost-dark" data-action-pending="${escapeHtml(id)}">Mettre en attente</button>
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+function renderActionGroup(slot, items, label, openFirst) {
   const node = document.querySelector(`[data-action-card="${slot}"]`);
   if (!node) return;
-  if (!item) {
+  if (!items?.length) {
     node.innerHTML = `
-      <p class="task-section-label">${label}</p>
-      <div class="action-title-row">
-        <button type="button" class="task-check" disabled aria-label="Aucune tâche"></button>
-        <h2>Rien à traiter.</h2>
+      <div class="task-section-label">
+        <span>${label}</span>
+        <em>0</em>
       </div>
-      <p class="action-muted">Jarvis ne voit pas d’action prioritaire.</p>
+      <p class="action-muted">Rien à traiter.</p>
     `;
     node.classList.add("is-empty");
     return;
   }
-  const id = actionId(item);
-  const isDone = completedActions().has(id);
-  node.classList.toggle("is-complete", isDone);
   node.classList.remove("is-empty");
   node.innerHTML = `
-    <p class="task-section-label">${label}</p>
-    <details class="task-details">
-      <summary>
-        <button type="button" class="task-check" data-complete-action="${escapeHtml(id)}" aria-label="Terminer"></button>
-        <span class="task-title">${escapeHtml(item.title || "Action sans titre")}</span>
-        <span class="task-time">${estimateMinutes(item)} min</span>
-      </summary>
-      <p class="action-label">${label}</p>
-      <dl>
-        <div>
-          <dt>Pourquoi</dt>
-          <dd>${escapeHtml(whyFor(item))}</dd>
-        </div>
-        <div>
-          <dt>Impact</dt>
-          <dd>${escapeHtml(impactFor(item))}</dd>
-        </div>
-        <div>
-          <dt>Comment faire</dt>
-          <dd>${escapeHtml(item.action || "Faire la prochaine étape concrète, puis marquer terminé.")}</dd>
-        </div>
-      </dl>
-      <div class="task-actions">
-        <button type="button" data-complete-action="${escapeHtml(id)}">Terminé</button>
-        <button type="button" class="ghost-dark" data-action-pending="${escapeHtml(id)}">Mettre en attente</button>
-      </div>
-    </details>
+    <div class="task-section-label">
+      <span>${label}</span>
+      <em>${items.length}</em>
+    </div>
+    <div class="task-list">
+      ${items.map((item, index) => renderTaskLine(item, label, index, Boolean(openFirst && index === 0))).join("")}
+    </div>
   `;
 }
 
@@ -727,16 +801,17 @@ function renderTodaySummary(counts, cardShowsCount, focus) {
     shortTaskLabel(counts.invoices || 0, "facture", "factures"),
     shortTaskLabel(cardShowsCount || 0, "opportunité", "opportunités"),
   ].filter(Boolean);
-  const lead = items.length
-    ? `Tu as ${items.map(escapeHtml).join(", ")} à garder en tête aujourd’hui.`
-    : "Les signaux essentiels sont calmes pour l’instant.";
+  const lead = "Voici ce qui compte aujourd’hui.";
+  const context = items.length
+    ? `Tu as ${items.map(escapeHtml).join(", ")} à surveiller, mais une seule action doit passer en premier.`
+    : "Aucune urgence critique visible. La meilleure action reste une action de croissance simple.";
   const focusTitle = focus?.title || "Avancer CoffeeBreak";
   const focusAction = focus?.action || "Choisir une action simple et concrète.";
   document.querySelector("[data-today-summary]").innerHTML = items.length
     ? `
       <div class="calm-briefing">
-        <span>Aujourd’hui</span>
-        <p class="brief-copy">${lead} La priorité est ${escapeHtml(focusTitle).toLowerCase()}.</p>
+        <p class="brief-lead">${lead}</p>
+        <p class="brief-context">${context}</p>
         <small>Priorité actuelle</small>
         <strong>${escapeHtml(focusTitle)}</strong>
         <p>${escapeHtml(focusAction)}</p>
@@ -744,8 +819,8 @@ function renderTodaySummary(counts, cardShowsCount, focus) {
     `
     : `
       <div class="calm-briefing">
-        <span>Aujourd’hui</span>
-        <p class="brief-copy">${lead}</p>
+        <p class="brief-lead">${lead}</p>
+        <p class="brief-context">${context}</p>
         <small>Priorité actuelle</small>
         <strong>${escapeHtml(focusTitle || "Action de croissance")}</strong>
         <p>${escapeHtml(focusAction || "Avancer CoffeeBreak sans urgence administrative.")}</p>
@@ -758,16 +833,16 @@ function renderTodaySummary(counts, cardShowsCount, focus) {
 function renderTicker(ticker) {
   const node = document.querySelector("[data-ticker]");
   if (!node) return;
-  const preferred = ["Ventes aujourd’hui", "Ventes semaine", "Inventaire", "Produits populaires", "Inventaire dormant", "Card Shows à venir", "Alertes importantes", "Mise à jour"];
+  const preferred = ["Ventes aujourd’hui", "Ventes semaine", "Inventaire", "Produits populaires", "Inventaire dormant", "Card Shows", "Alertes", "Dernière mise à jour"];
   const icons = {
     "Ventes aujourd’hui": "↗",
     "Ventes semaine": "□",
     Inventaire: "◇",
     "Produits populaires": "◆",
     "Inventaire dormant": "◷",
-    "Card Shows à venir": "▱",
-    "Alertes importantes": "●",
-    "Mise à jour": "↻",
+    "Card Shows": "▱",
+    Alertes: "●",
+    "Dernière mise à jour": "↻",
   };
   const items = preferred
     .map((label) => (ticker || []).find((item) => item.label === label))
@@ -779,7 +854,7 @@ function renderTicker(ticker) {
           item.value || "—"
         )}</strong></div>`
     )
-    .join("")}`;
+    .join("")}<button type="button" class="ticker-refresh" data-refresh-inline aria-label="Rafraîchir Jarvis">↻</button>`;
 }
 
 function renderJarvisSpeech(payload, decisions) {
@@ -1609,8 +1684,10 @@ function setupVoiceInput() {
 
   voiceRecognition.onstart = () => {
     voiceListening = true;
+    openCommandDock("voice");
     button.classList.add("is-listening");
     setJarvisState("listening");
+    setThinkingLine("Jarvis écoute.");
     setVoiceStatus("Je t’écoute...", "listening");
   };
   voiceRecognition.onresult = (event) => {
@@ -1630,7 +1707,10 @@ function setupVoiceInput() {
     button.classList.remove("is-listening");
     setVoiceStatus(spoken ? "Commande reçue." : "", spoken ? "ok" : "");
     if (spoken) form.requestSubmit();
-    else setJarvisState("idle");
+    else {
+      setJarvisState("idle");
+      setThinkingLine("Jarvis est prêt.");
+    }
   };
 }
 
@@ -1666,7 +1746,7 @@ document.querySelector("[data-ask-jarvis-form]")?.addEventListener("submit", asy
   event.currentTarget.reset();
 });
 
-document.querySelector("[data-refresh]").addEventListener("click", () => {
+function refreshJarvisFromUi() {
   loadJarvis().catch((error) => {
     const alert = document.querySelector("[data-oauth-alert]");
     if (!alert) return;
@@ -1674,7 +1754,25 @@ document.querySelector("[data-refresh]").addEventListener("click", () => {
     alert.classList.remove("ok");
     alert.textContent = error.message;
   });
+}
+
+document.querySelector("[data-refresh]")?.addEventListener("click", refreshJarvisFromUi);
+document.querySelector("[data-command-open]")?.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  openCommandDock("write");
 });
+function handleOrbCommand(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  const now = Date.now();
+  if (now - lastOrbCommandAt < 450) return;
+  lastOrbCommandAt = now;
+  startJarvisVoice();
+}
+
+document.querySelector("[data-orb-voice]")?.addEventListener("click", handleOrbCommand);
+document.querySelector("[data-orb-voice]")?.addEventListener("pointerdown", handleOrbCommand);
 
 document.addEventListener("click", async (event) => {
   const connectButton = event.target.closest("[data-connect-gmail]");
@@ -1702,11 +1800,36 @@ document.addEventListener("click", async (event) => {
   const actionPendingButton = event.target.closest("[data-action-pending]");
   const signalButton = event.target.closest("[data-signal-target]");
   const voiceButton = event.target.closest("[data-voice-button]");
+  const orbVoiceButton = event.target.closest("[data-orb-voice]");
+  const commandOpenButton = event.target.closest("[data-command-open]");
+  const commandCloseButton = event.target.closest("[data-command-close]");
+  const refreshInlineButton = event.target.closest("[data-refresh-inline]");
   const contentGenerateButton = event.target.closest("[data-content-generate]");
   const contentDevelopButton = event.target.closest("[data-content-develop]");
   const contentTaskButton = event.target.closest("[data-content-task]");
   const studioGenerateButton = event.target.closest("[data-studio-generate]");
   const studioCloseButton = event.target.closest("[data-content-studio-close]");
+
+  if (refreshInlineButton) {
+    refreshJarvisFromUi();
+    return;
+  }
+
+  if (commandCloseButton) {
+    closeCommandDock();
+    setJarvisState("idle");
+    return;
+  }
+
+  if (commandOpenButton) {
+    openCommandDock("write");
+    return;
+  }
+
+  if (orbVoiceButton) {
+    startJarvisVoice();
+    return;
+  }
 
   if (completeActionButton) {
     event.preventDefault();
@@ -1740,19 +1863,7 @@ document.addEventListener("click", async (event) => {
   }
 
   if (voiceButton) {
-    if (!voiceRecognition) {
-      setVoiceStatus("Micro indisponible. Écris ta demande à Jarvis.", "error");
-      return;
-    }
-    if (voiceListening) {
-      voiceRecognition.stop();
-      return;
-    }
-    try {
-      voiceRecognition.start();
-    } catch {
-      setVoiceStatus("Le micro est déjà en cours d’écoute.", "listening");
-    }
+    startJarvisVoice();
     return;
   }
 

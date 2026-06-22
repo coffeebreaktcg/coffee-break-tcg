@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/jarvis.css?v=jarvis-home-redesign-20260622" />
+    <link rel="stylesheet" href="/jarvis.css?v=jarvis-home-command-rebuild-20260622e" />
   </head>
   <body>
     <main class="jarvis-shell">
@@ -48,32 +48,40 @@
 
         <section class="command-center">
           <section class="jarvis-stage">
-            <div class="orb-wrap" aria-hidden="true">
-              <div class="jarvis-orb">
+            <input class="command-toggle" type="checkbox" id="jarvis-command-toggle" data-command-toggle aria-hidden="true" />
+            <div class="orb-wrap">
+              <label class="jarvis-orb" for="jarvis-command-toggle" data-orb-voice aria-label="Parler à Jarvis" role="button" tabindex="0">
                 <span></span>
-              </div>
-              <p class="thinking-line" data-thinking-line>Jarvis initialise le briefing...</p>
+                <em>Parler à Jarvis</em>
+              </label>
+              <button class="thinking-line" type="button" data-command-open data-thinking-line>Jarvis initialise le briefing...</button>
             </div>
             <div class="spoken-briefing">
               <p class="eyebrow">JARVIS</p>
               <div class="today-summary" data-today-summary>Préparation du briefing...</div>
-              <p class="jarvis-speech" data-jarvis-speech>Jarvis analyse les signaux CoffeeBreak.</p>
               <div class="gmail-notice" data-gmail-notice hidden>
                 <p>Gmail n’est pas connecté. Jarvis ne peut pas lire tes emails pour l’instant.</p>
                 <button type="button" data-connect-gmail="business">Connecter Gmail maintenant</button>
               </div>
+              <p class="jarvis-speech" data-jarvis-speech>Jarvis analyse les signaux CoffeeBreak.</p>
+            </div>
+            <aside class="command-dock" data-command-dock aria-label="Commande à Jarvis">
+              <div class="command-dock-head">
+                <span>Commande à Jarvis</span>
+                <button type="button" data-command-close aria-label="Fermer la commande">×</button>
+              </div>
               <form class="ask-jarvis" data-ask-jarvis-form>
-                <input type="text" name="question" placeholder="Demander à Jarvis..." autocomplete="off" />
+                <input type="text" name="question" placeholder="Pose une question ou donne un ordre à Jarvis..." autocomplete="off" />
                 <button type="button" class="mic-button" data-voice-button aria-label="Parler à Jarvis">
                   <span></span>
                 </button>
-                <button type="submit">Parler à Jarvis</button>
+                <button type="submit" aria-label="Envoyer à Jarvis">Envoyer</button>
               </form>
               <p class="voice-status" data-voice-status></p>
-              <p class="background-status" data-background-status hidden></p>
               <p class="ask-response" data-ask-response></p>
-            </div>
+            </aside>
             <div class="admin-time">
+              <p class="background-status" data-background-status hidden></p>
               <span>Temps administratif estimé</span>
               <strong data-admin-time>...</strong>
             </div>
@@ -81,7 +89,7 @@
 
           <aside class="today-sidebar" aria-label="Aujourd’hui" data-today-sidebar>
             <div class="today-sidebar-inner">
-              <p class="eyebrow">Aujourd’hui</p>
+              <p class="eyebrow">Aujourd’hui <span data-today-count>0</span></p>
               <article class="primary-action" data-action-card="now"></article>
               <article class="secondary-action" data-action-card="next"></article>
               <article class="secondary-action" data-action-card="later"></article>
@@ -197,6 +205,6 @@
       </section>
     </main>
 
-    <script src="/jarvis.js?v=jarvis-home-redesign-20260622" defer></script>
+    <script src="/jarvis.js?v=jarvis-home-command-rebuild-20260622e" defer></script>
   </body>
 </html>
