@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/jarvis.css?v=jarvis-final-polish-voice-20260622" />
+    <link rel="stylesheet" href="/jarvis.css?v=jarvis-home-redesign-20260622" />
   </head>
   <body>
     <main class="jarvis-shell">
@@ -55,7 +55,7 @@
               <p class="thinking-line" data-thinking-line>Jarvis initialise le briefing...</p>
             </div>
             <div class="spoken-briefing">
-              <p class="eyebrow">Briefing</p>
+              <p class="eyebrow">JARVIS</p>
               <div class="today-summary" data-today-summary>Préparation du briefing...</div>
               <p class="jarvis-speech" data-jarvis-speech>Jarvis analyse les signaux CoffeeBreak.</p>
               <div class="gmail-notice" data-gmail-notice hidden>
@@ -70,13 +70,13 @@
                 <button type="submit">Parler à Jarvis</button>
               </form>
               <p class="voice-status" data-voice-status></p>
+              <p class="background-status" data-background-status hidden></p>
               <p class="ask-response" data-ask-response></p>
             </div>
             <div class="admin-time">
               <span>Temps administratif estimé</span>
               <strong data-admin-time>...</strong>
             </div>
-            <div class="living-board" data-living-board></div>
           </section>
 
           <aside class="today-sidebar" aria-label="Aujourd’hui" data-today-sidebar>
@@ -91,11 +91,16 @@
               </details>
             </div>
           </aside>
+
+          <section class="focus-grid" data-focus-grid>
+            <article class="home-card home-email-focus" data-home-email-focus></article>
+            <article class="home-card home-agenda" data-home-agenda></article>
+          </section>
         </section>
 
         <section class="quiet-panels" aria-label="Détails Jarvis">
           <details>
-            <summary>Emails</summary>
+            <summary data-panel-summary="Emails">Emails</summary>
             <div class="panel-body">
               <div class="gmail-controls">
                 <button type="button" data-connect-gmail="business">Connecter Gmail business</button>
@@ -111,7 +116,7 @@
           </details>
 
           <details>
-            <summary>Calendrier</summary>
+            <summary data-panel-summary="Calendrier">Calendrier</summary>
             <div class="panel-body">
               <div class="gmail-controls">
                 <button type="button" data-connect-calendar>Connecter Google Calendar</button>
@@ -135,7 +140,7 @@
           </details>
 
           <details>
-            <summary>Marketing & Contenu</summary>
+            <summary data-panel-summary="Marketing & Contenu">Marketing & Contenu</summary>
             <div class="panel-body">
               <div class="growth-score" data-growth-score></div>
               <div class="content-opportunity-list" data-content-opportunities></div>
@@ -145,14 +150,14 @@
           </details>
 
           <details>
-            <summary>Inventaire & Produits</summary>
+            <summary data-panel-summary="Inventaire & Produits">Inventaire & Produits</summary>
             <div class="panel-body">
               <div class="inventory-intel" data-inventory-intelligence></div>
             </div>
           </details>
 
           <details>
-            <summary>Mode apprentissage</summary>
+            <summary data-panel-summary="Mode apprentissage">Mode apprentissage</summary>
             <div class="panel-body">
               <div class="learning-head">
                 <p class="feedback-counter" data-feedback-count>0 correction</p>
@@ -172,7 +177,7 @@
           </details>
 
           <details>
-            <summary>Mode technique</summary>
+            <summary data-panel-summary="Mode technique">Mode technique</summary>
             <div class="panel-body">
               <div class="gmail-controls diagnostic-actions">
                 <button type="button" class="ghost-dark" data-test-openai>Tester connexion OpenAI</button>
@@ -192,6 +197,6 @@
       </section>
     </main>
 
-    <script src="/jarvis.js?v=jarvis-final-polish-voice-20260622" defer></script>
+    <script src="/jarvis.js?v=jarvis-home-redesign-20260622" defer></script>
   </body>
 </html>

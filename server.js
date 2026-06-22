@@ -1474,14 +1474,18 @@ function jarvisTicker(db, context) {
   );
   const salesWeek = roundMoney(orders.filter((order) => isSince(order.paidAt || order.createdAt, weekStart)).reduce((sum, order) => sum + orderGrandTotal(order), 0));
   const inventory = activeInventoryItems(db);
+  const topSeller = context.inventoryIntelligence.topSellers?.[0]?.name || "";
   const alertCount = Number(context.ordersToShip.length || 0) + Number(context.emails.filter((email) => email.priority === "Critique").length || 0);
+  const updatedAt = new Date().toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit", timeZone: "America/Toronto" });
   return [
     { label: "Ventes aujourd’hui", value: orders.length ? moneyText(salesToday) : "—", tone: orders.length ? "positive" : "" },
     { label: "Ventes semaine", value: orders.length ? moneyText(salesWeek) : "—", tone: orders.length ? "positive" : "" },
     { label: "Inventaire", value: String(inventory.length) },
+    { label: "Produits populaires", value: topSeller || "—" },
     { label: "Inventaire dormant", value: String(context.inventoryIntelligence.summary?.dormantCount || 0) },
-    { label: "Card Shows", value: String(context.cardShows.length || 0) },
-    { label: "Alertes", value: String(alertCount), tone: alertCount ? "alert" : "" },
+    { label: "Card Shows à venir", value: String(context.cardShows.length || 0) },
+    { label: "Alertes importantes", value: String(alertCount), tone: alertCount ? "alert" : "" },
+    { label: "Mise à jour", value: updatedAt },
   ];
 }
 

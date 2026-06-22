@@ -118,6 +118,14 @@ function setVoiceStatus(text, tone = "") {
   node.dataset.tone = tone;
 }
 
+function setBackgroundStatus(text, tone = "working") {
+  const node = document.querySelector("[data-background-status]");
+  if (!node) return;
+  node.hidden = !text;
+  node.textContent = text || "";
+  node.dataset.tone = tone;
+}
+
 function prepareImmersiveReveal() {
   setJarvisState("thinking");
   document.body.classList.remove("jarvis-ready");
@@ -135,7 +143,7 @@ function runImmersiveReveal() {
     document.querySelector("[data-ticker]"),
     document.querySelector(".spoken-briefing"),
     document.querySelector(".today-sidebar"),
-    document.querySelector("[data-living-board]"),
+    document.querySelector("[data-focus-grid]"),
     document.querySelector(".quiet-panels"),
   ].filter(Boolean);
 
@@ -434,6 +442,7 @@ async function loadEmailFocus() {
   const payload = await api("/api/jarvis/emails?filter=all");
   currentAllEmails = payload.emails || [];
   renderEmailFocus(payload.emails || []);
+  renderHomeEmailFocus(payload.emails || []);
   await loadEmailActionLog().catch(() => {});
   return payload;
 }
@@ -449,6 +458,7 @@ function restoreEmailToQueue(email, message) {
   if (!email) return;
   currentAllEmails = [email, ...currentAllEmails.filter((item) => item.id !== email.id)];
   renderEmailFocus(currentAllEmails);
+  renderHomeEmailFocus(currentAllEmails);
   showEmailSyncMessage(message || "Action non complétée. Email remis dans la pile; tu peux réessayer.", "error");
 }
 
@@ -456,12 +466,14 @@ function optimisticEmailAdvance(id, message) {
   const email = currentAllEmails.find((item) => item.id === id);
   currentAllEmails = currentAllEmails.filter((item) => item.id !== id);
   renderEmailFocus(currentAllEmails);
+  renderHomeEmailFocus(currentAllEmails);
   showEmailSyncMessage(message || "Action en cours...", "working");
   return email;
 }
 
 async function syncGmail({ silent = false } = {}) {
   const syncButton = document.querySelector("[data-sync-gmail]");
+  setBackgroundStatus("Synchronisation des emails et analyse des priorités…");
   if (syncButton && !silent) {
     syncButton.disabled = true;
     syncButton.textContent = "Synchro...";
@@ -470,8 +482,10 @@ async function syncGmail({ silent = false } = {}) {
     await api("/api/jarvis/gmail/sync", { method: "POST", body: JSON.stringify({ source: "all", maxResults: 15 }) });
     await loadJarvis({ skipAutoSync: true });
     await loadEmailFocus().catch(() => {});
+    setBackgroundStatus("", "ok");
   } catch (error) {
     if (!silent) document.querySelector("[data-gmail-state]").innerHTML = `<p>${escapeHtml(error.message)}</p>`;
+    setBackgroundStatus("Synchronisation interrompue.", "error");
   } finally {
     if (syncButton && !silent) {
       syncButton.disabled = false;
@@ -630,7 +644,7 @@ function renderTodaySidebar(decisions = currentActionDecisions) {
   const active = visibleActionDecisions(decisions);
   const title = document.querySelector(".today-sidebar .eyebrow");
   if (title) title.innerHTML = `Aujourd’hui <span>${Math.min(active.length, 3)}</span>`;
-  renderActionCard("now", active[0], "Faire maintenant");
+  renderActionCard("now", active[0], "Maintenant");
   renderActionCard("next", active[1], "Ensuite");
   renderActionCard("later", active[2], "Après");
   renderCompletedActions(decisions);
@@ -657,7 +671,7 @@ function renderActionCard(slot, item, label) {
   if (!node) return;
   if (!item) {
     node.innerHTML = `
-      <p class="action-label">${label}</p>
+      <p class="task-section-label">${label}</p>
       <div class="action-title-row">
         <button type="button" class="task-check" disabled aria-label="Aucune tâche"></button>
         <h2>Rien à traiter.</h2>
@@ -672,6 +686,7 @@ function renderActionCard(slot, item, label) {
   node.classList.toggle("is-complete", isDone);
   node.classList.remove("is-empty");
   node.innerHTML = `
+    <p class="task-section-label">${label}</p>
     <details class="task-details">
       <summary>
         <button type="button" class="task-check" data-complete-action="${escapeHtml(id)}" aria-label="Terminer"></button>
@@ -712,23 +727,28 @@ function renderTodaySummary(counts, cardShowsCount, focus) {
     shortTaskLabel(counts.invoices || 0, "facture", "factures"),
     shortTaskLabel(cardShowsCount || 0, "opportunité", "opportunités"),
   ].filter(Boolean);
+  const lead = items.length
+    ? `Tu as ${items.map(escapeHtml).join(", ")} à garder en tête aujourd’hui.`
+    : "Les signaux essentiels sont calmes pour l’instant.";
+  const focusTitle = focus?.title || "Avancer CoffeeBreak";
+  const focusAction = focus?.action || "Choisir une action simple et concrète.";
   document.querySelector("[data-today-summary]").innerHTML = items.length
     ? `
       <div class="calm-briefing">
         <span>Aujourd’hui</span>
-        <p class="brief-counts">${items.map(escapeHtml).join(" · ")}</p>
+        <p class="brief-copy">${lead} La priorité est ${escapeHtml(focusTitle).toLowerCase()}.</p>
         <small>Priorité actuelle</small>
-        <strong>${escapeHtml(focus?.title || "Avancer CoffeeBreak")}</strong>
-        <p>${escapeHtml(focus?.action || "Traiter la prochaine action concrète.")}</p>
+        <strong>${escapeHtml(focusTitle)}</strong>
+        <p>${escapeHtml(focusAction)}</p>
       </div>
     `
     : `
       <div class="calm-briefing">
         <span>Aujourd’hui</span>
-        <p class="brief-counts">Calme opérationnel</p>
+        <p class="brief-copy">${lead}</p>
         <small>Priorité actuelle</small>
-        <strong>${escapeHtml(focus?.title || "Action de croissance")}</strong>
-        <p>${escapeHtml(focus?.action || "Avancer CoffeeBreak sans urgence administrative.")}</p>
+        <strong>${escapeHtml(focusTitle || "Action de croissance")}</strong>
+        <p>${escapeHtml(focusAction || "Avancer CoffeeBreak sans urgence administrative.")}</p>
       </div>
     `;
   const adminMinutes = Math.max(0, (counts.ordersToShip || 0) * 4 + (counts.invoices || 0) * 2 + Math.min(cardShowsCount || 0, 3) * 2);
@@ -738,33 +758,34 @@ function renderTodaySummary(counts, cardShowsCount, focus) {
 function renderTicker(ticker) {
   const node = document.querySelector("[data-ticker]");
   if (!node) return;
-  const preferred = ["Ventes aujourd’hui", "Ventes semaine", "Inventaire", "Inventaire dormant", "Card Shows", "Alertes"];
+  const preferred = ["Ventes aujourd’hui", "Ventes semaine", "Inventaire", "Produits populaires", "Inventaire dormant", "Card Shows à venir", "Alertes importantes", "Mise à jour"];
   const icons = {
     "Ventes aujourd’hui": "↗",
     "Ventes semaine": "□",
     Inventaire: "◇",
+    "Produits populaires": "◆",
     "Inventaire dormant": "◷",
-    "Card Shows": "▱",
-    Alertes: "◌",
+    "Card Shows à venir": "▱",
+    "Alertes importantes": "●",
+    "Mise à jour": "↻",
   };
   const items = preferred
     .map((label) => (ticker || []).find((item) => item.label === label))
     .filter(Boolean);
-  node.innerHTML = items
+  node.innerHTML = `<div class="ticker-brand"><i></i><strong>COFFEEBREAKTCG</strong></div>${items
     .map(
       (item) =>
         `<div data-tone="${escapeHtml(item.tone || "")}"><em>${icons[item.label] || "·"}</em><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(
           item.value || "—"
         )}</strong></div>`
     )
-    .join("");
+    .join("")}`;
 }
 
 function renderJarvisSpeech(payload, decisions) {
-  const counts = payload.counts || {};
   const focus = decisions?.[0];
-  const after = decisions?.[1]?.title ? `Ensuite: ${decisions[1].title}.` : "Ensuite, avance une tâche de croissance.";
-  typeJarvisSpeech(`${focus?.action || "Traite la priorité actuelle."} ${after}`);
+  const after = decisions?.[1]?.title ? `Ensuite, garde ${decisions[1].title.toLowerCase()} en vue.` : "Ensuite, avance une action de croissance.";
+  typeJarvisSpeech(`${focus?.action || "Voici ce qui compte aujourd’hui, ce qui est en attente et les prochaines étapes pour CoffeeBreakTCG."} ${after}`);
 }
 
 function renderLivingBoard(payload, decisions) {
@@ -799,6 +820,135 @@ function renderLivingBoard(payload, decisions) {
       `
     )
     .join("");
+}
+
+function senderInitials(value) {
+  const name = String(value || "").replace(/<.*?>/g, "").trim();
+  const words = name.split(/\s+/).filter(Boolean);
+  return (words[0]?.[0] || "M") + (words[1]?.[0] || words[0]?.[1] || "");
+}
+
+function renderHomeEmailFocus(emails = []) {
+  const node = document.querySelector("[data-home-email-focus]");
+  if (!node) return;
+  const queue = sortedEmailQueue(emails);
+  const active = queue[0];
+  if (!active) {
+    node.innerHTML = `
+      <div class="home-card-head">
+        <span>Email Focus</span>
+        <button type="button" data-signal-target="Emails">Ouvrir</button>
+      </div>
+      <div class="home-empty">
+        <strong>${emails.length ? "Boîte prioritaire vidée." : "Données en attente de synchronisation."}</strong>
+        <p>${emails.length ? "Aucun email critique à traiter maintenant." : "Connecte ou synchronise Gmail pour remplir cette zone."}</p>
+      </div>
+    `;
+    return;
+  }
+  const bullets = String(active.summary || active.snippet || "Aucun résumé disponible.")
+    .split(/(?<=[.!?])\s+/)
+    .filter(Boolean)
+    .slice(0, 3);
+  const canDraft = emailCanReply(active) && Number(emailTrustMode(active).level || 1) >= 2;
+  node.innerHTML = `
+    <div class="home-card-head">
+      <span>Email Focus</span>
+      <em>${queue.length} prioritaire${queue.length > 1 ? "s" : ""}</em>
+    </div>
+    <article class="home-email-inner" data-active-email-id="${escapeHtml(active.id)}">
+      <div class="email-person-row">
+        <div class="email-avatar">${escapeHtml(senderInitials(active.from || active.fromEmail).toUpperCase())}</div>
+        <div>
+          <strong>${escapeHtml(active.from || active.fromEmail || "Expéditeur")}</strong>
+          <p>${escapeHtml(active.fromEmail || active.sourceLabel || active.source || "")}</p>
+        </div>
+        <time>${timeOnly(active.receivedAt)}</time>
+      </div>
+      <h3>${escapeHtml(active.subject || "(Sans sujet)")}</h3>
+      <div class="email-summary compact">
+        <strong>Résumé</strong>
+        <ul>${bullets.map((item) => `<li>${escapeHtml(item)}</li>`).join("") || "<li>Aucun résumé disponible.</li>"}</ul>
+      </div>
+      <textarea data-email-reply hidden>${escapeHtml(active.suggestedReply || "")}</textarea>
+      <div class="home-email-actions">
+        ${
+          canDraft
+            ? `<button type="button" data-email-draft="${escapeHtml(active.id)}">Brouillon</button>`
+            : `<button type="button" disabled>Brouillon</button>`
+        }
+        <button type="button" class="ghost-dark" data-email-rewrite="${escapeHtml(active.id)}" data-tone="plus professionnel">Réécrire</button>
+        <button type="button" class="ghost-dark" data-email-status="à suivre" data-email-id="${escapeHtml(active.id)}">En attente</button>
+        <button type="button" class="ghost-dark" data-email-status="traité" data-email-id="${escapeHtml(active.id)}">Traité</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderHomeAgenda(calendar = {}) {
+  const node = document.querySelector("[data-home-agenda]");
+  if (!node) return;
+  const events = (calendar.week || []).slice(0, 3);
+  node.innerHTML = `
+    <div class="home-card-head">
+      <span>Agenda</span>
+      <em>${events.length ? "Filtré sur l’essentiel" : "En attente"}</em>
+    </div>
+    ${
+      events.length
+        ? `<div class="agenda-mini-list">
+            ${events
+              .map(
+                (event) => `
+                  <div class="agenda-mini-item">
+                    <time><strong>${shortDate(event.start).split(" ")[1] || shortDate(event.start)}</strong><span>${shortDate(event.start).split(" ")[0] || ""}</span></time>
+                    <div>
+                      <strong>${escapeHtml(event.title || "Événement")}</strong>
+                      <p>${escapeHtml(event.location || event.calendarSource || event.type || "Calendrier")}</p>
+                      ${event.startTime || event.endTime ? `<small>${escapeHtml([event.startTime, event.endTime].filter(Boolean).join(" – "))}</small>` : ""}
+                    </div>
+                  </div>
+                `
+              )
+              .join("")}
+          </div>`
+        : `<div class="home-empty"><strong>Données en attente de synchronisation.</strong><p>Connecte ou synchronise Google Calendar pour remplir cette zone.</p></div>`
+    }
+    <button type="button" class="home-link-row" data-signal-target="Calendrier">Voir tout l’agenda <span>›</span></button>
+  `;
+}
+
+function renderPanelSummaries(payload) {
+  const counts = payload.counts || {};
+  const emails = payload.emails?.important || [];
+  const calendar = payload.calendar || {};
+  const inventory = payload.inventoryIntelligence?.summary || {};
+  const contentCount = payload.contentOpportunities?.length || 0;
+  const summaries = {
+    Emails: `${emails.length} important${emails.length > 1 ? "s" : ""}`,
+    Calendrier: `${calendar.today?.length || 0} aujourd’hui · ${calendar.week?.length || 0} semaine`,
+    "Marketing & Contenu": contentCount ? `${contentCount} idée${contentCount > 1 ? "s" : ""} à explorer` : "Aucune idée prioritaire",
+    "Inventaire & Produits": `${inventory.inventoryCount || 0} produits · ${inventory.dormantCount || 0} dormant`,
+    "Mode apprentissage": "Corrections IA",
+    "Mode technique": "OAuth · API · diagnostics",
+  };
+  const icons = {
+    Emails: "✉",
+    Calendrier: "□",
+    "Marketing & Contenu": "▱",
+    "Inventaire & Produits": "◇",
+    "Mode apprentissage": "◌",
+    "Mode technique": "⌁",
+  };
+  document.querySelectorAll("[data-panel-summary]").forEach((summary) => {
+    const label = summary.dataset.panelSummary;
+    summary.innerHTML = `
+      <span class="panel-icon">${icons[label] || "·"}</span>
+      <span class="panel-title">${escapeHtml(label)}</span>
+      <small>${escapeHtml(summaries[label] || "")}</small>
+      <span class="panel-chevron">›</span>
+    `;
+  });
 }
 
 function growthScoreFrom(growth, priorities) {
@@ -1009,6 +1159,7 @@ function renderBriefing(payload) {
   prepareImmersiveReveal();
   const { briefing, counts, emails, calendar, priorities, contentOpportunities, inventoryIntelligence, growth, integrations, ticker } = payload;
   currentContentOpportunities = contentOpportunities || [];
+  currentAllEmails = emails.important || currentAllEmails;
   const decisions = briefing.decisionMatrix?.all || [];
   currentActionDecisions = decisions;
   renderTicker(ticker || []);
@@ -1017,6 +1168,9 @@ function renderBriefing(payload) {
   renderJarvisSpeech(payload, visibleDecisions);
   renderLivingBoard(payload, visibleDecisions);
   renderTodaySidebar(decisions);
+  renderHomeEmailFocus(emails.important || []);
+  renderHomeAgenda(calendar || {});
+  renderPanelSummaries(payload);
 
   renderGmailState(integrations);
   renderGmailNotice(integrations);
@@ -1324,6 +1478,7 @@ function gmailLastSyncMs(payload) {
 
 async function loadJarvis({ skipAutoSync = false } = {}) {
   setThinkingLine("Jarvis analyse les signaux...");
+  setBackgroundStatus("Analyse du briefing et des priorités…");
   prepareImmersiveReveal();
   const payload = await api("/api/jarvis/briefing");
   renderBriefing(payload);
@@ -1332,14 +1487,14 @@ async function loadJarvis({ skipAutoSync = false } = {}) {
   await loadEmailFocus().catch(() => {});
   if (!skipAutoSync && gmailHasConnectedAccount(payload) && Date.now() - gmailLastSyncMs(payload) > 60 * 1000) {
     syncGmail({ silent: true }).catch(() => {});
+  } else {
+    setBackgroundStatus("");
   }
   if (gmailHasConnectedAccount(payload)) startGmailAutoSync();
 }
 
 function openQuietPanel(title) {
-  const details = [...document.querySelectorAll(".quiet-panels details")].find(
-    (item) => item.querySelector("summary")?.textContent?.trim() === title
-  );
+  const details = [...document.querySelectorAll(".quiet-panels details")].find((item) => item.querySelector("summary")?.dataset.panelSummary === title);
   if (!details) return false;
   details.open = true;
   details.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1603,9 +1758,7 @@ document.addEventListener("click", async (event) => {
 
   if (signalButton) {
     const target = signalButton.dataset.signalTarget;
-    const details = [...document.querySelectorAll(".quiet-panels details")].find(
-      (item) => item.querySelector("summary")?.textContent?.trim() === target
-    );
+    const details = [...document.querySelectorAll(".quiet-panels details")].find((item) => item.querySelector("summary")?.dataset.panelSummary === target);
     if (details) {
       details.open = true;
       details.scrollIntoView({ behavior: "smooth", block: "start" });
