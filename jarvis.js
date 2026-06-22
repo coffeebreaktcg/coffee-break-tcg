@@ -622,6 +622,18 @@ function saveCompletedActions(done) {
   localStorage.setItem("jarvis_completed_actions", JSON.stringify([...done]));
 }
 
+function pendingActions() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem("jarvis_pending_actions") || "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+function savePendingActions(pending) {
+  localStorage.setItem("jarvis_pending_actions", JSON.stringify([...pending]));
+}
+
 function demoActionDecisions() {
   return [
     {
@@ -656,9 +668,11 @@ function demoActionDecisions() {
 
 function visibleActionDecisions(decisions = currentActionDecisions) {
   const done = completedActions();
+  const pending = pendingActions();
   const seen = new Set();
   return (decisions || []).filter((item) => {
-    if (done.has(actionId(item))) return false;
+    const id = actionId(item);
+    if (done.has(id) || pending.has(id)) return false;
     const key = String(item.title || "").trim().toLowerCase();
     if (key && seen.has(key)) return false;
     if (key) seen.add(key);
@@ -692,8 +706,8 @@ function renderTodaySidebar(decisions = currentActionDecisions) {
   const active = visibleActionDecisions(decisions);
   const count = document.querySelector("[data-today-count]");
   if (count) count.textContent = String(Math.min(active.length, 7));
-  renderActionGroup("now", active.slice(0, 2), "Maintenant", true);
-  renderActionGroup("next", active.slice(2, 5), "Ensuite", false);
+  renderActionGroup("now", active.slice(0, 3), "Maintenant", false);
+  renderActionGroup("next", active.slice(3, 5), "Ensuite", false);
   renderActionGroup("later", active.slice(5, 7), "Après", false);
   renderCompletedActions(decisions);
 }
@@ -704,10 +718,10 @@ function updateBriefingAfterCompletion(nextAction) {
   const summary = document.querySelector("[data-today-summary]");
   if (summary) {
     summary.innerHTML = nextAction
-      ? `<div class="calm-briefing"><p class="brief-lead">Voici ce qui compte aujourd’hui.</p><small>Priorité actuelle</small><strong>${escapeHtml(
+      ? `<div class="calm-briefing"><p class="brief-lead">Voici ce qui compte aujourd’hui.</p><small>Ta priorité</small><strong>${escapeHtml(
           nextAction.title || "continuer le plan"
-        )}</strong><p>${escapeHtml(nextAction.action || "Passe à cette étape maintenant.")}</p></div>`
-      : `<div class="calm-briefing"><p class="brief-lead">Voici ce qui compte aujourd’hui.</p><small>Priorité actuelle</small><strong>Plan immédiat vidé</strong><p>Relance un briefing ou passe à une action de croissance.</p></div>`;
+        )}</strong><p>${escapeHtml(nextAction.action || "Passe à cette étape maintenant.")}</p><span>Temps estimé : ${estimateMinutes(nextAction)} min</span></div>`
+      : `<div class="calm-briefing"><p class="brief-lead">Voici ce qui compte aujourd’hui.</p><small>Ta priorité</small><strong>Plan immédiat vidé</strong><p>Relance un briefing ou passe à une action de croissance.</p></div>`;
   }
   typeJarvisSpeech(
     nextAction
@@ -735,8 +749,8 @@ function renderTaskLine(item, label, index, openByDefault = false) {
           item.title || "cette tâche"
         )}"></button>
         <span class="task-title">${escapeHtml(item.title || "Action sans titre")}</span>
-        <span class="task-priority">${escapeHtml(item.priority || "")}</span>
         <span class="task-time">${estimateMinutes(item)} min</span>
+        <span class="task-chevron">›</span>
       </summary>
       <div class="task-expanded">
         <dl>
@@ -796,36 +810,19 @@ function shortTaskLabel(count, singular, plural = `${singular}s`) {
 }
 
 function renderTodaySummary(counts, cardShowsCount, focus) {
-  const items = [
-    shortTaskLabel(counts.ordersToShip || 0, "commande", "commandes"),
-    shortTaskLabel(counts.invoices || 0, "facture", "factures"),
-    shortTaskLabel(cardShowsCount || 0, "opportunité", "opportunités"),
-  ].filter(Boolean);
   const lead = "Voici ce qui compte aujourd’hui.";
-  const context = items.length
-    ? `Tu as ${items.map(escapeHtml).join(", ")} à surveiller, mais une seule action doit passer en premier.`
-    : "Aucune urgence critique visible. La meilleure action reste une action de croissance simple.";
   const focusTitle = focus?.title || "Avancer CoffeeBreak";
   const focusAction = focus?.action || "Choisir une action simple et concrète.";
-  document.querySelector("[data-today-summary]").innerHTML = items.length
-    ? `
-      <div class="calm-briefing">
-        <p class="brief-lead">${lead}</p>
-        <p class="brief-context">${context}</p>
-        <small>Priorité actuelle</small>
-        <strong>${escapeHtml(focusTitle)}</strong>
-        <p>${escapeHtml(focusAction)}</p>
-      </div>
-    `
-    : `
-      <div class="calm-briefing">
-        <p class="brief-lead">${lead}</p>
-        <p class="brief-context">${context}</p>
-        <small>Priorité actuelle</small>
-        <strong>${escapeHtml(focusTitle || "Action de croissance")}</strong>
-        <p>${escapeHtml(focusAction || "Avancer CoffeeBreak sans urgence administrative.")}</p>
-      </div>
-    `;
+  const focusTime = estimateMinutes(focus || {});
+  document.querySelector("[data-today-summary]").innerHTML = `
+    <div class="calm-briefing">
+      <p class="brief-lead">${lead}</p>
+      <small>Ta priorité</small>
+      <strong>${escapeHtml(focusTitle || "Action de croissance")}</strong>
+      <p>${escapeHtml(focusAction || "Avancer CoffeeBreak sans urgence administrative.")}</p>
+      <span>Temps estimé : ${focusTime} min</span>
+    </div>
+  `;
   const adminMinutes = Math.max(0, (counts.ordersToShip || 0) * 4 + (counts.invoices || 0) * 2 + Math.min(cardShowsCount || 0, 3) * 2);
   document.querySelector("[data-admin-time]").textContent = `${adminMinutes || 8} min`;
 }
@@ -834,15 +831,15 @@ function renderTicker(ticker) {
   const node = document.querySelector("[data-ticker]");
   if (!node) return;
   const preferred = ["Ventes aujourd’hui", "Ventes semaine", "Inventaire", "Produits populaires", "Inventaire dormant", "Card Shows", "Alertes", "Dernière mise à jour"];
-  const icons = {
-    "Ventes aujourd’hui": "↗",
-    "Ventes semaine": "□",
-    Inventaire: "◇",
-    "Produits populaires": "◆",
-    "Inventaire dormant": "◷",
-    "Card Shows": "▱",
-    Alertes: "●",
-    "Dernière mise à jour": "↻",
+  const shortLabels = {
+    "Ventes aujourd’hui": "Ventes",
+    "Ventes semaine": "Semaine",
+    Inventaire: "Inventaire",
+    "Produits populaires": "Populaire",
+    "Inventaire dormant": "Dormant",
+    "Card Shows": "Shows",
+    Alertes: "Alertes",
+    "Dernière mise à jour": "Sync",
   };
   const items = preferred
     .map((label) => (ticker || []).find((item) => item.label === label))
@@ -850,11 +847,13 @@ function renderTicker(ticker) {
   node.innerHTML = `<div class="ticker-brand"><i></i><strong>COFFEEBREAKTCG</strong></div>${items
     .map(
       (item) =>
-        `<div data-tone="${escapeHtml(item.tone || "")}"><em>${icons[item.label] || "·"}</em><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(
+        `<div class="ticker-item" data-label="${escapeHtml(item.label)}" data-tone="${escapeHtml(item.tone || "")}" title="${escapeHtml(item.label)}"><span>${escapeHtml(
+          shortLabels[item.label] || item.label
+        )}</span><strong>${escapeHtml(
           item.value || "—"
         )}</strong></div>`
     )
-    .join("")}<button type="button" class="ticker-refresh" data-refresh-inline aria-label="Rafraîchir Jarvis">↻</button>`;
+    .join("")}<button type="button" class="ticker-refresh" data-refresh-inline aria-label="Rafraîchir Jarvis">↻</button><button type="button" class="business-overview" data-signal-target="Croissance">Aperçu business</button>`;
 }
 
 function renderJarvisSpeech(payload, decisions) {
@@ -915,8 +914,8 @@ function renderHomeEmailFocus(emails = []) {
         <button type="button" data-signal-target="Emails">Ouvrir</button>
       </div>
       <div class="home-empty">
-        <strong>${emails.length ? "Boîte prioritaire vidée." : "Données en attente de synchronisation."}</strong>
-        <p>${emails.length ? "Aucun email critique à traiter maintenant." : "Connecte ou synchronise Gmail pour remplir cette zone."}</p>
+        <strong>Boîte prioritaire vidée.</strong>
+        <p>${emails.length ? "Aucune action email requise." : "Connecte ou synchronise Gmail pour remplir cette zone."}</p>
       </div>
     `;
     return;
@@ -963,7 +962,7 @@ function renderHomeEmailFocus(emails = []) {
 function renderHomeAgenda(calendar = {}) {
   const node = document.querySelector("[data-home-agenda]");
   if (!node) return;
-  const events = (calendar.week || []).slice(0, 3);
+  const events = (calendar.week || []).slice(0, 2);
   node.innerHTML = `
     <div class="home-card-head">
       <span>Agenda</span>
@@ -1744,6 +1743,7 @@ document.querySelector("[data-ask-jarvis-form]")?.addEventListener("submit", asy
     setJarvisState("idle");
   });
   event.currentTarget.reset();
+  setTimeout(() => closeCommandDock(), 1200);
 });
 
 function refreshJarvisFromUi() {
@@ -1773,6 +1773,18 @@ function handleOrbCommand(event) {
 
 document.querySelector("[data-orb-voice]")?.addEventListener("click", handleOrbCommand);
 document.querySelector("[data-orb-voice]")?.addEventListener("pointerdown", handleOrbCommand);
+
+document.addEventListener(
+  "toggle",
+  (event) => {
+    const task = event.target.closest?.(".task-line");
+    if (!task || !task.open) return;
+    document.querySelectorAll(".task-line[open]").forEach((other) => {
+      if (other !== task) other.open = false;
+    });
+  },
+  true
+);
 
 document.addEventListener("click", async (event) => {
   const connectButton = event.target.closest("[data-connect-gmail]");
@@ -1804,6 +1816,8 @@ document.addEventListener("click", async (event) => {
   const commandOpenButton = event.target.closest("[data-command-open]");
   const commandCloseButton = event.target.closest("[data-command-close]");
   const refreshInlineButton = event.target.closest("[data-refresh-inline]");
+  const mobileHomeButton = event.target.closest("[data-mobile-home]");
+  const mobileMoreButton = event.target.closest("[data-mobile-more]");
   const contentGenerateButton = event.target.closest("[data-content-generate]");
   const contentDevelopButton = event.target.closest("[data-content-develop]");
   const contentTaskButton = event.target.closest("[data-content-task]");
@@ -1812,6 +1826,16 @@ document.addEventListener("click", async (event) => {
 
   if (refreshInlineButton) {
     refreshJarvisFromUi();
+    return;
+  }
+
+  if (mobileHomeButton) {
+    document.querySelector(".assistant-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  if (mobileMoreButton) {
+    document.querySelector(".quiet-panels")?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
 
@@ -1845,9 +1869,9 @@ document.addEventListener("click", async (event) => {
   if (actionPendingButton) {
     event.preventDefault();
     event.stopPropagation();
-    const done = completedActions();
-    done.add(actionPendingButton.dataset.actionPending);
-    saveCompletedActions(done);
+    const pending = pendingActions();
+    pending.add(actionPendingButton.dataset.actionPending);
+    savePendingActions(pending);
     renderTodaySidebar(currentActionDecisions);
     updateBriefingAfterCompletion(visibleActionDecisions(currentActionDecisions)[0]);
     return;
@@ -1856,6 +1880,7 @@ document.addEventListener("click", async (event) => {
   if (demoResetButton) {
     currentActionDecisions = demoActionDecisions();
     saveCompletedActions(new Set());
+    savePendingActions(new Set());
     renderTodaySidebar(currentActionDecisions);
     updateBriefingAfterCompletion(visibleActionDecisions(currentActionDecisions)[0]);
     renderTestResult("Demo data reset", { message: "Trois tâches de test propres ont été chargées dans la sidebar AUJOURD’HUI." }, true);
@@ -1875,6 +1900,16 @@ document.addEventListener("click", async (event) => {
       details.scrollIntoView({ behavior: "smooth", block: "start" });
     }
     return;
+  }
+
+  if (
+    document.body.classList.contains("jarvis-command-open") &&
+    !event.target.closest("[data-command-dock]") &&
+    !event.target.closest("[data-orb-voice]") &&
+    !event.target.closest("[data-command-open]")
+  ) {
+    closeCommandDock();
+    setJarvisState("idle");
   }
 
   if (contentGenerateButton) {

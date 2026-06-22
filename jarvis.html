@@ -5,13 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>JARVIS | Coffee Break TCG</title>
     <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#020202" />
+    <link rel="manifest" href="/jarvis-manifest.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/jarvis.css?v=jarvis-home-command-rebuild-20260622e" />
+    <link rel="stylesheet" href="/jarvis.css?v=jarvis-mobile-command-20260622h" />
   </head>
   <body>
     <main class="jarvis-shell">
@@ -54,7 +56,7 @@
                 <span></span>
                 <em>Parler à Jarvis</em>
               </label>
-              <button class="thinking-line" type="button" data-command-open data-thinking-line>Jarvis initialise le briefing...</button>
+              <button class="thinking-line" type="button" data-command-open data-thinking-line>Clique pour parler à Jarvis</button>
             </div>
             <div class="spoken-briefing">
               <p class="eyebrow">JARVIS</p>
@@ -65,6 +67,7 @@
               </div>
               <p class="jarvis-speech" data-jarvis-speech>Jarvis analyse les signaux CoffeeBreak.</p>
             </div>
+            <button class="mobile-talk-button" type="button" data-command-open>🎙 Parler à Jarvis</button>
             <aside class="command-dock" data-command-dock aria-label="Commande à Jarvis">
               <div class="command-dock-head">
                 <span>Commande à Jarvis</span>
@@ -202,9 +205,17 @@
             </div>
           </details>
         </section>
+
+        <nav class="mobile-bottom-nav" aria-label="Navigation Jarvis mobile">
+          <button type="button" data-mobile-home>Accueil</button>
+          <button type="button" data-signal-target="Emails">Emails</button>
+          <button type="button" class="mobile-nav-primary" data-command-open>Parler</button>
+          <button type="button" data-signal-target="Calendrier">Agenda</button>
+          <button type="button" data-mobile-more>Plus</button>
+        </nav>
       </section>
     </main>
 
-    <script src="/jarvis.js?v=jarvis-home-command-rebuild-20260622e" defer></script>
+    <script src="/jarvis.js?v=jarvis-mobile-command-20260622h" defer></script>
   </body>
 </html>
