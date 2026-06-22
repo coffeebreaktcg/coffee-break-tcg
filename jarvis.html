@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/jarvis.css?v=jarvis-mobile-polish-20260620" />
+    <link rel="stylesheet" href="/jarvis.css?v=jarvis-final-polish-voice-20260622" />
   </head>
   <body>
     <main class="jarvis-shell">
@@ -64,8 +64,12 @@
               </div>
               <form class="ask-jarvis" data-ask-jarvis-form>
                 <input type="text" name="question" placeholder="Demander à Jarvis..." autocomplete="off" />
+                <button type="button" class="mic-button" data-voice-button aria-label="Parler à Jarvis">
+                  <span></span>
+                </button>
                 <button type="submit">Parler à Jarvis</button>
               </form>
+              <p class="voice-status" data-voice-status></p>
               <p class="ask-response" data-ask-response></p>
             </div>
             <div class="admin-time">
@@ -115,6 +119,18 @@
               </div>
               <div class="integration-state" data-calendar-state></div>
               <div class="compact-list" data-event-list></div>
+              <details class="holiday-panel">
+                <summary>Fêtes et rappels</summary>
+                <label>
+                  Fêtes affichées
+                  <select data-holiday-preference>
+                    <option value="important">Importantes seulement</option>
+                    <option value="all">Toutes</option>
+                    <option value="none">Aucune</option>
+                  </select>
+                </label>
+                <div class="compact-list" data-holiday-list></div>
+              </details>
             </div>
           </details>
 
@@ -176,6 +192,6 @@
       </section>
     </main>
 
-    <script src="/jarvis.js?v=jarvis-mobile-polish-20260620" defer></script>
+    <script src="/jarvis.js?v=jarvis-final-polish-voice-20260622" defer></script>
   </body>
 </html>

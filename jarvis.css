@@ -2686,6 +2686,19 @@ body[data-jarvis-state="thinking"] .jarvis-orb {
     0 30px 110px rgba(255, 138, 36, 0.2);
 }
 
+body[data-jarvis-state="listening"] .jarvis-orb {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 138, 36, 0.72),
+    0 0 46px rgba(255, 138, 36, 0.28),
+    0 28px 120px rgba(255, 138, 36, 0.22);
+  transform: scale(1.012);
+}
+
+body[data-jarvis-state="listening"] .jarvis-orb::before {
+  opacity: 0.64;
+  animation-duration: 7s;
+}
+
 body[data-jarvis-state="speaking"] .jarvis-orb {
   filter: brightness(1.08) saturate(1.08);
 }
@@ -2927,8 +2940,159 @@ body:not(.jarvis-ready) .living-board .signal-chip {
     gap: 10px 16px;
   }
 
-  .living-board .signal-chip strong {
-    max-width: 180px;
+.living-board .signal-chip strong {
+  max-width: 180px;
+  }
+}
+
+/* Final polish + voice V1 */
+.market-strip {
+  grid-template-columns: repeat(6, minmax(108px, 1fr));
+  gap: 10px;
+  padding-right: 184px;
+}
+
+.market-strip div {
+  min-width: 0;
+  gap: 4px 8px;
+  overflow: hidden;
+}
+
+.market-strip span,
+.market-strip strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.market-strip div[data-tone="alert"] strong {
+  color: rgba(255, 138, 36, 0.94);
+}
+
+.market-strip div:not([data-tone="alert"]) strong {
+  color: rgba(245, 245, 247, 0.82);
+}
+
+.market-strip div[data-tone="positive"] strong {
+  color: var(--green);
+}
+
+.ask-jarvis {
+  grid-template-columns: minmax(0, 1fr) 44px auto;
+  gap: 4px;
+}
+
+.mic-button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  min-height: 42px;
+  border: 1px solid rgba(245, 245, 247, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(245, 245, 247, 0.86);
+  padding: 0;
+}
+
+.mic-button span {
+  width: 10px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+.mic-button span::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  width: 16px;
+  height: 9px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  border-radius: 0 0 999px 999px;
+  transform: translateX(-50%);
+  opacity: 0.8;
+}
+
+.mic-button:hover,
+.mic-button.is-listening {
+  border-color: rgba(255, 138, 36, 0.42);
+  background: rgba(255, 138, 36, 0.14);
+  color: rgba(255, 138, 36, 0.98);
+}
+
+.mic-button.is-listening::before {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 1px solid rgba(255, 138, 36, 0.24);
+  border-radius: inherit;
+  animation: voicePulse 1.5s ease-in-out infinite;
+}
+
+.voice-status {
+  min-height: 16px;
+  margin: -4px 0 0;
+  color: rgba(245, 245, 247, 0.48);
+  font-size: 12px;
+}
+
+.voice-status[data-tone="listening"] {
+  color: rgba(255, 138, 36, 0.86);
+}
+
+.voice-status[data-tone="ok"] {
+  color: rgba(62, 224, 113, 0.82);
+}
+
+.voice-status[data-tone="error"] {
+  color: rgba(255, 138, 36, 0.95);
+}
+
+.holiday-panel {
+  margin-top: 14px;
+  border-top: 1px solid rgba(245, 245, 247, 0.08);
+  padding-top: 8px;
+}
+
+.holiday-panel summary {
+  min-height: 42px;
+  color: rgba(245, 245, 247, 0.7);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.holiday-panel label {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: rgba(245, 245, 247, 0.58);
+  font-size: 12px;
+}
+
+.holiday-panel select {
+  min-height: 38px;
+  border: 1px solid rgba(245, 245, 247, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--ink);
+  padding: 0 12px;
+}
+
+@keyframes voicePulse {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.78;
+    transform: scale(1.04);
   }
 }
 
@@ -3106,6 +3270,7 @@ body:not(.jarvis-ready) .living-board .signal-chip {
 
   .ask-jarvis {
     order: 4;
+    grid-template-columns: minmax(0, 1fr) 38px;
     width: 100%;
     min-height: 48px;
     margin-top: 4px;
@@ -3124,6 +3289,17 @@ body:not(.jarvis-ready) .living-board .signal-chip {
     padding: 9px 13px;
     font-size: 12px;
     white-space: nowrap;
+  }
+
+  .ask-jarvis > button[type="submit"] {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin-top: 2px;
+  }
+
+  .mic-button {
+    width: 38px;
+    min-height: 38px;
   }
 
   .gmail-notice {

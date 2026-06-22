@@ -33,6 +33,8 @@ let currentAllEmails = [];
 let currentEmailQueue = [];
 let currentFollowupEmails = [];
 let gmailAutoSyncTimer = null;
+let voiceRecognition = null;
+let voiceListening = false;
 
 function oauthMessageFromParams() {
   const params = new URLSearchParams(window.location.search);
@@ -107,6 +109,13 @@ function setThinkingLine(text) {
 
 function setJarvisState(state) {
   document.body.dataset.jarvisState = state;
+}
+
+function setVoiceStatus(text, tone = "") {
+  const node = document.querySelector("[data-voice-status]");
+  if (!node) return;
+  node.textContent = text || "";
+  node.dataset.tone = tone;
 }
 
 function prepareImmersiveReveal() {
@@ -440,7 +449,7 @@ function restoreEmailToQueue(email, message) {
   if (!email) return;
   currentAllEmails = [email, ...currentAllEmails.filter((item) => item.id !== email.id)];
   renderEmailFocus(currentAllEmails);
-  showEmailSyncMessage(message || "L’action n’a pas pu être complétée. Email remis dans la pile.", "error");
+  showEmailSyncMessage(message || "Action non complétée. Email remis dans la pile; tu peux réessayer.", "error");
 }
 
 function optimisticEmailAdvance(id, message) {
@@ -729,9 +738,25 @@ function renderTodaySummary(counts, cardShowsCount, focus) {
 function renderTicker(ticker) {
   const node = document.querySelector("[data-ticker]");
   if (!node) return;
-  const icons = ["↗", "□", "◇", "◷", "▱", "◌"];
-  node.innerHTML = (ticker || [])
-    .map((item, index) => `<div><em>${icons[index % icons.length]}</em><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong></div>`)
+  const preferred = ["Ventes aujourd’hui", "Ventes semaine", "Inventaire", "Inventaire dormant", "Card Shows", "Alertes"];
+  const icons = {
+    "Ventes aujourd’hui": "↗",
+    "Ventes semaine": "□",
+    Inventaire: "◇",
+    "Inventaire dormant": "◷",
+    "Card Shows": "▱",
+    Alertes: "◌",
+  };
+  const items = preferred
+    .map((label) => (ticker || []).find((item) => item.label === label))
+    .filter(Boolean);
+  node.innerHTML = items
+    .map(
+      (item) =>
+        `<div data-tone="${escapeHtml(item.tone || "")}"><em>${icons[item.label] || "·"}</em><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(
+          item.value || "—"
+        )}</strong></div>`
+    )
     .join("");
 }
 
@@ -1014,6 +1039,7 @@ function renderBriefing(payload) {
     `,
     "Aucun événement importé pour cette semaine."
   );
+  renderHolidayList(calendar.holidays || []);
 
   renderList(
     document.querySelector("[data-priority-list]"),
@@ -1038,6 +1064,31 @@ function renderBriefing(payload) {
   renderInventoryIntelligence(inventoryIntelligence || {});
   renderGrowthScore(growth, priorities);
   runImmersiveReveal();
+}
+
+function renderHolidayList(holidays) {
+  const list = document.querySelector("[data-holiday-list]");
+  const select = document.querySelector("[data-holiday-preference]");
+  if (!list) return;
+  const preference = select?.value || localStorage.getItem("jarvis_holiday_preference") || "important";
+  if (select) select.value = preference;
+  const visible =
+    preference === "none"
+      ? []
+      : preference === "all"
+        ? holidays
+        : holidays.filter((event) => /no[eë]l|christmas|jour de l'an|new year|canada day|fête du travail|fete du travail/i.test(event.title || ""));
+  renderList(
+    list,
+    visible,
+    (event) => `
+      <div class="compact-item">
+        <strong>${shortDate(event.start)} - ${escapeHtml(event.title || "Rappel")}</strong>
+        <p>${escapeHtml(event.calendarSource || "Google Calendar")}</p>
+      </div>
+    `,
+    preference === "none" ? "Fêtes masquées." : "Aucune fête importante à afficher."
+  );
 }
 
 function renderRecommendationList(items) {
@@ -1285,6 +1336,149 @@ async function loadJarvis({ skipAutoSync = false } = {}) {
   if (gmailHasConnectedAccount(payload)) startGmailAutoSync();
 }
 
+function openQuietPanel(title) {
+  const details = [...document.querySelectorAll(".quiet-panels details")].find(
+    (item) => item.querySelector("summary")?.textContent?.trim() === title
+  );
+  if (!details) return false;
+  details.open = true;
+  details.scrollIntoView({ behavior: "smooth", block: "start" });
+  return true;
+}
+
+function currentNextAction() {
+  return visibleActionDecisions(currentActionDecisions)[0] || null;
+}
+
+function completeCurrentAction() {
+  const next = currentNextAction();
+  if (!next) return false;
+  const done = completedActions();
+  done.add(actionId(next));
+  saveCompletedActions(done);
+  renderTodaySidebar(currentActionDecisions);
+  updateBriefingAfterCompletion(visibleActionDecisions(currentActionDecisions)[0]);
+  return true;
+}
+
+function taskTitleFromQuestion(question) {
+  const match = question.match(/(?:ajoute|crée|cree|note)\s+(?:une\s+)?t[âa]che\s*:?\s*(.+)$/i);
+  return match?.[1]?.trim() || "";
+}
+
+async function handleJarvisQuestion(question) {
+  const response = document.querySelector("[data-ask-response]");
+  const normalized = String(question || "").trim();
+  if (!normalized) return;
+  setJarvisState("thinking");
+  if (response) response.textContent = "Jarvis analyse...";
+
+  const taskTitle = taskTitleFromQuestion(normalized);
+  if (taskTitle) {
+    const payload = await api("/api/jarvis/tasks", {
+      method: "POST",
+      body: JSON.stringify({
+        title: taskTitle,
+        timeRequired: "10 minutes",
+        impact: "clarté opérationnelle",
+        nextAction: "Faire cette tâche dès que le bloc prioritaire est terminé.",
+      }),
+    });
+    renderBriefing(payload.briefing);
+    if (response) response.textContent = `Tâche ajoutée: ${payload.task.title}`;
+    setJarvisState("complete");
+    setTimeout(() => setJarvisState("idle"), 1200);
+    return;
+  }
+
+  if (/marque.*termin|termine|compl[èe]te/i.test(normalized)) {
+    const completed = completeCurrentAction();
+    if (response) response.textContent = completed ? "C’est terminé. J’ai fait monter la prochaine priorité." : "Aucune tâche active à terminer.";
+    setJarvisState(completed ? "complete" : "idle");
+    setTimeout(() => setJarvisState("idle"), 1200);
+    return;
+  }
+
+  if (/email|courriel|gmail/i.test(normalized)) {
+    openQuietPanel("Emails");
+    if (response) response.textContent = "J’ai ouvert les emails importants. Traite un message à la fois.";
+    setJarvisState("idle");
+    return;
+  }
+
+  if (/calendrier|calendar|meeting|rendez-vous|rdv/i.test(normalized)) {
+    openQuietPanel("Calendrier");
+    if (response) response.textContent = "J’ai ouvert le calendrier. Je prépare seulement les actions sensibles avec confirmation.";
+    setJarvisState("idle");
+    return;
+  }
+
+  if (/reel|story|post|contenu|instagram/i.test(normalized)) {
+    openQuietPanel("Marketing & Contenu");
+    if (response) response.textContent = "J’ai ouvert le Studio Contenu. Choisis une opportunité ou demande une variante.";
+    setJarvisState("idle");
+    return;
+  }
+
+  if (/vendu|vente|semaine|argent|cash/i.test(normalized)) {
+    if (response) response.textContent = "Regarde le ticker en haut: ventes aujourd’hui, ventes semaine, inventaire et alertes.";
+    setJarvisState("idle");
+    return;
+  }
+
+  const next = currentNextAction();
+  if (response) {
+    response.textContent = next
+      ? `La meilleure prochaine action: ${next.title}. Pourquoi: ${whyFor(next)}`
+      : "Aucune urgence claire. Je recommande d’ajouter des cartes au site ou de créer du contenu CoffeeBreak.";
+  }
+  setJarvisState("idle");
+}
+
+function setupVoiceInput() {
+  const button = document.querySelector("[data-voice-button]");
+  const form = document.querySelector("[data-ask-jarvis-form]");
+  const input = form?.querySelector('input[name="question"]');
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!button || !input) return;
+  if (!SpeechRecognition) {
+    button.disabled = true;
+    button.title = "La dictée vocale n’est pas disponible dans ce navigateur.";
+    setVoiceStatus("Micro indisponible dans ce navigateur.", "muted");
+    return;
+  }
+  voiceRecognition = new SpeechRecognition();
+  voiceRecognition.lang = "fr-CA";
+  voiceRecognition.interimResults = true;
+  voiceRecognition.continuous = false;
+
+  voiceRecognition.onstart = () => {
+    voiceListening = true;
+    button.classList.add("is-listening");
+    setJarvisState("listening");
+    setVoiceStatus("Je t’écoute...", "listening");
+  };
+  voiceRecognition.onresult = (event) => {
+    let transcript = "";
+    for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      transcript += event.results[index][0].transcript;
+    }
+    input.value = transcript.trim();
+  };
+  voiceRecognition.onerror = (event) => {
+    setVoiceStatus(event.error === "not-allowed" ? "Permission micro refusée." : "Micro interrompu. Tu peux écrire ta demande.", "error");
+    setJarvisState("idle");
+  };
+  voiceRecognition.onend = () => {
+    const spoken = input.value.trim();
+    voiceListening = false;
+    button.classList.remove("is-listening");
+    setVoiceStatus(spoken ? "Commande reçue." : "", spoken ? "ok" : "");
+    if (spoken) form.requestSubmit();
+    else setJarvisState("idle");
+  };
+}
+
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (warnIfOpenedAsFile()) return;
@@ -1305,15 +1499,15 @@ loginForm.addEventListener("submit", async (event) => {
   }
 });
 
-document.querySelector("[data-ask-jarvis-form]")?.addEventListener("submit", (event) => {
+document.querySelector("[data-ask-jarvis-form]")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
   const question = String(form.get("question") || "").trim();
-  const response = document.querySelector("[data-ask-response]");
-  if (!response) return;
-  response.textContent = question
-    ? "Reçu. Pour l’instant, Jarvis utilise ce poste de commande pour prioriser; la conversation complète sera branchée après la structure principale."
-    : "";
+  await handleJarvisQuestion(question).catch((error) => {
+    const response = document.querySelector("[data-ask-response]");
+    if (response) response.textContent = error.message;
+    setJarvisState("idle");
+  });
   event.currentTarget.reset();
 });
 
@@ -1352,6 +1546,7 @@ document.addEventListener("click", async (event) => {
   const completeActionButton = event.target.closest("[data-complete-action]");
   const actionPendingButton = event.target.closest("[data-action-pending]");
   const signalButton = event.target.closest("[data-signal-target]");
+  const voiceButton = event.target.closest("[data-voice-button]");
   const contentGenerateButton = event.target.closest("[data-content-generate]");
   const contentDevelopButton = event.target.closest("[data-content-develop]");
   const contentTaskButton = event.target.closest("[data-content-task]");
@@ -1386,6 +1581,23 @@ document.addEventListener("click", async (event) => {
     renderTodaySidebar(currentActionDecisions);
     updateBriefingAfterCompletion(visibleActionDecisions(currentActionDecisions)[0]);
     renderTestResult("Demo data reset", { message: "Trois tâches de test propres ont été chargées dans la sidebar AUJOURD’HUI." }, true);
+    return;
+  }
+
+  if (voiceButton) {
+    if (!voiceRecognition) {
+      setVoiceStatus("Micro indisponible. Écris ta demande à Jarvis.", "error");
+      return;
+    }
+    if (voiceListening) {
+      voiceRecognition.stop();
+      return;
+    }
+    try {
+      voiceRecognition.start();
+    } catch {
+      setVoiceStatus("Le micro est déjà en cours d’écoute.", "listening");
+    }
     return;
   }
 
@@ -1804,10 +2016,19 @@ document.addEventListener("submit", (event) => {
   if (event.target.closest("[data-email-review-item]")) event.preventDefault();
 });
 
+document.addEventListener("change", (event) => {
+  const holidayPreference = event.target.closest("[data-holiday-preference]");
+  if (!holidayPreference) return;
+  localStorage.setItem("jarvis_holiday_preference", holidayPreference.value);
+  loadJarvis({ skipAutoSync: true }).catch(() => {});
+});
+
 document.querySelector("[data-logout]").addEventListener("click", async () => {
   await api("/api/jarvis/logout", { method: "POST", body: "{}" }).catch(() => {});
   setSessionView(null);
 });
+
+setupVoiceInput();
 
 cleanSensitiveUrlParams();
 renderOAuthMessage();

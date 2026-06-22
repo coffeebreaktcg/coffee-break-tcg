@@ -130,7 +130,7 @@ const securityHeaders = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "strict-origin-when-cross-origin",
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+  "Permissions-Policy": "camera=(), microphone=(self), geolocation=(), payment=()",
   "Cross-Origin-Opener-Policy": "same-origin",
   "Content-Security-Policy":
     "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self' https://api.resend.com https://connect.squareup.com https://connect.squareupsandbox.com https://api.pokemontcg.io https://images.pokemontcg.io https://images.scrydex.com https://ws1.postescanada-canadapost.ca; form-action 'self'; upgrade-insecure-requests",
@@ -1053,7 +1053,18 @@ function jarvisCalendarEvents(db) {
     colorType: event.colorType || "",
   }));
   const cardShowEvents = jarvisCardShows(db);
-  const week = [...externalEvents, ...cardShowEvents]
+  const allEvents = [...externalEvents, ...cardShowEvents];
+  const holidays = allEvents
+    .filter((event) => isGenericHolidayEvent(event))
+    .filter((event) => {
+      if (!event.start) return true;
+      const eventDate = new Date(event.start);
+      if (Number.isNaN(eventDate.getTime())) return true;
+      return eventDate >= new Date(today) && eventDate <= weekEnd;
+    })
+    .sort((a, b) => String(a.start || "").localeCompare(String(b.start || "")))
+    .slice(0, 20);
+  const week = allEvents
     .filter((event) => isRelevantJarvisCalendarEvent(event))
     .filter((event) => {
       if (!event.start) return true;
@@ -1067,7 +1078,15 @@ function jarvisCalendarEvents(db) {
     today: week.filter((event) => String(event.start || "").slice(0, 10) === today),
     tomorrow: week.filter((event) => String(event.start || "").slice(0, 10) === tomorrow),
     week,
+    holidays,
   };
+}
+
+function isGenericHolidayEvent(event) {
+  const text = `${event.title || ""} ${event.description || ""} ${event.location || ""} ${event.calendarSource || ""} ${event.category || ""}`.toLowerCase();
+  return /holiday|jour férié|jour ferie|fête|fete|observance|canada day|thanksgiving|christmas|no[eë]l|easter|pâques|paques|st-jean|saint-jean|fête du travail|fete du travail/.test(
+    text
+  );
 }
 
 function isRelevantJarvisCalendarEvent(event) {
@@ -1076,10 +1095,7 @@ function isRelevantJarvisCalendarEvent(event) {
     /meeting|meet|rendez-vous|rdv|appel|call|zoom|card show|collect-a-con|expo|convention|coffee|coffeebreak|cbtcg|manners|deadline|échéance|echeance|voyage|flight|vol|hotel|anniversaire|birthday|commande|client|fournisseur|supplier/.test(
       text
     );
-  const genericHoliday =
-    /holiday|jour férié|jour ferie|fête|fete|observance|canada day|thanksgiving|christmas|no[eë]l|easter|pâques|paques|st-jean|saint-jean|fête du travail|fete du travail/.test(
-      text
-    );
+  const genericHoliday = isGenericHolidayEvent(event);
   if (genericHoliday && !/anniversaire|birthday|coffee|coffeebreak|cbtcg|manners|card show/.test(text)) return false;
   return relevant || Number(event.score || 0) >= 72 || ["Card Show", "CoffeeBreak", "Important", "Travail"].includes(event.category);
 }
@@ -1458,16 +1474,14 @@ function jarvisTicker(db, context) {
   );
   const salesWeek = roundMoney(orders.filter((order) => isSince(order.paidAt || order.createdAt, weekStart)).reduce((sum, order) => sum + orderGrandTotal(order), 0));
   const inventory = activeInventoryItems(db);
-  const topSeller = context.inventoryIntelligence.topSellers?.[0]?.name || "À découvrir";
   const alertCount = Number(context.ordersToShip.length || 0) + Number(context.emails.filter((email) => email.priority === "Critique").length || 0);
   return [
-    { label: "Ventes aujourd’hui", value: moneyText(salesToday) },
-    { label: "Ventes semaine", value: moneyText(salesWeek) },
+    { label: "Ventes aujourd’hui", value: orders.length ? moneyText(salesToday) : "—", tone: orders.length ? "positive" : "" },
+    { label: "Ventes semaine", value: orders.length ? moneyText(salesWeek) : "—", tone: orders.length ? "positive" : "" },
     { label: "Inventaire", value: String(inventory.length) },
-    { label: "Produits populaires", value: topSeller },
     { label: "Inventaire dormant", value: String(context.inventoryIntelligence.summary?.dormantCount || 0) },
-    { label: "Card Shows à venir", value: String(context.cardShows.length || 0) },
-    { label: "Alertes importantes", value: String(alertCount) },
+    { label: "Card Shows", value: String(context.cardShows.length || 0) },
+    { label: "Alertes", value: String(alertCount), tone: alertCount ? "alert" : "" },
   ];
 }
 
@@ -4600,6 +4614,28 @@ async function handleApi(req, res) {
         impactExpected: opportunity.impactExpected || "",
         confidence: opportunity.confidence || "",
       },
+      createdAt: new Date().toISOString(),
+    };
+    db.jarvisTasks = db.jarvisTasks || [];
+    db.jarvisTasks.unshift(task);
+    await writeDb(db);
+    return json(res, 200, { task, briefing: await buildJarvisBriefing(db) });
+  }
+
+  if (url.pathname === "/api/jarvis/tasks" && req.method === "POST") {
+    const body = await readBody(req);
+    const title = String(body.title || "").trim();
+    if (!title) return json(res, 400, { error: "Titre de tâche requis." });
+    const task = {
+      id: `jarvis-task-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`,
+      type: "manual",
+      title,
+      status: "à faire",
+      timeRequired: String(body.timeRequired || "10 minutes"),
+      impact: String(body.impact || "clarté opérationnelle"),
+      nextAction: String(body.nextAction || "Faire la prochaine étape concrète, puis marquer terminé."),
+      score: Number(body.score || 66),
+      source: "Commande Jarvis",
       createdAt: new Date().toISOString(),
     };
     db.jarvisTasks = db.jarvisTasks || [];
