@@ -269,195 +269,67 @@
       </div>
 
       <div class="admin-content hidden" id="adminContent">
-      <div class="admin-heading">
-        <div>
-          <p class="eyebrow">Back-office</p>
-          <h1>Inventaire & ventes</h1>
-        </div>
-        <div class="admin-actions">
-          <button class="button secondary" type="button" id="adminLogoutButton">Déconnexion</button>
-          <a class="button secondary" href="/">Retour boutique</a>
-        </div>
-      </div>
+        <header class="admin-command-header">
+          <div class="admin-title-block">
+            <p class="eyebrow">Back-office</p>
+            <h1>Inventaire</h1>
+          </div>
+          <label class="admin-command-search">
+            <span class="sr-only">Rechercher dans l’inventaire</span>
+            <input id="adminInventorySearch" type="search" placeholder="Rechercher une carte, extension, numéro..." autocomplete="off" />
+          </label>
+          <div class="admin-command-actions">
+            <button class="button primary" type="button" id="adminOpenAddButton">+ Ajouter une carte</button>
+            <button class="button secondary" type="button" id="adminOpenSessionButton">Session <span id="draftInventoryCount">0</span></button>
+            <button class="button secondary icon-only" type="button" id="adminCommandPaletteButton" aria-label="Ouvrir la commande rapide">⌘K</button>
+            <button class="button secondary" type="button" id="adminLogoutButton">Déconnexion</button>
+            <a class="button secondary" href="/">Boutique</a>
+          </div>
+        </header>
 
-      <div class="admin-metrics" id="adminMetrics"></div>
-      <p class="admin-price-sync hidden" id="adminPriceSync"></p>
+        <div class="admin-metrics" id="adminMetrics"></div>
+        <p class="admin-price-sync hidden" id="adminPriceSync"></p>
 
-      <div class="admin-sections">
-        <details class="admin-card admin-accordion admin-product-section" open>
-          <summary>Ajouter un item dans la boutique</summary>
-          <div class="draft-launch-panel">
+        <section class="admin-card admin-inventory-section">
+          <div class="admin-inventory-head">
             <div>
-              <span>Session de mise en ligne</span>
-              <strong id="draftInventoryCount">0 item en attente</strong>
-              <p>Ajoute ton stock tranquillement. Rien n'apparaît sur la boutique avant de cliquer sur LET'S GO.</p>
+              <p class="eyebrow">Inventaire</p>
+              <h2>Cartes et produits</h2>
             </div>
-            <button class="button primary" type="button" id="publishDraftProductsButton">LET'S GO - mettre sur le site</button>
+            <p class="admin-sync-note">Les actions rapides gardent ta recherche, ton scroll et tes filtres.</p>
           </div>
-          <p class="admin-status" id="publishDraftStatus" role="status"></p>
-          <form class="admin-form" id="adminProductForm">
-          <fieldset class="admin-form-section">
-            <legend>Ajout rapide</legend>
-          <div class="form-row two">
-            <label>Nom <input name="name" required /></label>
-            <label>Numéro <input name="cardNumber" placeholder="Ex. 215/203" /></label>
+          <div class="admin-quick-filters" aria-label="Filtres rapides inventaire">
+            <button class="active" type="button" data-admin-status-filter="all">Tous</button>
+            <button type="button" data-admin-status-filter="available">En ligne</button>
+            <button type="button" data-admin-status-filter="draft">En session</button>
+            <button type="button" data-admin-status-filter="sold">Vendus</button>
+            <button type="button" data-admin-status-filter="removed">Retirés</button>
+            <button type="button" data-admin-category-filter="Singles">Singles</button>
+            <button type="button" data-admin-category-filter="Graded">Slabs</button>
+            <button type="button" data-admin-category-filter="Sealed">Sealed</button>
+            <button type="button" data-admin-status-filter="review">À vérifier</button>
+            <button type="button" data-admin-status-filter="dormant">Dormant</button>
           </div>
-          <div class="form-row two admin-category-row">
-            <label>
-              Catégorie
-              <select name="category">
+          <div class="admin-inventory-tools">
+            <label>Catégorie
+              <select id="adminInventoryCategory">
+                <option value="all">Toutes</option>
                 <option value="Singles">Singles</option>
-                <option value="Sealed">Scellé</option>
-                <option value="Graded">Gradé</option>
+                <option value="Graded">Slabs</option>
+                <option value="Sealed">Sealed</option>
                 <option value="Preorder">Précommande</option>
                 <option value="Accessories">Accessoires</option>
               </select>
             </label>
-            <label>
-              Type boutique
-              <select name="kind">
-                <option value="single">Single</option>
-                <option value="slab">Slab</option>
-                <option value="etb">ETB</option>
-                <option value="utb">UTB</option>
-                <option value="pack">Pack</option>
-                <option value="booster-bundle">Booster bundle</option>
-                <option value="booster-box">Booster box</option>
-                <option value="japanese">Japanese</option>
-                <option value="accessory">Accessoire</option>
-              </select>
-            </label>
-          </div>
-          <div class="form-row two">
-            <label>
-              Compagnie slab
-              <select name="gradingCompany">
-                <option value="">Non gradé</option>
-                <option value="PSA">PSA</option>
-                <option value="Beckett">Beckett</option>
-                <option value="TAG">TAG</option>
-                <option value="CGC">CGC</option>
-                <option value="SGC">SGC</option>
-              </select>
-            </label>
-            <label>
-              Note slab
-              <select name="grade">
-                <option value="">Aucune</option>
-                <option value="10">10</option>
-                <option value="9">9</option>
-                <option value="8">8</option>
-                <option value="7">7</option>
-                <option value="6">6</option>
-                <option value="5">5</option>
-                <option value="4">4</option>
-                <option value="3">3</option>
-                <option value="2">2</option>
-                <option value="1">1</option>
-              </select>
-            </label>
-          </div>
-          <div class="admin-image-search">
-            <div>
-              <strong>Recherche photo automatique</strong>
-              <p>Entre le nom, cherche l'item, puis choisis le visuel avant et, au besoin, le visuel arrière. Les détails et le prix marché se rempliront automatiquement.</p>
-            </div>
-            <div class="image-search-actions">
-              <button class="button secondary" type="button" id="searchCardImageButton">Rechercher la photo</button>
-            </div>
-            <input type="hidden" name="imageUrl" id="selectedCardImageUrl" />
-            <input type="hidden" name="galleryImageUrls" id="selectedGalleryImageUrls" />
-            <input type="hidden" name="id" id="editingProductId" />
-            <input type="hidden" name="status" id="editingProductStatus" />
-            <div class="image-search-preview hidden" id="imageSearchPreview"></div>
-            <p class="image-search-status" id="imageSearchStatus" role="status"></p>
-          </div>
-          <div class="market-suggest-actions">
-            <button class="button secondary" type="button" id="suggestMarketButton">Suggérer prix marché</button>
-            <p class="market-suggest-status" id="marketSuggestStatus" role="status"></p>
-          </div>
-          <div class="form-row three">
-            <label>Prix paye <input name="cost" type="number" min="0" step="0.01" /></label>
-            <label>Prix marché <input name="market" type="number" min="0" step="0.01" /></label>
-            <label>Prix affiché <input name="price" type="number" min="0" step="0.01" required /></label>
-          </div>
-          <button class="button primary wide" type="submit">Ajouter à la session</button>
-          <p class="admin-status" role="status"></p>
-          </fieldset>
-          <details class="admin-form-section advanced-form-section">
-            <summary>Détails avancés</summary>
-          <div class="form-row two">
-            <label>
-              Extension
-              <select name="setId" id="pokemonSetSelect">
-                <option value="">Chargement des extensions...</option>
-              </select>
-            </label>
-            <label>
-              Rareté
-              <select name="rarity">
-                <option value="">À confirmer</option>
-                <option value="SIR">SIR</option>
-                <option value="IR">IR</option>
-                <option value="Gold">Gold</option>
-                <option value="Commune">Commune</option>
-              </select>
-            </label>
-          </div>
-          <fieldset class="choice-strip">
-            <legend>Condition</legend>
-            <label><input type="radio" name="condition" value="NM" checked /> NM</label>
-            <label><input type="radio" name="condition" value="LP" /> LP</label>
-            <label><input type="radio" name="condition" value="MP" /> MP</label>
-            <label><input type="radio" name="condition" value="Damaged" /> Damaged</label>
-            <label><input type="radio" name="condition" value="Scellé parfait" /> Scellé parfait</label>
-            <label><input type="radio" name="condition" value="Scellé endommagé" /> Scellé endommagé</label>
-          </fieldset>
-          <div class="form-row">
-            <label>Stock <input name="stock" type="number" min="0" value="1" /></label>
-          </div>
-          <label>Photos additionnelles - jusqu’à 4 <input name="galleryFiles" type="file" accept="image/*" multiple /></label>
-          <fieldset class="admin-marketing-options">
-            <legend>Vitrine</legend>
-            <label class="save-check">
-              <input type="checkbox" name="featured" />
-              Mettre en vedette
-            </label>
-            <label>
-              Badge
-              <select name="badge">
-                <option value="">Aucun badge</option>
-                <option value="Nouveau">Nouveau</option>
-                <option value="Deal">Deal</option>
-                <option value="Dernier exemplaire">Dernier exemplaire</option>
-                <option value="Hit populaire">Hit populaire</option>
-                <option value="Sous marché">Sous marché</option>
-                <option value="Prix ajusté">Prix ajusté</option>
-                <option value="Promo">Promo</option>
-              </select>
-            </label>
-          </fieldset>
-          </details>
-          <fieldset class="feature-options">
-            <legend>Particularités - max 2</legend>
-            <label><input type="checkbox" name="features" value="Swirl" data-feature-checkbox /> Swirl</label>
-            <label><input type="checkbox" name="features" value="Low pop" data-feature-checkbox /> Low pop</label>
-            <label><input type="checkbox" name="features" value="Miscut" data-feature-checkbox /> Miscut</label>
-          </fieldset>
-          <button class="button primary wide" type="submit">Ajouter à la session</button>
-          </form>
-        </details>
-
-        <details class="admin-card admin-accordion admin-inventory-section" open>
-          <summary>Inventaire</summary>
-          <div class="admin-inventory-tools">
-            <label>Rechercher <input id="adminInventorySearch" type="search" placeholder="Nom, extension, numéro..." /></label>
-            <label>Catégorie
-              <select id="adminInventoryCategory">
-                <option value="all">Tout</option>
-                <option value="Singles">Singles</option>
-                <option value="Graded">Slabs</option>
-                <option value="Sealed">Scellé</option>
+            <label>Statut
+              <select id="adminInventoryStatus">
+                <option value="all">Tous</option>
+                <option value="available">En ligne</option>
+                <option value="draft">En session</option>
+                <option value="sold">Vendus</option>
+                <option value="removed">Retirés</option>
+                <option value="review">À vérifier</option>
+                <option value="dormant">Dormant</option>
               </select>
             </label>
             <label>Trier
@@ -466,29 +338,270 @@
                 <option value="name">Nom A-Z</option>
                 <option value="priceDesc">Prix haut à bas</option>
                 <option value="priceAsc">Prix bas à haut</option>
+                <option value="profitDesc">Profit potentiel</option>
+                <option value="dormant">Inventaire dormant</option>
+                <option value="marketDesc">Marché haut à bas</option>
                 <option value="stockDesc">Stock haut à bas</option>
               </select>
             </label>
           </div>
           <div class="admin-table-wrap">
-            <table class="admin-table">
+            <table class="admin-table admin-inventory-table">
               <thead>
                 <tr>
                   <th>Item</th>
-                  <th>Cat.</th>
+                  <th>Catégorie</th>
                   <th>Stock</th>
                   <th>Payé</th>
                   <th>Marché</th>
-                  <th>Affiche</th>
+                  <th>Affiché</th>
                   <th>Profit potentiel</th>
-                  <th>Action</th>
+                  <th>Statut</th>
+                  <th aria-label="Actions"></th>
                 </tr>
               </thead>
               <tbody id="adminInventoryRows"></tbody>
             </table>
           </div>
-        </details>
-      </div>
+        </section>
+
+        <aside class="admin-drawer admin-product-drawer" id="adminProductDrawer" aria-hidden="true" aria-label="Ajouter ou modifier un item">
+          <div class="admin-drawer-head">
+            <div>
+              <p class="eyebrow" id="adminProductDrawerMode">Ajout rapide</p>
+              <h2 id="adminProductDrawerTitle">Ajouter une carte</h2>
+            </div>
+            <div class="admin-drawer-actions">
+              <button class="button secondary" type="button" id="adminPrevItemButton" hidden>←</button>
+              <button class="button secondary" type="button" id="adminNextItemButton" hidden>→</button>
+              <button class="button secondary" type="button" data-admin-close-panel>Fermer</button>
+            </div>
+          </div>
+          <form class="admin-form modern-admin-form" id="adminProductForm">
+            <input type="hidden" name="imageUrl" id="selectedCardImageUrl" />
+            <input type="hidden" name="galleryImageUrls" id="selectedGalleryImageUrls" />
+            <input type="hidden" name="id" id="editingProductId" />
+            <input type="hidden" name="status" id="editingProductStatus" />
+
+            <section class="admin-form-panel admin-form-panel-primary">
+              <div class="admin-step-label">1 · Recherche</div>
+              <div class="form-row two">
+                <label>Nom <input name="name" required placeholder="Nom de la carte, set ou numéro..." autocomplete="off" /></label>
+                <label>Numéro <input name="cardNumber" placeholder="Ex. SM82, 215/203" /></label>
+              </div>
+              <div class="form-row two">
+                <label>
+                  Extension
+                  <select name="setId" id="pokemonSetSelect">
+                    <option value="">Chargement des extensions...</option>
+                  </select>
+                </label>
+                <label>
+                  Type boutique
+                  <select name="kind">
+                    <option value="single">Single</option>
+                    <option value="slab">Slab</option>
+                    <option value="etb">ETB</option>
+                    <option value="utb">UTB</option>
+                    <option value="pack">Pack</option>
+                    <option value="booster-bundle">Booster bundle</option>
+                    <option value="booster-box">Booster box</option>
+                    <option value="japanese">Japanese</option>
+                    <option value="accessory">Accessoire</option>
+                  </select>
+                </label>
+              </div>
+              <div class="admin-image-search">
+                <div>
+                  <strong>Recherche photo automatique</strong>
+                  <p>Choisis le bon visuel. Les détails et le prix marché se remplissent automatiquement.</p>
+                </div>
+                <div class="image-search-actions">
+                  <button class="button secondary" type="button" id="searchCardImageButton">Rechercher la photo</button>
+                </div>
+                <div class="image-search-preview hidden" id="imageSearchPreview"></div>
+                <p class="image-search-status" id="imageSearchStatus" role="status"></p>
+              </div>
+            </section>
+
+            <section class="admin-form-panel">
+              <div class="admin-step-label">2 · Validation rapide</div>
+              <div class="form-row three">
+                <label>
+                  Catégorie
+                  <select name="category">
+                    <option value="Singles">Singles</option>
+                    <option value="Sealed">Sealed</option>
+                    <option value="Graded">Slab</option>
+                    <option value="Preorder">Précommande</option>
+                    <option value="Accessories">Accessoires</option>
+                  </select>
+                </label>
+                <label>
+                  Compagnie slab
+                  <select name="gradingCompany">
+                    <option value="">Non gradé</option>
+                    <option value="PSA">PSA</option>
+                    <option value="Beckett">Beckett</option>
+                    <option value="TAG">TAG</option>
+                    <option value="CGC">CGC</option>
+                    <option value="SGC">SGC</option>
+                  </select>
+                </label>
+                <label>
+                  Note slab
+                  <select name="grade">
+                    <option value="">Aucune</option>
+                    <option value="10">10</option>
+                    <option value="9">9</option>
+                    <option value="8">8</option>
+                    <option value="7">7</option>
+                    <option value="6">6</option>
+                    <option value="5">5</option>
+                    <option value="4">4</option>
+                    <option value="3">3</option>
+                    <option value="2">2</option>
+                    <option value="1">1</option>
+                  </select>
+                </label>
+              </div>
+              <fieldset class="choice-strip compact-choice-strip">
+                <legend>Condition</legend>
+                <label><input type="radio" name="condition" value="NM" checked /> NM</label>
+                <label><input type="radio" name="condition" value="LP" /> LP</label>
+                <label><input type="radio" name="condition" value="MP" /> MP</label>
+                <label><input type="radio" name="condition" value="Damaged" /> Damaged</label>
+                <label><input type="radio" name="condition" value="Scellé parfait" /> Scellé parfait</label>
+                <label><input type="radio" name="condition" value="Scellé endommagé" /> Scellé endommagé</label>
+              </fieldset>
+              <div class="market-suggest-actions">
+                <button class="button secondary" type="button" id="suggestMarketButton">Suggérer prix marché</button>
+                <p class="market-suggest-status" id="marketSuggestStatus" role="status"></p>
+              </div>
+              <div class="form-row four">
+                <label>Prix payé <input name="cost" type="number" min="0" step="0.01" /></label>
+                <label>Prix marché <input name="market" type="number" min="0" step="0.01" /></label>
+                <label>Prix affiché <input name="price" type="number" min="0" step="0.01" required /></label>
+                <label>Stock <input name="stock" type="number" min="0" value="1" /></label>
+              </div>
+            </section>
+
+            <details class="admin-form-section advanced-form-section">
+              <summary>Ajouter plus de détails</summary>
+              <div class="form-row two">
+                <label>
+                  Rareté
+                  <select name="rarity">
+                    <option value="">À confirmer</option>
+                    <option value="SIR">SIR</option>
+                    <option value="IR">IR</option>
+                    <option value="Gold">Gold</option>
+                    <option value="Commune">Commune</option>
+                  </select>
+                </label>
+                <label>Photos additionnelles - jusqu’à 4 <input name="galleryFiles" type="file" accept="image/*" multiple /></label>
+              </div>
+              <fieldset class="feature-options">
+                <legend>Particularités - max 2</legend>
+                <label><input type="checkbox" name="features" value="Swirl" data-feature-checkbox /> Swirl</label>
+                <label><input type="checkbox" name="features" value="Low pop" data-feature-checkbox /> Low pop</label>
+                <label><input type="checkbox" name="features" value="Miscut" data-feature-checkbox /> Miscut</label>
+              </fieldset>
+              <fieldset class="admin-marketing-options">
+                <legend>Boutique</legend>
+                <label class="save-check">
+                  <input type="checkbox" name="featured" />
+                  Mettre en vedette
+                </label>
+                <label>
+                  Badge
+                  <select name="badge">
+                    <option value="">Aucun badge</option>
+                    <option value="Nouveau">Nouveau</option>
+                    <option value="Deal">Deal</option>
+                    <option value="Dernier exemplaire">Dernier exemplaire</option>
+                    <option value="Hit populaire">Hit populaire</option>
+                    <option value="Sous marché">Sous marché</option>
+                    <option value="Prix ajusté">Prix ajusté</option>
+                    <option value="Promo">Promo</option>
+                  </select>
+                </label>
+              </fieldset>
+            </details>
+
+            <div class="admin-form-footer">
+              <button class="button primary" type="submit" id="adminSaveProductButton">Ajouter à la session</button>
+              <button class="button secondary" type="button" id="adminSavePublishButton">Ajouter et mettre en ligne</button>
+              <button class="button secondary" type="button" id="adminSaveDraftButton">Brouillon</button>
+            </div>
+            <p class="admin-status" role="status"></p>
+          </form>
+        </aside>
+
+        <aside class="admin-drawer admin-session-drawer" id="adminSessionDrawer" aria-hidden="true" aria-label="Session de mise en ligne">
+          <div class="admin-drawer-head">
+            <div>
+              <p class="eyebrow">Session de mise en ligne</p>
+              <h2>Cartes en attente</h2>
+            </div>
+            <button class="button secondary" type="button" data-admin-close-panel>Fermer</button>
+          </div>
+          <div class="admin-session-list" id="adminSessionList"></div>
+          <div class="admin-session-footer">
+            <p id="adminSessionValue">Valeur approximative: 0 $</p>
+            <button class="button primary wide" type="button" id="publishDraftProductsButton">Mettre sur le site</button>
+          </div>
+          <p class="admin-status" id="publishDraftStatus" role="status"></p>
+        </aside>
+
+        <div class="admin-modal" id="adminSaleModal" aria-hidden="true">
+          <form class="admin-modal-card" id="adminSaleForm">
+            <div class="admin-drawer-head">
+              <div>
+                <p class="eyebrow">Vente rapide</p>
+                <h2 id="adminSaleTitle">Marquer vendue</h2>
+              </div>
+              <button class="button secondary" type="button" data-admin-close-panel>Fermer</button>
+            </div>
+            <input type="hidden" name="id" />
+            <div class="form-row two">
+              <label>Prix vendu <input name="soldPrice" type="number" min="0" step="0.01" required /></label>
+              <label>Canal
+                <select name="channel">
+                  <option>Site CoffeeBreak</option>
+                  <option>Card Show</option>
+                  <option>Facebook</option>
+                  <option>eBay</option>
+                  <option>Trade</option>
+                  <option>Autre</option>
+                </select>
+              </label>
+            </div>
+            <div class="form-row two">
+              <label>Date <input name="date" type="date" /></label>
+              <label>Notes <input name="notes" placeholder="Optionnel" /></label>
+            </div>
+            <button class="button primary wide" type="submit">Confirmer la vente</button>
+            <p class="admin-status" role="status"></p>
+          </form>
+        </div>
+
+        <div class="admin-command-palette" id="adminCommandPalette" aria-hidden="true">
+          <div class="admin-command-card">
+            <div class="admin-drawer-head">
+              <div>
+                <p class="eyebrow">Commande rapide</p>
+                <h2>Que veux-tu faire?</h2>
+              </div>
+              <button class="button secondary" type="button" data-admin-close-panel>Fermer</button>
+            </div>
+            <button type="button" data-admin-command="add">Ajouter une carte</button>
+            <button type="button" data-admin-command="session">Ouvrir session</button>
+            <button type="button" data-admin-command="search">Rechercher inventaire</button>
+            <button type="button" data-admin-command="dormant">Voir cartes dormantes</button>
+            <button type="button" data-admin-command="jarvis">Ouvrir Jarvis</button>
+          </div>
+        </div>
 
       <details class="admin-card admin-accordion">
         <summary>Cartes vendues</summary>
