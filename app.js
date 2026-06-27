@@ -100,6 +100,9 @@ const accountModal = document.querySelector("#accountModal");
 const cardShowsGrid = document.querySelector("#cardShowsGrid");
 const featuredSections = document.querySelector("#featuredSections");
 const curatedSections = document.querySelector("#curatedSections");
+const newArrivalsGrid = document.querySelector("#newArrivalsGrid");
+const coffeeVitrineGrid = document.querySelector("#coffeeVitrineGrid");
+const slabsUnderGrid = document.querySelector("#slabsUnderGrid");
 const reviewSection = document.querySelector("#reviewSection");
 const languageLoader = document.querySelector("#languageLoader");
 const welcomeToast = document.querySelector("#welcomeToast");
@@ -126,16 +129,16 @@ const translations = {
     cartOpen: "Ouvrir le panier",
     account: "Compte",
     navAbout: "À propos",
-    heroEyebrow: "Pokémon TCG - Coffee Break",
-    heroTitle: "Produits Pokémon choisis avec soin.",
-    heroText: "Singles, graded et sealed choisis pour les collectionneurs. Photos réelles, paiement simple et livraison suivie le jour même depuis Laval.",
-    shopNow: "Magasiner",
-    seeOptions: "Voir les options",
+    heroEyebrow: "CoffeeBreakTCG · Laval",
+    heroTitle: "Des cartes qu’on garde.",
+    heroText: "Singles, slabs et sealed choisis pour les collectionneurs. Photos réelles, livraison suivie et service local.",
+    shopNow: "Voir les nouveautés",
+    seeOptions: "Vendre ou échanger",
     trustPhotos: "Photos réelles",
-    trustShipping: "Livraison suivie le jour même",
-    trustPayment: "Paiement Square",
+    trustShipping: "Livraison suivie",
+    trustPayment: "Paiement sécurisé",
     trustReserve: "Réservation 10 min",
-    trustLocal: "Basé à Laval",
+    trustLocal: "Laval, Québec",
     searchCard: "Rechercher une carte",
     sortProducts: "Trier les produits",
     sortFeatured: "En vedette",
@@ -156,6 +159,7 @@ const translations = {
     availableCards: "Produits disponibles",
     shopEmpty: "Aucun produit ne correspond à ta recherche.",
     details: "Voir détails",
+    viewCard: "Voir la carte →",
     addToCartShort: "+",
     addToCartFull: "Ajouter au panier",
     reserved: "RÉSERVÉ",
@@ -202,10 +206,26 @@ const translations = {
     stayTuned: "Restez à l’affût des prochains drops à l’avance!",
     emailPlaceholder: "Votre courriel",
     curatedEyebrow: "Sélection Coffee Break",
-    featuredTitle: "En vedette",
-    featuredText: "Les produits qu’on pense que tu vas aimer ❤️",
+    featuredTitle: "La vitrine CoffeeBreak",
+    featuredText: "Une sélection qu’on garderait nous-mêmes.",
     newTitle: "Nouveautés",
     newText: "Les derniers ajouts à la vitrine.",
+    viewAllNew: "Voir toutes les nouveautés →",
+    exploreTitle: "Explorer la vitrine",
+    exploreText: "Chaque catégorie a son moment.",
+    exploreSingles: "Pour les cartes à collectionner, jouer ou offrir.",
+    exploreGraded: "Pour les pièces protégées et les cartes qui méritent la vitrine.",
+    exploreSealed: "Pour garder fermé, ouvrir ou offrir.",
+    exploreUnder100: "Des cartes protégées qui restent accessibles.",
+    sellTradeTitle: "Vendre / Échanger",
+    sellStepOne: "Envoie-nous photos ou liste rapide.",
+    sellStepTwo: "Reçois une offre claire.",
+    sellStepThree: "Vends, expédie ou échange vers une carte plus importante.",
+    howItWorks: "Comment ça fonctionne",
+    viewAllGradedArrow: "Voir les graded →",
+    newsletterTitle: "Les prochains drops, avant tout le monde.",
+    newsletterText: "Nouveautés, Card Shows et collections fraîchement arrivées.",
+    newsletterCta: "Recevoir les prochains drops →",
     under25Title: "Singles sous 25 $",
     under25Text: "Des ajouts faciles pour compléter une commande.",
     under100Title: "Slabs sous 100 $",
@@ -244,16 +264,16 @@ const translations = {
     cartOpen: "Open cart",
     account: "Account",
     navAbout: "About",
-    heroEyebrow: "Pokemon TCG - Coffee Break",
-    heroTitle: "Carefully selected Pokemon products.",
-    heroText: "Singles, graded and sealed products chosen for collectors. Real photos, simple payment and same-day tracked shipping from Laval.",
-    shopNow: "Shop now",
-    seeOptions: "See options",
+    heroEyebrow: "CoffeeBreakTCG · Laval",
+    heroTitle: "Cards worth keeping.",
+    heroText: "Singles, slabs and sealed product selected for collectors. Real photos, tracked shipping and local service.",
+    shopNow: "See new arrivals",
+    seeOptions: "Sell or trade",
     trustPhotos: "Real photos",
-    trustShipping: "Same-day tracked shipping",
-    trustPayment: "Square payment",
+    trustShipping: "Tracked shipping",
+    trustPayment: "Secure payment",
     trustReserve: "10-minute checkout hold",
-    trustLocal: "Based in Laval",
+    trustLocal: "Laval, Quebec",
     searchCard: "Search for a card",
     sortProducts: "Sort products",
     sortFeatured: "Featured",
@@ -274,6 +294,7 @@ const translations = {
     availableCards: "Available products",
     shopEmpty: "No products match your search.",
     details: "View details",
+    viewCard: "View card →",
     addToCartShort: "+",
     addToCartFull: "Add to cart",
     reserved: "RESERVED",
@@ -320,10 +341,26 @@ const translations = {
     stayTuned: "Get early notice of upcoming drops!",
     emailPlaceholder: "Your email",
     curatedEyebrow: "Coffee Break picks",
-    featuredTitle: "Featured",
-    featuredText: "Products we think you'll love ❤️",
+    featuredTitle: "The CoffeeBreak Showcase",
+    featuredText: "A selection we would keep ourselves.",
     newTitle: "New arrivals",
     newText: "The latest additions to the showcase.",
+    viewAllNew: "View all new arrivals →",
+    exploreTitle: "Explore the showcase",
+    exploreText: "Each category has its moment.",
+    exploreSingles: "For collecting, playing or gifting.",
+    exploreGraded: "For protected pieces and cards worth displaying.",
+    exploreSealed: "To keep sealed, open or gift.",
+    exploreUnder100: "Protected cards that stay accessible.",
+    sellTradeTitle: "Sell / Trade",
+    sellStepOne: "Send photos or a quick list.",
+    sellStepTwo: "Receive a clear offer.",
+    sellStepThree: "Sell, ship or trade toward a bigger card.",
+    howItWorks: "How it works",
+    viewAllGradedArrow: "View graded →",
+    newsletterTitle: "Upcoming drops, before everyone else.",
+    newsletterText: "New arrivals, Card Shows and fresh collections.",
+    newsletterCta: "Get upcoming drops →",
     under25Title: "Singles under $25",
     under25Text: "Easy additions to complete an order.",
     under100Title: "Slabs under $100",
@@ -1089,27 +1126,13 @@ function trustMarqueeItems() {
 
 function renderTrustStrip() {
   if (!trustStrip) return;
-  const items = trustMarqueeItems();
-  const track = items
-    .map(
-      (item) => `
-        <span class="trust-review-chip">
-          ${
-            item.photoUrl
-              ? `<img class="trust-review-photo" src="${escapeAttribute(item.photoUrl)}" alt="${escapeAttribute(item.name)}" />`
-              : `<span class="trust-review-photo trust-review-initial">${escapeAttribute(item.name.slice(0, 1) || "C")}</span>`
-          }
-          <span class="trust-stars" aria-label="${Number(item.rating || 5)} étoiles">${reviewStars(item.rating)}</span>
-          <span class="trust-review-text">“${escapeAttribute(item.text)}”</span>
-          <strong>${escapeAttribute(item.name)}</strong>
-          ${item.city || item.product ? `<small>${escapeAttribute([item.city, item.product].filter(Boolean).join(" - "))}</small>` : ""}
-        </span>
-      `
-    )
-    .join("");
   trustStrip.innerHTML = `
-    <div class="trust-track">${track}</div>
-    <div class="trust-track" aria-hidden="true">${track}</div>
+    <div class="trust-list">
+      <span>${t("trustPhotos")}</span>
+      <span>${t("trustShipping")}</span>
+      <span>${t("trustPayment")}</span>
+      <span>${t("trustLocal")}</span>
+    </div>
   `;
 }
 
@@ -1127,6 +1150,8 @@ function formatShowDateRange(show) {
 
 function renderCardShows() {
   if (!cardShowsGrid) return;
+  const section = cardShowsGrid.closest(".shows-section");
+  section?.classList.toggle("hidden", cardShows.length === 0);
   cardShowsGrid.innerHTML = cardShows.length
     ? cardShows
         .map((show) => {
@@ -1145,7 +1170,7 @@ function renderCardShows() {
           `;
         })
         .join("")
-    : `<p class="empty-shows">Aucun card show annoncé pour le moment.</p>`;
+    : "";
   observeDynamicElements();
 }
 
@@ -1181,11 +1206,106 @@ function isHomeShopPreview() {
   return window.location.pathname === "/" && !state.search.trim() && state.typeFilter === "all";
 }
 
+function hasValidProductImage(product) {
+  return Boolean(productImageUrl(product));
+}
+
+function availableHomeProducts() {
+  return inventory.filter(
+    (product) =>
+      !["Preorder", "Accessories"].includes(product.category) &&
+      getProductStatus(product) === "available" &&
+      Number(product.stock || 0) > 0 &&
+      hasValidProductImage(product)
+  );
+}
+
+function featuredRank(product) {
+  const rank = Number(product.featuredRank || 999);
+  return Number.isFinite(rank) ? rank : 999;
+}
+
+function isHomepageFeatured(product) {
+  const collection = String(product.homepageCollection || "").toLowerCase();
+  return Boolean(product.heroFeatured || product.featured || collection === "vitrine" || collection === "showcase");
+}
+
+function productMetaLine(product) {
+  return [
+    product.setName,
+    product.cardNumber ? `#${product.cardNumber}` : "",
+    product.category === "Sealed" ? product.condition : cardConditionCode(product) || product.condition,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function homeProductCard(product, options = {}) {
+  const status = getProductStatus(product);
+  const isReserved = status === "reserved";
+  const badge = isRecentProduct(product) ? `<span class="home-product-badge">Nouveau</span>` : "";
+  return `
+    <article class="home-product-card ${options.hero ? "is-hero" : ""}" data-product-card="${escapeAttribute(product.id)}" data-view-product="${escapeAttribute(product.id)}">
+      <div class="home-product-art ${isSlabProduct(product) ? "slab-product-art" : ""}" style="--accent:${product.accent || "#d5742d"}">
+        ${badge}
+        ${productVisual(product)}
+      </div>
+      <div class="home-product-copy">
+        <span>${escapeAttribute(productCategoryLabel(product))}</span>
+        <h3>${escapeAttribute(product.name)}</h3>
+        <p>${escapeAttribute(productMetaLine(product) || "Détails à confirmer")}</p>
+        <div class="home-product-bottom">
+          ${priceMarkup(product)}
+          <a href="${productDetailPath(product)}" data-view-product="${escapeAttribute(product.id)}">${isReserved ? t("reserved") : t("viewCard")}</a>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function setSectionVisibility(element, visible) {
+  element?.closest("section")?.classList.toggle("hidden", !visible);
+}
+
+function renderHomeSections() {
+  const available = availableHomeProducts();
+  const newest = available
+    .slice()
+    .sort((a, b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0) || originalOrder(a, b))
+    .slice(0, 6);
+  if (newArrivalsGrid) {
+    newArrivalsGrid.innerHTML = newest.map((product) => homeProductCard(product)).join("");
+    setSectionVisibility(newArrivalsGrid, newest.length > 0);
+  }
+
+  const featured = available
+    .filter(isHomepageFeatured)
+    .sort((a, b) => Number(Boolean(b.heroFeatured)) - Number(Boolean(a.heroFeatured)) || featuredRank(a) - featuredRank(b) || originalOrder(a, b));
+  const fallbackFeatured = available.slice().sort((a, b) => sortNumber(b.price) - sortNumber(a.price) || originalOrder(a, b)).slice(0, 6);
+  const vitrineItems = (featured.length ? featured : fallbackFeatured).slice(0, 6);
+  if (coffeeVitrineGrid) {
+    const hero = vitrineItems.find((product) => product.heroFeatured) || vitrineItems[0];
+    const secondary = vitrineItems.filter((product) => product !== hero).slice(0, 5);
+    coffeeVitrineGrid.innerHTML = hero
+      ? `${homeProductCard(hero, { hero: true })}<div class="editorial-featured-secondary">${secondary.map((product) => homeProductCard(product)).join("")}</div>`
+      : "";
+    setSectionVisibility(coffeeVitrineGrid, Boolean(hero));
+  }
+
+  const slabsUnder = available.filter((product) => product.category === "Graded" && Number(product.price || 0) <= 100).slice(0, 6);
+  if (slabsUnderGrid) {
+    slabsUnderGrid.innerHTML = slabsUnder.map((product) => homeProductCard(product)).join("");
+    setSectionVisibility(slabsUnderGrid, slabsUnder.length >= 3);
+  }
+}
+
 function renderProducts() {
   updateCategoryHeading();
   const products = getProducts();
   const homePreview = isHomeShopPreview();
-  const visibleProducts = homePreview ? products.slice(0, 15) : products;
+  const shopShell = document.querySelector("#shop");
+  const visibleProducts = homePreview ? [] : products;
+  shopShell?.classList.toggle("home-grid-hidden", homePreview);
   productGrid.classList.toggle("mobile-preview-grid", homePreview && products.length > 16 && isMobileShop());
   productGrid.innerHTML = visibleProducts
     .map((product, index) => {
@@ -1203,9 +1323,8 @@ function renderProducts() {
           : "";
       const status = getProductStatus(product);
       const isReserved = status === "reserved";
-      const limit = cartLineLimit(product);
       return `
-        <article class="product-card" data-product-card="${product.id}" style="--stagger:${Math.min(index, 12) * 42}ms">
+        <article class="product-card" data-product-card="${product.id}" data-view-product="${product.id}" style="--stagger:${Math.min(index, 12) * 42}ms">
           <a class="product-art ${isSlabProduct(product) ? "slab-product-art" : ""}" href="${productDetailPath(product)}" data-view-product="${product.id}" style="--accent: ${product.accent}">
             ${productVisual(product)}
           </a>
@@ -1218,11 +1337,10 @@ function renderProducts() {
             <div class="price-line">
               ${priceMarkup(product)}
               ${pills ? `<span class="feature-pills">${pills}</span>` : ""}
-              <button class="detail-link add-cart-link" type="button" data-add-cart="${product.id}" ${status === "sold" || isReserved || limit <= 0 ? "disabled" : ""}>${isReserved ? t("reserved") : t("addToCartShort")}</button>
             </div>
           </div>
           <div class="card-actions">
-            <a class="detail-link" href="${productDetailPath(product)}" data-view-product="${product.id}">${t("details")}</a>
+            <a class="detail-link" href="${productDetailPath(product)}" data-view-product="${product.id}">${isReserved ? t("reserved") : t("viewCard")}</a>
           </div>
         </article>
       `;
@@ -1232,7 +1350,8 @@ function renderProducts() {
   if (!products.length) {
     productGrid.innerHTML = `<p>${t("shopEmpty")}</p>`;
   }
-  renderMobileMore(products.length > 0 && homePreview);
+  renderMobileMore(products.length > 0 && !homePreview && isMobileShop());
+  renderHomeSections();
   renderCuratedSections();
   observeDynamicElements();
 }
@@ -2446,6 +2565,9 @@ function productPayloadFromAdminItem(item, overrides = {}) {
     market: item.market,
     price: item.price,
     featured: Boolean(item.featured),
+    heroFeatured: Boolean(item.heroFeatured),
+    featuredRank: item.featuredRank,
+    homepageCollection: item.homepageCollection,
     badge: item.badge,
     features: item.features || [],
     imageUrl: item.imageUrl,
@@ -2903,8 +3025,12 @@ function editAdminItem(id) {
   setAdminField("kind", item.kind || "single");
   setAdminField("rarity", item.rarity);
   setAdminField("badge", item.badge || "");
+  setAdminField("featuredRank", item.featuredRank || "");
+  setAdminField("homepageCollection", item.homepageCollection || "");
   const featured = adminProductForm.querySelector('[name="featured"]');
   if (featured) featured.checked = Boolean(item.featured);
+  const heroFeatured = adminProductForm.querySelector('[name="heroFeatured"]');
+  if (heroFeatured) heroFeatured.checked = Boolean(item.heroFeatured);
   if (pokemonSetSelect && item.setId) {
     const option = [...pokemonSetSelect.options].find((entry) => entry.value === item.setId);
     if (!option && item.setName) {
@@ -3234,6 +3360,8 @@ document.addEventListener("click", (event) => {
   const galleryImage = event.target.closest("[data-gallery-image]");
   const languageButton = event.target.closest("[data-language]");
   const showAnchor = event.target.closest("[data-show-anchor]");
+  const homeSectionLink = event.target.closest("[data-home-section]");
+  const homeFilterLink = event.target.closest("[data-home-filter]");
   const accountLogout = event.target.closest("[data-account-logout]");
   const passwordToggle = event.target.closest("[data-toggle-password]");
   const editProfileButton = event.target.closest("[data-edit-profile]");
@@ -3320,6 +3448,28 @@ document.addEventListener("click", (event) => {
     history.pushState({}, "", "/");
     applyRoute();
     requestAnimationFrame(() => document.querySelector("#cardshows")?.scrollIntoView({ behavior: "smooth" }));
+  }
+  if (homeSectionLink) {
+    event.preventDefault();
+    closeDrawers();
+    const sectionId = homeSectionLink.dataset.homeSection;
+    history.pushState({}, "", sectionId ? `/#${sectionId}` : "/");
+    state.category = "all";
+    state.typeFilter = "all";
+    state.setFilter = "all";
+    state.search = "";
+    if (searchInput) searchInput.value = "";
+    if (setFilterSelect) setFilterSelect.value = "all";
+    applyRoute();
+    requestAnimationFrame(() => document.querySelector(`#${CSS.escape(sectionId)}`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+  if (homeFilterLink) {
+    event.preventDefault();
+    closeDrawers();
+    history.pushState({}, "", "/");
+    state.category = homeFilterLink.dataset.homeFilter || "all";
+    applyRoute();
+    requestAnimationFrame(() => scrollToShopItems("smooth"));
   }
   if (galleryImage) selectGalleryImage(galleryImage);
   if (reportDownload) {
@@ -3513,9 +3663,11 @@ adminPriceForm?.addEventListener("submit", async (event) => {
   await applyAdminDiscount(form.get("id"), submitButton, form.get("price"));
 });
 
-document.querySelector(".newsletter").addEventListener("submit", (event) => {
-  event.preventDefault();
-  event.currentTarget.reset();
+document.querySelectorAll(".newsletter").forEach((form) => {
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    event.currentTarget.reset();
+  });
 });
 
 document.addEventListener("submit", async (event) => {
@@ -3908,6 +4060,9 @@ adminProductForm?.addEventListener("submit", async (event) => {
     price: form.get("price"),
     priceAuto: false,
     featured: Boolean(form.get("featured")),
+    heroFeatured: Boolean(form.get("heroFeatured")),
+    featuredRank: form.get("featuredRank"),
+    homepageCollection: form.get("homepageCollection"),
     badge: form.get("badge"),
     features: form.getAll("features").slice(0, 2),
     imageUrl: form.get("imageUrl"),

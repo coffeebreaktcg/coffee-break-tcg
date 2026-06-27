@@ -41,11 +41,11 @@
         <img class="brand-logo-img" src="/assets/coffee-break-logo-cbtcg-wordmark-header-transparent.png?v=cbtcg-header-transparent-20260531" alt="Coffee Break TCG" />
       </a>
       <nav class="main-nav" aria-label="Navigation principale">
+        <a href="/#new-arrivals" data-home-section="new-arrivals">Nouveautés</a>
         <a href="/singles" data-route-category="Singles">Singles</a>
         <a href="/graded" data-route-category="Graded">Graded</a>
         <a href="/sealed" data-route-category="Sealed">Sealed</a>
-        <a href="/faq" data-content-route="faq">FAQ</a>
-        <a href="/apropos" data-content-route="apropos" data-i18n="navAbout">À propos</a>
+        <a href="/vendre" data-content-route="vendre">Vendre / Échanger</a>
       </nav>
       <div class="header-actions">
         <a class="icon-button" href="/compte" data-account-link aria-label="Compte client" data-i18n-aria="account">
@@ -75,14 +75,14 @@
     <main id="top">
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow" data-i18n="heroEyebrow">Pokémon TCG - Coffee Break</p>
-          <h1 data-i18n="heroTitle">Produits Pokémon choisis avec soin.</h1>
+          <p class="eyebrow" data-i18n="heroEyebrow">CoffeeBreakTCG · Laval</p>
+          <h1 data-i18n="heroTitle">Des cartes qu’on garde.</h1>
           <p data-i18n="heroText">
-            Singles, graded et sealed choisis pour les collectionneurs. Photos réelles, paiement simple et livraison suivie le jour même depuis Laval.
+            Singles, slabs et sealed choisis pour les collectionneurs. Photos réelles, livraison suivie et service local.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="#shop" data-i18n="shopNow">Magasiner</a>
-            <button class="button secondary" type="button" data-open-menu data-i18n="seeOptions">Voir les options</button>
+            <a class="button primary" href="#new-arrivals" data-i18n="shopNow">Voir les nouveautés</a>
+            <a class="button secondary" href="/vendre" data-content-route="vendre" data-i18n="seeOptions">Vendre ou échanger</a>
           </div>
         </div>
         <div class="hero-media parallax-media motion-card" data-depth="0.12">
@@ -99,34 +99,39 @@
       </section>
 
       <section class="trust-strip" aria-label="Pourquoi commander chez Coffee Break TCG">
-        <div class="trust-track">
+        <div class="trust-list">
           <span data-i18n="trustPhotos">Photos réelles</span>
-          <span data-i18n="trustShipping">Livraison suivie le jour même</span>
-          <span data-i18n="trustPayment">Paiement Square</span>
-          <span data-i18n="trustReserve">Réservation 1 h</span>
-          <span data-i18n="trustLocal">Basé à Laval</span>
-          <span data-i18n="trustPhotos">Photos réelles</span>
-          <span data-i18n="trustShipping">Livraison suivie le jour même</span>
-          <span data-i18n="trustPayment">Paiement Square</span>
-          <span data-i18n="trustReserve">Réservation 1 h</span>
-          <span data-i18n="trustLocal">Basé à Laval</span>
-        </div>
-        <div class="trust-track" aria-hidden="true">
-          <span data-i18n="trustPhotos">Photos réelles</span>
-          <span data-i18n="trustShipping">Livraison suivie le jour même</span>
-          <span data-i18n="trustPayment">Paiement Square</span>
-          <span data-i18n="trustReserve">Réservation 1 h</span>
-          <span data-i18n="trustLocal">Basé à Laval</span>
-          <span data-i18n="trustPhotos">Photos réelles</span>
-          <span data-i18n="trustShipping">Livraison suivie le jour même</span>
-          <span data-i18n="trustPayment">Paiement Square</span>
-          <span data-i18n="trustReserve">Réservation 1 h</span>
-          <span data-i18n="trustLocal">Basé à Laval</span>
+          <span data-i18n="trustShipping">Livraison suivie</span>
+          <span data-i18n="trustPayment">Paiement sécurisé</span>
+          <span data-i18n="trustLocal">Laval, Québec</span>
         </div>
       </section>
 
+      <section class="home-product-section home-new-arrivals" id="new-arrivals">
+        <div class="home-section-heading">
+          <div>
+            <p class="eyebrow" data-i18n="newTitle">Nouveautés</p>
+            <h2 data-i18n="newText">Les derniers ajouts à la vitrine.</h2>
+          </div>
+          <a href="/?category=new#shop" data-home-filter="new" data-i18n="viewAllNew">Voir toutes les nouveautés →</a>
+        </div>
+        <div class="home-product-grid compact" id="newArrivalsGrid"></div>
+      </section>
+
+      <section class="home-product-section home-featured-section" id="coffee-vitrine">
+        <div class="home-section-heading">
+          <div>
+            <p class="eyebrow" data-i18n="featuredTitle">La vitrine CoffeeBreak</p>
+            <h2 data-i18n="featuredText">Une sélection qu’on garderait nous-mêmes.</h2>
+          </div>
+        </div>
+        <div class="editorial-featured-grid" id="coffeeVitrineGrid"></div>
+      </section>
+
       <section class="inventory-shell" id="shop">
-        <div class="featured-sections" id="featuredSections"></div>
+        <div class="section-break-label">
+          <span>Vitrine</span>
+        </div>
 
         <div class="category-tabs" role="tablist" aria-label="Categories">
           <button class="tab active" type="button" data-category="all" data-i18n="all">Tout</button>
@@ -167,28 +172,69 @@
         </div>
 
         <div class="product-grid" id="productGrid" aria-live="polite"></div>
-        <div class="curated-sections" id="curatedSections"></div>
+      </section>
+
+      <section class="category-explorer reveal-section" id="explorer">
+        <div class="home-section-heading">
+          <div>
+            <p class="eyebrow" data-i18n="exploreTitle">Explorer la vitrine</p>
+            <h2 data-i18n="exploreText">Chaque catégorie a son moment.</h2>
+          </div>
+        </div>
+        <div class="category-explorer-grid">
+          <a class="category-tile singles" href="/singles" data-route-category="Singles">
+            <span>Singles</span>
+            <p data-i18n="exploreSingles">Pour les cartes à collectionner, jouer ou offrir.</p>
+          </a>
+          <a class="category-tile graded" href="/graded" data-route-category="Graded">
+            <span>Graded</span>
+            <p data-i18n="exploreGraded">Pour les pièces protégées et les cartes qui méritent la vitrine.</p>
+          </a>
+          <a class="category-tile sealed" href="/sealed" data-route-category="Sealed">
+            <span>Sealed</span>
+            <p data-i18n="exploreSealed">Pour garder fermé, ouvrir ou offrir.</p>
+          </a>
+          <a class="category-tile slabs-under" href="/#slabs-under-100" data-home-section="slabs-under-100">
+            <span>Slabs sous 100 $</span>
+            <p data-i18n="exploreUnder100">Des cartes protégées qui restent accessibles.</p>
+          </a>
+        </div>
       </section>
 
       <section class="priority-block reveal-section">
         <div>
-          <p class="eyebrow" data-i18n="buyCardsEyebrow">On achète vos cartes</p>
+          <p class="eyebrow" data-i18n="sellTradeTitle">Vendre / Échanger</p>
           <h2 data-i18n="buyCardsTitle">Soumets-nous ta collection.</h2>
         </div>
-        <div class="priority-grid">
-          <article class="sell-priority-card">
+        <div class="sell-steps">
+          <article>
             <span>01</span>
-            <h3 data-i18n="buyCardsCardTitle">On achète vos cartes</h3>
-            <p data-i18n="buyCardsCardText">Soumets ta collection de 1 000 $ et plus avec un résumé clair, les cartes importantes et des photos nettes.</p>
-            <a href="/vendre" data-content-route="vendre" data-i18n="submitCollection">Soumettre une collection</a>
+            <p data-i18n="sellStepOne">Envoie-nous photos ou liste rapide.</p>
           </article>
-          <article class="sell-priority-card">
+          <article>
             <span>02</span>
-            <h3 data-i18n="shippingCardTitle">Livraison claire</h3>
-            <p data-i18n="shippingCardText">Livraison depuis Laval, suivi inclus, avec protection adaptée pour singles, sealed et slabs.</p>
-            <a href="/livraison" data-content-route="livraison" data-i18n="viewShipping">Voir la livraison</a>
+            <p data-i18n="sellStepTwo">Reçois une offre claire.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <p data-i18n="sellStepThree">Vends, expédie ou échange vers une carte plus importante.</p>
           </article>
         </div>
+        <div class="sell-actions">
+          <a class="button primary" href="/vendre" data-content-route="vendre" data-i18n="submitCollection">Soumettre une collection</a>
+          <a class="button secondary" href="/faq" data-content-route="faq" data-i18n="howItWorks">Comment ça fonctionne</a>
+        </div>
+      </section>
+
+      <section class="home-product-section slabs-under-section" id="slabs-under-100">
+        <div class="home-section-heading">
+          <div>
+            <p class="eyebrow" data-i18n="under100Title">Slabs sous 100 $</p>
+            <h2 data-i18n="under100Text">Des cartes protégées pour commencer ou compléter une collection.</h2>
+          </div>
+          <a href="/graded" data-route-category="Graded" data-i18n="viewAllGradedArrow">Voir les graded →</a>
+        </div>
+        <div class="home-product-grid compact" id="slabsUnderGrid"></div>
       </section>
 
       <section class="shows-section reveal-section" id="cardshows">
@@ -197,6 +243,18 @@
           <h2 data-i18n="upcomingShows">Prochains card shows</h2>
         </div>
         <div class="shows-grid" id="cardShowsGrid"></div>
+      </section>
+
+      <section class="home-newsletter reveal-section">
+        <div>
+          <p class="eyebrow">Newsletter</p>
+          <h2 data-i18n="newsletterTitle">Les prochains drops, avant tout le monde.</h2>
+          <p data-i18n="newsletterText">Nouveautés, Card Shows et collections fraîchement arrivées.</p>
+        </div>
+        <form class="newsletter home-newsletter-form">
+          <input type="email" placeholder="Votre courriel" data-i18n-placeholder="emailPlaceholder" />
+          <button type="submit" data-i18n="newsletterCta">Recevoir les prochains drops →</button>
+        </form>
       </section>
     </main>
 
@@ -516,6 +574,23 @@
                 <label class="save-check">
                   <input type="checkbox" name="featured" />
                   Mettre en vedette
+                </label>
+                <label class="save-check">
+                  <input type="checkbox" name="heroFeatured" />
+                  Carte héro de la vitrine
+                </label>
+                <label>
+                  Rang vitrine
+                  <input name="featuredRank" type="number" min="0" step="1" placeholder="1" />
+                </label>
+                <label>
+                  Collection homepage
+                  <select name="homepageCollection">
+                    <option value="">Aucune</option>
+                    <option value="vitrine">Vitrine CoffeeBreak</option>
+                    <option value="new">Nouveautés</option>
+                    <option value="slabs-under-100">Slabs sous 100 $</option>
+                  </select>
                 </label>
                 <label>
                   Badge
@@ -907,29 +982,41 @@
       </div>
       <nav class="drawer-nav">
         <details class="drawer-group">
-          <summary data-i18n="pokemonCategory">Pokémon</summary>
+          <summary>Magasiner</summary>
           <div class="drawer-subnav">
+            <a href="/#new-arrivals" data-home-section="new-arrivals">Nouveautés</a>
             <a href="/singles" data-route-category="Singles">Singles</a>
             <a href="/graded" data-route-category="Graded">Graded</a>
-            <span class="drawer-separator" aria-hidden="true"></span>
-            <details class="drawer-nested-group">
-              <summary>Sealed</summary>
-              <div class="drawer-nested-subnav">
-                <a href="/sealed" data-kind-route="pack">Packs</a>
-                <a href="/sealed" data-kind-route="booster-bundle">Booster bundle</a>
-                <a href="/sealed" data-kind-route="etb">ETB</a>
-                <a href="/sealed" data-kind-route="utb">UTB</a>
-                <a href="/sealed" data-kind-route="japanese">Japanese</a>
-              </div>
-            </details>
+            <a href="/sealed" data-route-category="Sealed">Sealed</a>
+            <a href="/#slabs-under-100" data-home-section="slabs-under-100">Slabs sous 100 $</a>
           </div>
         </details>
-        <a href="/vendre" data-content-route="vendre" data-i18n="sellCards">On achète vos cartes</a>
-        <a href="/#cardshows" data-show-anchor data-i18n="upcomingShowsShort">Prochains shows</a>
-        <a href="/faq" data-content-route="faq">FAQ</a>
-        <a href="/apropos" data-content-route="apropos" data-i18n="navAbout">À propos</a>
-        <a href="/compte" data-account-link data-i18n="account">Compte</a>
-        <a href="/admin" data-admin-link hidden>Admin inventaire</a>
+        <details class="drawer-group">
+          <summary>Vendre / Échanger</summary>
+          <div class="drawer-subnav">
+            <a href="/vendre" data-content-route="vendre">Soumettre une collection</a>
+            <a href="/vendre" data-content-route="vendre">Échanger une carte</a>
+            <a href="/faq" data-content-route="faq">Comment ça fonctionne</a>
+          </div>
+        </details>
+        <details class="drawer-group">
+          <summary>Communauté</summary>
+          <div class="drawer-subnav">
+            <a href="/#cardshows" data-show-anchor data-i18n="upcomingShowsShort">Prochains Card Shows</a>
+            <a href="https://www.instagram.com/coffeebreaktcg" target="_blank" rel="noopener">Instagram</a>
+            <a href="/apropos" data-content-route="apropos" data-i18n="navAbout">À propos</a>
+          </div>
+        </details>
+        <details class="drawer-group">
+          <summary>Aide</summary>
+          <div class="drawer-subnav">
+            <a href="/livraison" data-content-route="livraison">Livraison</a>
+            <a href="/faq" data-content-route="faq">FAQ</a>
+            <a href="/compte" data-account-link data-i18n="account">Compte</a>
+            <span class="drawer-separator" aria-hidden="true"></span>
+            <a href="/admin" data-admin-link hidden>Admin inventaire</a>
+          </div>
+        </details>
       </nav>
     </aside>
 
