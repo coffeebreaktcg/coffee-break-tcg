@@ -1101,7 +1101,7 @@ function isRelevantJarvisCalendarEvent(event) {
 }
 
 function jarvisPriorities(db, context) {
-  const inventoryCount = (db.inventory || []).filter((item) => item.status !== "draft" && item.status !== "sold").length;
+  const inventoryCount = (db.inventory || []).filter((item) => !["draft", "admin_draft", "sold"].includes(item.status)).length;
   const growth = context.growth;
   const topContentOpportunity = context.contentOpportunities?.[0];
   const urgentPressure = context.ordersToShip.length * 24 + context.emails.filter((email) => email.priority === "Critique").length * 18 + context.calendar.today.length * 12;
@@ -1177,7 +1177,7 @@ function activeJarvisTasks(db) {
 }
 
 function activeInventoryItems(db) {
-  return (db.inventory || []).filter((item) => !["draft", "sold", "reserved"].includes(item.status) && Number(item.stock || 0) > 0);
+  return (db.inventory || []).filter((item) => !["draft", "admin_draft", "sold", "reserved"].includes(item.status) && Number(item.stock || 0) > 0);
 }
 
 function hasMarketTrendSignal(text) {
@@ -4216,7 +4216,7 @@ async function handleApi(req, res) {
   if (url.pathname === "/api/products" && req.method === "GET") {
     return json(res, 200, {
       products: db.inventory
-        .filter((product) => product.status !== "draft")
+        .filter((product) => !["draft", "admin_draft"].includes(product.status))
         .map(publicProduct)
         .filter((product) => product.status !== "reserved"),
     });
@@ -5035,6 +5035,22 @@ async function handleApi(req, res) {
     db.removedInventory.push(removedProduct);
     await writeDb(db);
     return json(res, 200, { product: publicProduct(removedProduct), inventory: db.inventory.map(publicProduct), summary: summarizeSales(db) });
+  }
+
+  if (url.pathname === "/api/admin/products/delete" && req.method === "POST") {
+    const body = await readBody(req);
+    const index = db.inventory.findIndex((candidate) => candidate.id === body.id);
+    const product = index >= 0 ? db.inventory[index] : null;
+    if (!product) return json(res, 404, { error: "Item introuvable" });
+    if (Number(product.reservedQuantity || 0) > 0 || product.status === "reserved") {
+      return json(res, 400, { error: "Cet item est réservé dans une commande en cours. Attends l’expiration ou annule la commande avant de le supprimer." });
+    }
+    db.inventory.splice(index, 1);
+    db.removedInventory = Array.isArray(db.removedInventory)
+      ? db.removedInventory.filter((candidate) => candidate.id !== body.id)
+      : [];
+    await writeDb(db);
+    return json(res, 200, { deleted: true, inventory: db.inventory.map(publicProduct), summary: summarizeSales(db) });
   }
 
   if (url.pathname === "/api/admin/orders/cancel" && req.method === "POST") {

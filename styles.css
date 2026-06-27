@@ -3830,10 +3830,16 @@ body.admin-mode .admin-page {
 }
 
 .admin-status-pill.status-draft,
+.admin-status-pill.status-admin_draft,
 .admin-status-pill.status-review {
   border-color: rgba(213, 116, 45, 0.26);
   background: #fbead8;
   color: var(--clay-dark);
+}
+
+.admin-status-pill.status-admin_draft {
+  background: rgba(128, 100, 82, 0.1);
+  color: var(--muted);
 }
 
 .admin-status-pill.status-sold,
@@ -3924,6 +3930,15 @@ body.admin-mode .admin-page {
 .admin-action-menu button:hover {
   border-color: var(--line);
   background: #fffaf2;
+}
+
+.admin-action-menu button[data-admin-delete] {
+  color: #8f3f2b;
+}
+
+.admin-action-menu button[data-admin-delete]:hover {
+  border-color: rgba(143, 63, 43, 0.26);
+  background: #fff1e8;
 }
 
 .admin-action-menu button:disabled {
@@ -4063,6 +4078,60 @@ body.admin-mode .admin-page {
   padding: 16px;
 }
 
+.admin-drawer-product-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid rgba(237, 212, 184, 0.82);
+  background: #fffaf2;
+  margin: 0 0 14px;
+  padding: 12px;
+}
+
+.admin-drawer-summary-media .admin-photo,
+.admin-drawer-summary-media .admin-photo-fallback {
+  width: 74px;
+  height: 74px;
+}
+
+.admin-drawer-summary-media .admin-slab-thumb {
+  width: 64px;
+  height: 82px;
+}
+
+.admin-drawer-summary-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.admin-drawer-summary-copy strong {
+  color: var(--coffee);
+  font-family: "Space Grotesk", Inter, sans-serif;
+  font-size: 20px;
+  line-height: 1.05;
+}
+
+.admin-drawer-summary-copy span,
+.admin-drawer-summary-prices span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.admin-drawer-summary-prices {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  text-align: right;
+}
+
+.admin-drawer-summary-prices strong {
+  font-size: 18px;
+}
+
 .admin-form-panel {
   display: grid;
   gap: 14px;
@@ -4097,6 +4166,15 @@ body.admin-mode .admin-page {
   display: grid;
   grid-template-columns: 1fr 1fr 120px;
   gap: 10px;
+}
+
+.admin-edit-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  margin-top: 14px;
+  padding-top: 14px;
 }
 
 .admin-session-list {
@@ -4181,6 +4259,41 @@ body.admin-mode .admin-page {
   transition:
     transform 220ms var(--ease-apple),
     opacity 180ms ease;
+}
+
+.admin-price-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.admin-price-grid article {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: #fffaf2;
+  padding: 12px;
+}
+
+.admin-price-grid span,
+.admin-price-help {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.admin-price-grid strong {
+  color: var(--coffee);
+  font-size: 20px;
+}
+
+.admin-price-help {
+  margin: 0;
+}
+
+.admin-price-actions {
+  grid-template-columns: 1fr 1fr 1fr;
 }
 
 .admin-modal[aria-hidden="false"] .admin-modal-card {
@@ -5033,7 +5146,10 @@ body.admin-mode .admin-page {
   }
 
   .admin-form-footer,
-  .admin-session-item {
+  .admin-edit-actions,
+  .admin-session-item,
+  .admin-price-grid,
+  .admin-price-actions {
     grid-template-columns: 1fr;
   }
 }
@@ -5506,6 +5622,16 @@ body.admin-mode .admin-page {
   .admin-session-list,
   .admin-session-footer {
     padding: 12px;
+  }
+
+  .admin-drawer-product-summary {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .admin-drawer-summary-prices {
+    grid-column: 1 / -1;
+    justify-items: start;
+    text-align: left;
   }
 
   .account-heading {

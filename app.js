@@ -73,12 +73,22 @@ const adminSessionList = document.querySelector("#adminSessionList");
 const adminSessionValue = document.querySelector("#adminSessionValue");
 const adminSaleModal = document.querySelector("#adminSaleModal");
 const adminSaleForm = document.querySelector("#adminSaleForm");
+const adminPriceModal = document.querySelector("#adminPriceModal");
+const adminPriceForm = document.querySelector("#adminPriceForm");
 const adminCommandPalette = document.querySelector("#adminCommandPalette");
 const adminProductDrawerMode = document.querySelector("#adminProductDrawerMode");
 const adminProductDrawerTitle = document.querySelector("#adminProductDrawerTitle");
 const adminSaveProductButton = document.querySelector("#adminSaveProductButton");
 const adminSavePublishButton = document.querySelector("#adminSavePublishButton");
 const adminSaveDraftButton = document.querySelector("#adminSaveDraftButton");
+const adminDrawerProductSummary = document.querySelector("#adminDrawerProductSummary");
+const adminPrevItemButton = document.querySelector("#adminPrevItemButton");
+const adminNextItemButton = document.querySelector("#adminNextItemButton");
+const adminUsePriceSuggestionButton = document.querySelector("#adminUsePriceSuggestionButton");
+const adminEditActions = document.querySelector("#adminEditActions");
+const adminDrawerPriceButton = document.querySelector("#adminDrawerPriceButton");
+const adminDrawerSaleButton = document.querySelector("#adminDrawerSaleButton");
+const adminDrawerRemoveButton = document.querySelector("#adminDrawerRemoveButton");
 const imageSearchPreview = document.querySelector("#imageSearchPreview");
 const imageSearchStatus = document.querySelector("#imageSearchStatus");
 const suggestMarketButton = document.querySelector("#suggestMarketButton");
@@ -537,6 +547,7 @@ function statusLabel(status) {
       reserved: "Réservé",
       sold: "Vendu",
       draft: "En session",
+      admin_draft: "Brouillon",
       removed: "Retiré",
       pending_payment: "En attente",
       expired: "Expirée",
@@ -1979,6 +1990,7 @@ function adminVisibleInventory(items) {
       const status = getProductStatus(item);
       if (adminInventoryView.status === "available" && status !== "available" && status !== "preorder") return false;
       if (adminInventoryView.status === "draft" && item.status !== "draft") return false;
+      if (adminInventoryView.status === "admin_draft" && item.status !== "admin_draft") return false;
       if (adminInventoryView.status === "sold" && status !== "sold") return false;
       if (adminInventoryView.status === "removed" && status !== "removed") return false;
       if (adminInventoryView.status === "review" && (Number(item.market || 0) > 0 || Number(item.price || 0) > 0)) return false;
@@ -2019,7 +2031,7 @@ function adminItemAgeDays(item) {
 }
 
 function isDormantAdminItem(item) {
-  return adminItemAgeDays(item) >= 45 && Number(item.stock || 0) > 0 && item.status !== "draft";
+  return adminItemAgeDays(item) >= 45 && Number(item.stock || 0) > 0 && !["draft", "admin_draft"].includes(item.status);
 }
 
 function adminItemMeta(item) {
@@ -2041,7 +2053,7 @@ function adminProductThumb(item) {
 }
 
 function adminStatusPill(item) {
-  const status = item.status === "draft" ? "draft" : getProductStatus(item);
+  const status = ["draft", "admin_draft"].includes(item.status) ? item.status : getProductStatus(item);
   const extra = isDormantAdminItem(item) ? "Dormant" : "";
   return `<span class="admin-status-pill status-${escapeAttribute(status)}">${escapeAttribute(statusLabel(status))}</span>${extra ? `<span class="admin-status-pill status-dormant">${extra}</span>` : ""}`;
 }
@@ -2108,12 +2120,13 @@ function renderAdminInventoryRow(item) {
           <summary aria-label="Actions pour ${escapeAttribute(item.name)}">⋯</summary>
           <div>
             <button type="button" data-admin-edit="${escapeAttribute(item.id)}">Modifier</button>
-            <label class="admin-menu-price">Nouveau prix <input type="number" min="0" step="0.01" value="${Number(item.price || item.market || 0)}" data-sale-price="${escapeAttribute(item.id)}" aria-label="Nouveau prix ${escapeAttribute(item.name)}" /></label>
-            <button type="button" data-admin-discount="${escapeAttribute(item.id)}">Enregistrer le prix</button>
+            <button type="button" data-admin-price-adjust="${escapeAttribute(item.id)}">Ajuster le prix</button>
             <button type="button" data-admin-sale="${escapeAttribute(item.id)}" ${Number(item.stock || 0) <= 0 ? "disabled" : ""}>Marquer vendue</button>
             <button type="button" data-admin-remove="${escapeAttribute(item.id)}">Retirer de la boutique</button>
             <button type="button" data-admin-duplicate="${escapeAttribute(item.id)}">Dupliquer</button>
+            <button type="button" data-admin-add-session="${escapeAttribute(item.id)}">Ajouter à la session</button>
             <button type="button" data-admin-view-product="${escapeAttribute(item.id)}">Voir dans la boutique</button>
+            <button type="button" data-admin-delete="${escapeAttribute(item.id)}">Supprimer</button>
           </div>
         </details>
       </td>
@@ -2352,13 +2365,13 @@ async function registerAdminSale(id, button, soldPriceOverride = null) {
   }
 }
 
-async function applyAdminDiscount(id, button) {
+async function applyAdminDiscount(id, button, priceOverride = null) {
   if (!id || !button) return;
   const item = adminInventoryCache.find((candidate) => candidate.id === id);
   if (!item) return;
   const currentPrice = Number(item.price || 0);
   const priceInput = document.querySelector(`[data-sale-price="${CSS.escape(id)}"]`);
-  const newPrice = Number(String(priceInput?.value || "").replace(",", "."));
+  const newPrice = Number(String(priceOverride ?? priceInput?.value ?? "").replace(",", "."));
   if (!Number.isFinite(newPrice) || newPrice <= 0) {
     if (adminPriceSync) adminPriceSync.textContent = "Entre le nouveau prix avant d'enregistrer l'ajustement.";
     return;
@@ -2378,6 +2391,7 @@ async function applyAdminDiscount(id, button) {
     adminInventoryCache = payload.inventory || adminInventoryCache;
     renderProducts();
     await renderAdmin();
+    closeAdminPanels();
     if (adminPriceSync) adminPriceSync.textContent = `Prix ajusté: ${item.name} est passé de ${adminMoney(currentPrice)} à ${adminMoney(newPrice)}.`;
   } catch (error) {
     if (adminPriceSync) adminPriceSync.textContent = error.message;
@@ -2410,6 +2424,88 @@ async function removeAdminItem(id, button) {
     if (adminPriceSync) adminPriceSync.textContent = error.message;
     button.disabled = false;
     button.textContent = "Retirer";
+  }
+}
+
+function productPayloadFromAdminItem(item, overrides = {}) {
+  return {
+    id: item.id,
+    name: item.name,
+    setId: item.setId,
+    setName: item.setName,
+    category: item.category,
+    kind: item.kind,
+    status: item.status,
+    rarity: item.rarity,
+    cardNumber: item.cardNumber,
+    condition: item.condition,
+    gradingCompany: item.gradingCompany,
+    grade: item.grade,
+    stock: item.stock,
+    cost: item.cost,
+    market: item.market,
+    price: item.price,
+    featured: Boolean(item.featured),
+    badge: item.badge,
+    features: item.features || [],
+    imageUrl: item.imageUrl,
+    galleryImageUrls: item.galleryImages || [],
+    ...overrides,
+  };
+}
+
+async function addAdminItemToSession(id, button) {
+  if (!id || !button) return;
+  const item = adminInventoryCache.find((candidate) => candidate.id === id);
+  if (!item) return;
+  button.disabled = true;
+  const originalText = button.textContent;
+  button.textContent = "Ajout...";
+  try {
+    const payload = await api("/api/admin/products", {
+      method: "POST",
+      body: JSON.stringify(productPayloadFromAdminItem(item, { status: "draft" })),
+    });
+    const updated = payload.product || { ...item, status: "draft" };
+    adminInventoryCache = adminInventoryCache.map((candidate) => (candidate.id === id ? updated : candidate));
+    inventory = inventory.map((candidate) => (candidate.id === id ? updated : candidate));
+    await loadProducts();
+    renderProducts();
+    await renderAdmin();
+    if (adminPriceSync) adminPriceSync.textContent = `${item.name} a été ajouté à la session.`;
+  } catch (error) {
+    if (adminPriceSync) adminPriceSync.textContent = error.message;
+    button.disabled = false;
+    button.textContent = originalText || "Ajouter à la session";
+  }
+}
+
+async function deleteAdminItem(id, button) {
+  if (!id || !button) return;
+  const item = adminInventoryCache.find((candidate) => candidate.id === id);
+  if (!item) return;
+  const confirmed = window.confirm(`Supprimer définitivement "${item.name}"?\n\nUtilise plutôt "Retirer de la boutique" si tu veux garder une trace.`);
+  if (!confirmed) return;
+  button.disabled = true;
+  const originalText = button.textContent;
+  button.textContent = "Suppression...";
+  try {
+    const payload = await api("/api/admin/products/delete", {
+      method: "POST",
+      body: JSON.stringify({ id }),
+    });
+    inventory = payload.inventory || inventory.filter((candidate) => candidate.id !== id);
+    adminInventoryCache = payload.inventory || adminInventoryCache.filter((candidate) => candidate.id !== id);
+    cart = cart.filter((line) => line.id !== id);
+    saveCart();
+    renderProducts();
+    await renderAdmin();
+    closeAdminPanels();
+    if (adminPriceSync) adminPriceSync.textContent = `${item.name} a été supprimé.`;
+  } catch (error) {
+    if (adminPriceSync) adminPriceSync.textContent = error.message;
+    button.disabled = false;
+    button.textContent = originalText || "Supprimer";
   }
 }
 
@@ -2621,7 +2717,7 @@ function setEditingPreview(item) {
 }
 
 function closeAdminPanels() {
-  [adminProductDrawer, adminSessionDrawer, adminSaleModal, adminCommandPalette].forEach((panel) => {
+  [adminProductDrawer, adminSessionDrawer, adminSaleModal, adminPriceModal, adminCommandPalette].forEach((panel) => {
     panel?.setAttribute("aria-hidden", "true");
   });
   document.body.classList.remove("admin-panel-open");
@@ -2632,6 +2728,45 @@ function openAdminPanel(panel) {
   closeAdminPanels();
   panel.setAttribute("aria-hidden", "false");
   document.body.classList.add("admin-panel-open");
+}
+
+function setAdminDrawerSummary(item = null) {
+  if (!adminDrawerProductSummary) return;
+  if (!item) {
+    adminDrawerProductSummary.classList.add("hidden");
+    adminDrawerProductSummary.innerHTML = "";
+    return;
+  }
+  const profit = lineProfit(item);
+  adminDrawerProductSummary.classList.remove("hidden");
+  adminDrawerProductSummary.innerHTML = `
+    <div class="admin-drawer-summary-media">${adminProductThumb(item)}</div>
+    <div class="admin-drawer-summary-copy">
+      <strong>${escapeAttribute(item.name || "Item")}</strong>
+      <span>${escapeAttribute(adminItemMeta(item) || "Détails à compléter")}</span>
+      <div>${adminStatusPill(item)}</div>
+    </div>
+    <div class="admin-drawer-summary-prices">
+      <span>Profit estimé</span>
+      <strong class="${profit >= 0 ? "admin-profit-positive" : "admin-profit-negative"}">${adminMoney(profit)}</strong>
+    </div>
+  `;
+}
+
+function syncAdminDrawerNavigation(id) {
+  const visibleItems = adminVisibleInventory(adminInventoryCache);
+  const index = visibleItems.findIndex((item) => item.id === id);
+  const hasNavigation = index >= 0 && visibleItems.length > 1;
+  if (adminPrevItemButton) {
+    adminPrevItemButton.hidden = !hasNavigation;
+    adminPrevItemButton.dataset.adminAdjacent = hasNavigation ? visibleItems[Math.max(0, index - 1)]?.id || "" : "";
+    adminPrevItemButton.disabled = !hasNavigation || index <= 0;
+  }
+  if (adminNextItemButton) {
+    adminNextItemButton.hidden = !hasNavigation;
+    adminNextItemButton.dataset.adminAdjacent = hasNavigation ? visibleItems[Math.min(visibleItems.length - 1, index + 1)]?.id || "" : "";
+    adminNextItemButton.disabled = !hasNavigation || index >= visibleItems.length - 1;
+  }
 }
 
 function resetAdminProductForm() {
@@ -2648,6 +2783,13 @@ function resetAdminProductForm() {
   if (status) status.textContent = "";
   if (imageSearchStatus) imageSearchStatus.textContent = "";
   if (marketSuggestStatus) marketSuggestStatus.textContent = "";
+  setAdminDrawerSummary(null);
+  if (adminPrevItemButton) adminPrevItemButton.hidden = true;
+  if (adminNextItemButton) adminNextItemButton.hidden = true;
+  adminEditActions?.classList.add("hidden");
+  [adminDrawerPriceButton, adminDrawerSaleButton, adminDrawerRemoveButton].forEach((button) => {
+    if (button) button.dataset.adminDrawerItem = "";
+  });
 }
 
 function openAdminAddDrawer() {
@@ -2679,6 +2821,40 @@ function openAdminSaleModal(id) {
   if (status) status.textContent = "";
   openAdminPanel(adminSaleModal);
   window.requestAnimationFrame(() => adminSaleForm.querySelector('[name="soldPrice"]')?.focus());
+}
+
+function adminPriceSuggestion(item) {
+  const current = Number(item?.price || 0);
+  const market = Number(item?.market || 0);
+  const base = current > 0 ? current : market;
+  if (!base) return 0;
+  const step = base >= 100 ? 10 : 5;
+  const competitive = Math.max(1, Math.floor(base / step) * step - 1);
+  return Math.max(1, Math.min(base, competitive));
+}
+
+function openAdminPriceModal(id) {
+  const item = adminInventoryCache.find((candidate) => candidate.id === id);
+  if (!item || !adminPriceForm) return;
+  const suggestion = adminPriceSuggestion(item);
+  adminPriceForm.reset();
+  adminPriceForm.querySelector('[name="id"]').value = id;
+  adminPriceForm.querySelector('[name="price"]').value = suggestion || Number(item.price || item.market || 0);
+  adminPriceForm.dataset.suggestion = `${suggestion || ""}`;
+  const title = document.querySelector("#adminPriceTitle");
+  const market = document.querySelector("#adminPriceMarket");
+  const current = document.querySelector("#adminPriceCurrent");
+  const suggested = document.querySelector("#adminPriceSuggestion");
+  const help = document.querySelector("#adminPriceHelp");
+  const status = adminPriceForm.querySelector(".admin-status");
+  if (title) title.textContent = item.name || "Prix de la carte";
+  if (market) market.textContent = adminMoney(item.market);
+  if (current) current.textContent = adminMoney(item.price);
+  if (suggested) suggested.textContent = suggestion ? adminMoney(suggestion) : "-";
+  if (help) help.textContent = suggestion ? `Suggestion calculée pour être plus compétitif sans changer le prix automatiquement.` : "Ajoute un prix manuel, puis confirme.";
+  if (status) status.textContent = "";
+  openAdminPanel(adminPriceModal);
+  window.requestAnimationFrame(() => adminPriceForm.querySelector('[name="price"]')?.focus());
 }
 
 function openAdminCommandPalette() {
@@ -2744,6 +2920,12 @@ function editAdminItem(id) {
   });
   updateFeatureLimitState();
   setEditingPreview(item);
+  setAdminDrawerSummary(item);
+  syncAdminDrawerNavigation(item.id);
+  adminEditActions?.classList.remove("hidden");
+  if (adminDrawerPriceButton) adminDrawerPriceButton.dataset.adminDrawerItem = item.id;
+  if (adminDrawerSaleButton) adminDrawerSaleButton.dataset.adminDrawerItem = item.id;
+  if (adminDrawerRemoveButton) adminDrawerRemoveButton.dataset.adminDrawerItem = item.id;
   const status = adminProductForm.querySelector(".admin-status");
   if (status) status.textContent = `Modification de ${item.name}. Sauvegarde pour mettre l'item a jour.`;
   adminSubmitMode = "keep";
@@ -3020,10 +3202,14 @@ document.addEventListener("click", (event) => {
   const contentRoute = event.target.closest("[data-content-route]");
   const adminSaleButton = event.target.closest("[data-admin-sale]");
   const adminDiscountButton = event.target.closest("[data-admin-discount]");
+  const adminPriceAdjustButton = event.target.closest("[data-admin-price-adjust]");
   const adminEditButton = event.target.closest("[data-admin-edit]");
   const adminRemoveButton = event.target.closest("[data-admin-remove]");
+  const adminAddSessionButton = event.target.closest("[data-admin-add-session]");
+  const adminDeleteButton = event.target.closest("[data-admin-delete]");
   const adminDuplicateButton = event.target.closest("[data-admin-duplicate]");
   const adminViewProductButton = event.target.closest("[data-admin-view-product]");
+  const adminAdjacentButton = event.target.closest("[data-admin-adjacent]");
   const adminOpenItemRow = event.target.closest("[data-admin-open-item]");
   const adminClosePanelButton = event.target.closest("[data-admin-close-panel]");
   const adminStatusFilterButton = event.target.closest("[data-admin-status-filter]");
@@ -3081,13 +3267,22 @@ document.addEventListener("click", (event) => {
     if (command === "add") openAdminAddDrawer();
     if (command === "session") openAdminSessionDrawer();
     if (command === "search") adminInventorySearch?.focus();
+    if (command === "session-filter") {
+      adminInventoryView.status = "draft";
+      if (adminInventoryStatus) adminInventoryStatus.value = "draft";
+      renderAdmin();
+    }
     if (command === "dormant") {
       adminInventoryView.status = "dormant";
       if (adminInventoryStatus) adminInventoryStatus.value = "dormant";
       renderAdmin();
     }
+    if (command === "sale") {
+      const firstVisible = adminVisibleInventory(adminInventoryCache).find((item) => Number(item.stock || 0) > 0);
+      if (firstVisible) openAdminSaleModal(firstVisible.id);
+    }
     if (command === "jarvis") window.location.href = "/jarvis";
-    if (command !== "add" && command !== "session") closeAdminPanels();
+    if (!["add", "session", "sale"].includes(command)) closeAdminPanels();
   }
   if (editProfileButton) {
     event.preventDefault();
@@ -3167,9 +3362,13 @@ document.addEventListener("click", (event) => {
     cart = cart.filter((item) => item.id !== cartRemoveButton.dataset.cartRemove);
     saveCart();
   }
+  if (adminAdjacentButton?.dataset.adminAdjacent) editAdminItem(adminAdjacentButton.dataset.adminAdjacent);
   if (adminEditButton) editAdminItem(adminEditButton.dataset.adminEdit);
   if (adminDiscountButton) applyAdminDiscount(adminDiscountButton.dataset.adminDiscount, adminDiscountButton);
+  if (adminPriceAdjustButton) openAdminPriceModal(adminPriceAdjustButton.dataset.adminPriceAdjust);
   if (adminRemoveButton) removeAdminItem(adminRemoveButton.dataset.adminRemove, adminRemoveButton);
+  if (adminAddSessionButton) addAdminItemToSession(adminAddSessionButton.dataset.adminAddSession, adminAddSessionButton);
+  if (adminDeleteButton) deleteAdminItem(adminDeleteButton.dataset.adminDelete, adminDeleteButton);
   if (adminDuplicateButton) duplicateAdminItem(adminDuplicateButton.dataset.adminDuplicate);
   if (adminViewProductButton) viewAdminProduct(adminViewProductButton.dataset.adminViewProduct);
   if (editShowButton) editCardShow(editShowButton.dataset.editShow);
@@ -3290,6 +3489,28 @@ adminSaleForm?.addEventListener("submit", async (event) => {
   const status = adminSaleForm.querySelector(".admin-status");
   if (status) status.textContent = "Vente en cours...";
   await registerAdminSale(form.get("id"), submitButton, form.get("soldPrice"));
+});
+
+adminUsePriceSuggestionButton?.addEventListener("click", () => {
+  if (!adminPriceForm) return;
+  const suggestion = adminPriceForm.dataset.suggestion || "";
+  if (suggestion) {
+    adminPriceForm.querySelector('[name="price"]').value = suggestion;
+    adminPriceForm.querySelector('[name="strategy"]').value = "suggestion";
+  }
+});
+
+adminPriceForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = new FormData(adminPriceForm);
+  const submitButton = adminPriceForm.querySelector('button[type="submit"]');
+  const status = adminPriceForm.querySelector(".admin-status");
+  if (form.get("strategy") === "keep") {
+    closeAdminPanels();
+    return;
+  }
+  if (status) status.textContent = "Ajustement en cours...";
+  await applyAdminDiscount(form.get("id"), submitButton, form.get("price"));
 });
 
 document.querySelector(".newsletter").addEventListener("submit", (event) => {
@@ -3518,8 +3739,17 @@ adminSavePublishButton?.addEventListener("click", () => {
   adminProductForm?.requestSubmit();
 });
 adminSaveDraftButton?.addEventListener("click", () => {
-  adminSubmitMode = "draft";
+  adminSubmitMode = "admin_draft";
   adminProductForm?.requestSubmit();
+});
+adminDrawerPriceButton?.addEventListener("click", () => {
+  if (adminDrawerPriceButton.dataset.adminDrawerItem) openAdminPriceModal(adminDrawerPriceButton.dataset.adminDrawerItem);
+});
+adminDrawerSaleButton?.addEventListener("click", () => {
+  if (adminDrawerSaleButton.dataset.adminDrawerItem) openAdminSaleModal(adminDrawerSaleButton.dataset.adminDrawerItem);
+});
+adminDrawerRemoveButton?.addEventListener("click", () => {
+  if (adminDrawerRemoveButton.dataset.adminDrawerItem) removeAdminItem(adminDrawerRemoveButton.dataset.adminDrawerItem, adminDrawerRemoveButton);
 });
 searchCardImageButton?.addEventListener("click", searchCardImage);
 adminProductForm?.querySelector('input[name="name"]')?.addEventListener("input", () => {
@@ -3654,7 +3884,9 @@ adminProductForm?.addEventListener("submit", async (event) => {
       ? category === "Preorder"
         ? "preorder"
         : "available"
-      : adminSubmitMode === "draft" || (!id && adminSubmitMode === "session")
+      : adminSubmitMode === "admin_draft"
+      ? "admin_draft"
+      : !id && adminSubmitMode === "session"
       ? "draft"
       : form.get("status") || "";
   const body = {
@@ -3688,6 +3920,8 @@ adminProductForm?.addEventListener("submit", async (event) => {
       ? "Item mis à jour."
       : body.status === "draft"
       ? "Item ajouté à la session."
+      : body.status === "admin_draft"
+      ? "Brouillon sauvegardé."
       : "Item ajouté et mis en ligne.";
     await loadProducts();
     renderProducts();

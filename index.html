@@ -302,6 +302,7 @@
             <button class="active" type="button" data-admin-status-filter="all">Tous</button>
             <button type="button" data-admin-status-filter="available">En ligne</button>
             <button type="button" data-admin-status-filter="draft">En session</button>
+            <button type="button" data-admin-status-filter="admin_draft">Brouillons</button>
             <button type="button" data-admin-status-filter="sold">Vendus</button>
             <button type="button" data-admin-status-filter="removed">Retirés</button>
             <button type="button" data-admin-category-filter="Singles">Singles</button>
@@ -326,6 +327,7 @@
                 <option value="all">Tous</option>
                 <option value="available">En ligne</option>
                 <option value="draft">En session</option>
+                <option value="admin_draft">Brouillons</option>
                 <option value="sold">Vendus</option>
                 <option value="removed">Retirés</option>
                 <option value="review">À vérifier</option>
@@ -382,6 +384,8 @@
             <input type="hidden" name="galleryImageUrls" id="selectedGalleryImageUrls" />
             <input type="hidden" name="id" id="editingProductId" />
             <input type="hidden" name="status" id="editingProductStatus" />
+
+            <div class="admin-drawer-product-summary hidden" id="adminDrawerProductSummary"></div>
 
             <section class="admin-form-panel admin-form-panel-primary">
               <div class="admin-step-label">1 · Recherche</div>
@@ -534,6 +538,11 @@
               <button class="button secondary" type="button" id="adminSavePublishButton">Ajouter et mettre en ligne</button>
               <button class="button secondary" type="button" id="adminSaveDraftButton">Brouillon</button>
             </div>
+            <div class="admin-edit-actions hidden" id="adminEditActions">
+              <button class="button secondary" type="button" id="adminDrawerPriceButton">Ajuster le prix</button>
+              <button class="button secondary" type="button" id="adminDrawerSaleButton">Marquer vendue</button>
+              <button class="button secondary" type="button" id="adminDrawerRemoveButton">Retirer</button>
+            </div>
             <p class="admin-status" role="status"></p>
           </form>
         </aside>
@@ -586,6 +595,50 @@
           </form>
         </div>
 
+        <div class="admin-modal" id="adminPriceModal" aria-hidden="true">
+          <form class="admin-modal-card admin-price-modal-card" id="adminPriceForm">
+            <div class="admin-drawer-head">
+              <div>
+                <p class="eyebrow">Ajuster le prix</p>
+                <h2 id="adminPriceTitle">Prix de la carte</h2>
+              </div>
+              <button class="button secondary" type="button" data-admin-close-panel>Fermer</button>
+            </div>
+            <input type="hidden" name="id" />
+            <div class="admin-price-grid">
+              <article>
+                <span>Prix marché</span>
+                <strong id="adminPriceMarket">0 $</strong>
+              </article>
+              <article>
+                <span>Prix actuel</span>
+                <strong id="adminPriceCurrent">0 $</strong>
+              </article>
+              <article>
+                <span>Suggestion</span>
+                <strong id="adminPriceSuggestion">0 $</strong>
+              </article>
+            </div>
+            <p class="admin-price-help" id="adminPriceHelp">Aucun prix n’est changé sans confirmation.</p>
+            <div class="form-row two">
+              <label>Nouveau prix <input name="price" type="number" min="0" step="0.01" required /></label>
+              <label>Option
+                <select name="strategy">
+                  <option value="manual">Prix manuel</option>
+                  <option value="suggestion">Utiliser suggestion</option>
+                  <option value="keep">Garder mon prix</option>
+                </select>
+              </label>
+            </div>
+            <div class="admin-form-footer admin-price-actions">
+              <button class="button secondary" type="button" id="adminUsePriceSuggestionButton">Utiliser suggestion</button>
+              <button class="button secondary" type="button" data-admin-close-panel>Garder mon prix</button>
+              <button class="button primary" type="submit">Enregistrer</button>
+            </div>
+            <p class="admin-status" role="status"></p>
+          </form>
+        </div>
+
         <div class="admin-command-palette" id="adminCommandPalette" aria-hidden="true">
           <div class="admin-command-card">
             <div class="admin-drawer-head">
@@ -598,7 +651,9 @@
             <button type="button" data-admin-command="add">Ajouter une carte</button>
             <button type="button" data-admin-command="session">Ouvrir session</button>
             <button type="button" data-admin-command="search">Rechercher inventaire</button>
+            <button type="button" data-admin-command="session-filter">Voir cartes en session</button>
             <button type="button" data-admin-command="dormant">Voir cartes dormantes</button>
+            <button type="button" data-admin-command="sale">Créer vente</button>
             <button type="button" data-admin-command="jarvis">Ouvrir Jarvis</button>
           </div>
         </div>
