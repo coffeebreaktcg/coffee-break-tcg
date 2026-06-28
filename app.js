@@ -103,12 +103,20 @@ const curatedSections = document.querySelector("#curatedSections");
 const newArrivalsGrid = document.querySelector("#newArrivalsGrid");
 const coffeeVitrineGrid = document.querySelector("#coffeeVitrineGrid");
 const slabsUnderGrid = document.querySelector("#slabsUnderGrid");
+const accessibleGrid = document.querySelector("#accessibleGrid");
+const merchandisingSections = document.querySelector("#merchandisingSections");
+const merchandisingStatus = document.querySelector("#merchandisingStatus");
+const recalculateMerchandisingButton = document.querySelector("#recalculateMerchandisingButton");
+const resetMerchandisingButton = document.querySelector("#resetMerchandisingButton");
 const reviewSection = document.querySelector("#reviewSection");
 const languageLoader = document.querySelector("#languageLoader");
 const welcomeToast = document.querySelector("#welcomeToast");
 let adminInventoryCache = [];
 let adminInventoryView = { search: "", category: "all", status: "all", sort: "recent" };
 let adminSubmitMode = "session";
+let merchandisingState = { decisions: {}, history: [], updatedAt: "" };
+let merchandisingAlternativeSection = "";
+const merchandisingScoreCache = new Map();
 let cart = JSON.parse(localStorage.getItem("coffeeBreakCart") || "[]");
 let lastShopView = JSON.parse(sessionStorage.getItem("coffeeBreakLastShopView") || "null");
 let cardShows = [];
@@ -1220,6 +1228,387 @@ function availableHomeProducts() {
   );
 }
 
+const merchandisingSectionsConfig = {
+  vitrine: {
+    title: "Vitrine CoffeeBreak",
+    max: 6,
+    min: 1,
+    collection: "vitrine",
+    description: "La sélection éditoriale qui donne le ton premium de la page d’accueil.",
+  },
+  new: {
+    title: "Nouveautés",
+    max: 6,
+    min: 1,
+    collection: "new",
+    description: "Produits récents, en stock, publiés et avec photo réelle.",
+  },
+  "slabs-under-100": {
+    title: "Slabs sous 100 $",
+    max: 6,
+    min: 3,
+    collection: "slabs-under-100",
+    description: "Slabs accessibles, assez forts pour mériter leur propre bloc.",
+  },
+  accessible: {
+    title: "Cartes accessibles",
+    max: 8,
+    min: 4,
+    collection: "accessible",
+    description: "Achats faciles entre 15 $ et 75 $, avec diversité de Pokémon et d’extensions.",
+  },
+  dormant: {
+    title: "Inventaire dormant",
+    max: 8,
+    min: 1,
+    collection: "dormant",
+    description: "Liste interne: produits à revoir, promouvoir, bundler ou photographier de nouveau.",
+  },
+  content: {
+    title: "Suggestions de contenu",
+    max: 6,
+    min: 1,
+    collection: "content",
+    description: "Produits qui peuvent devenir un Reel, une Story ou un post de confiance.",
+  },
+};
+
+const iconicPokemon = new Set([
+  "charizard",
+  "pikachu",
+  "mew",
+  "mewtwo",
+  "lugia",
+  "umbreon",
+  "gengar",
+  "rayquaza",
+  "eevee",
+  "snorlax",
+  "dragonite",
+  "blastoise",
+  "venusaur",
+  "gyarados",
+  "greninja",
+  "lucario",
+  "sylveon",
+]);
+
+const premiumRarities = ["sir", "ir", "alt", "alternate", "gold", "secret", "promo", "low pop", "swirl", "miscut"];
+
+function merchDecision(section, productId) {
+  return merchandisingState?.decisions?.[section]?.[productId] || null;
+}
+
+function isMerchExcluded(section, product) {
+  return merchDecision(section, product.id)?.status === "excluded";
+}
+
+function isMerchValidated(section, product) {
+  const decision = merchDecision(section, product.id);
+  const collection = String(product.homepageCollection || "").toLowerCase();
+  return ["accepted", "locked"].includes(decision?.status) || collection === section || (section === "vitrine" && isHomepageFeatured(product));
+}
+
+function merchDateValue(value) {
+  const date = value ? new Date(value) : null;
+  const time = date && !Number.isNaN(date.getTime()) ? date.getTime() : 0;
+  return time;
+}
+
+function daysSince(value) {
+  const time = merchDateValue(value);
+  if (!time) return 999;
+  return Math.max(0, Math.floor((Date.now() - time) / 86400000));
+}
+
+function merchProductText(product) {
+  return [product.name, product.setName, product.rarity, product.features?.join(" "), product.badge]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function productPokemonKey(product) {
+  return String(product.name || "")
+    .toLowerCase()
+    .replace(/\b(vmax|vstar|ex|gx|v|ar|ir|sir|holo|reverse|promo|psa|bgs|cgc|sgc|tag|gold star)\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(" ")[0] || product.id;
+}
+
+function clampScore(value) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function addMerchPoints(bucket, amount, reason) {
+  bucket.points += amount;
+  if (reason) bucket.reasons.push(`+${amount} ${reason}`);
+}
+
+function calculateMerchandisingScore(product, context = {}) {
+  const hasContext = Object.keys(context || {}).length > 0;
+  const cacheKey = [
+    product.id,
+    product.updatedAt,
+    product.createdAt,
+    product.status,
+    product.stock,
+    product.price,
+    product.market,
+    product.cost,
+    product.imageUrl,
+    product.galleryImages?.length || 0,
+    product.homepageCollection,
+    product.featured,
+    product.heroFeatured,
+  ].join("|");
+  if (!hasContext && merchandisingScoreCache.has(cacheKey)) return merchandisingScoreCache.get(cacheKey);
+  const reasons = [];
+  const penalties = [];
+  const buckets = {
+    visual: { points: 0, reasons },
+    value: { points: 0, reasons },
+    margin: { points: 0, reasons },
+    demand: { points: 0, reasons },
+    freshness: { points: 0, reasons },
+    accessible: { points: 0, reasons },
+    balance: { points: 0, reasons },
+  };
+  const price = Number(product.price || 0);
+  const market = Number(product.market || product.lastMarketPrice || 0);
+  const cost = Number(product.cost || 0);
+  const profit = price - cost;
+  const margin = price > 0 ? profit / price : 0;
+  const text = merchProductText(product);
+  const isIconic = [...iconicPokemon].some((name) => text.includes(name));
+  const hasPremiumSignal = premiumRarities.some((signal) => text.includes(signal));
+  const imageCount = [product.imageUrl, ...(product.galleryImages || [])].filter(Boolean).length;
+  const status = getProductStatus(product);
+
+  if (hasValidProductImage(product)) addMerchPoints(buckets.visual, 8, "photo principale valide");
+  if (imageCount >= 2) addMerchPoints(buckets.visual, 3, "plusieurs photos disponibles");
+  if (isSlabProduct(product)) addMerchPoints(buckets.visual, 4, "slab visuellement premium");
+  if (isIconic) addMerchPoints(buckets.visual, 3, "Pokémon reconnu");
+  if (hasPremiumSignal) addMerchPoints(buckets.visual, 2, "rareté ou particularité forte");
+  buckets.visual.points = Math.min(20, buckets.visual.points);
+
+  if (market >= 100 || price >= 100) addMerchPoints(buckets.value, 5, "valeur perçue élevée");
+  if (isSlabProduct(product) && Number(product.grade || 0) >= 9) addMerchPoints(buckets.value, 5, "grade élevé");
+  if (hasPremiumSignal) addMerchPoints(buckets.value, 3, "signal collectionnable");
+  if (product.category === "Sealed") addMerchPoints(buckets.value, 2, "produit scellé collectionnable");
+  buckets.value.points = Math.min(15, buckets.value.points);
+
+  if (cost > 0 && profit > 0) addMerchPoints(buckets.margin, 5, "profit potentiel positif");
+  if (margin >= 0.2) addMerchPoints(buckets.margin, 5, "marge saine");
+  if (market > 0 && price <= market * 1.05) addMerchPoints(buckets.margin, 3, "prix affiché cohérent avec le marché");
+  if (market > 0 && price < market) addMerchPoints(buckets.margin, 2, "prix attractif sous le marché");
+  buckets.margin.points = Math.min(15, buckets.margin.points);
+
+  if (isIconic) addMerchPoints(buckets.demand, 6, "demande naturelle plus forte");
+  if (product.featured || product.heroFeatured) addMerchPoints(buckets.demand, 3, "déjà marqué comme intéressant");
+  if (Number(product.views || 0) > 0) addMerchPoints(buckets.demand, 3, "vues internes disponibles");
+  if (Number(product.addToCart || 0) > 0) addMerchPoints(buckets.demand, 3, "ajouts panier internes disponibles");
+  buckets.demand.points = Math.min(15, buckets.demand.points);
+
+  const age = daysSince(product.createdAt || product.updatedAt);
+  if (age <= 7) addMerchPoints(buckets.freshness, 6, "ajout récent");
+  else if (age <= 21) addMerchPoints(buckets.freshness, 4, "encore frais");
+  else if (age <= 45) addMerchPoints(buckets.freshness, 2, "pas trop ancien");
+  if (!product.lastFeaturedAt && !product.homepageCollection) addMerchPoints(buckets.freshness, 2, "jamais mis en avant");
+  buckets.freshness.points = Math.min(10, buckets.freshness.points);
+
+  if (price >= 15 && price <= 75) addMerchPoints(buckets.accessible, 7, "prix accessible 15 $ à 75 $");
+  else if (price > 0 && price < 15) addMerchPoints(buckets.accessible, 3, "petit prix d’entrée");
+  else if (price > 75 && price <= 100) addMerchPoints(buckets.accessible, 2, "encore sous 100 $");
+  buckets.accessible.points = Math.min(10, buckets.accessible.points);
+
+  if (context.categoryCount && context.categoryCount[product.category] < 2) addMerchPoints(buckets.balance, 4, "aide la diversité de catégorie");
+  if (context.pokemonCount && !context.pokemonCount[productPokemonKey(product)]) addMerchPoints(buckets.balance, 3, "évite un doublon Pokémon");
+  if (context.setCount && (context.setCount[product.setName || product.setId || ""] || 0) < 2) addMerchPoints(buckets.balance, 3, "garde une diversité d’extensions");
+  if (!context.categoryCount) addMerchPoints(buckets.balance, 5, "profil utile pour une vitrine variée");
+  buckets.balance.points = Math.min(10, buckets.balance.points);
+
+  let score =
+    buckets.visual.points +
+    buckets.value.points +
+    buckets.margin.points +
+    buckets.demand.points +
+    buckets.freshness.points +
+    buckets.accessible.points +
+    buckets.balance.points;
+
+  if (!hasValidProductImage(product)) {
+    score -= 25;
+    penalties.push("-25 image manquante ou générique");
+  }
+  if (Number(product.stock || 0) <= 0) {
+    score -= 40;
+    penalties.push("-40 stock à zéro");
+  }
+  if (status !== "available") {
+    score -= 35;
+    penalties.push("-35 produit non publié");
+  }
+  if (market > 0 && price > market * 1.25) {
+    score -= 8;
+    penalties.push("-8 prix affiché au-dessus du marché");
+  }
+  if (cost > 0 && profit < 0) {
+    score -= 10;
+    penalties.push("-10 marge négative");
+  }
+  if (daysSince(product.createdAt || product.updatedAt) > 90 && !Number(product.views || 0)) {
+    score -= 6;
+    penalties.push("-6 inventaire ancien sans traction visible");
+  }
+
+  const finalScore = clampScore(score);
+  const confidence = [product.price, product.market, product.cost, product.createdAt, product.imageUrl].filter(Boolean).length >= 4 ? "élevé" : finalScore >= 70 ? "moyen" : "faible";
+  const placement =
+    finalScore >= 78 && (isSlabProduct(product) || price >= 75 || product.heroFeatured)
+      ? "Carte héro / Vitrine"
+      : product.category === "Graded" && price <= 100
+      ? "Slabs sous 100 $"
+      : price >= 15 && price <= 75
+      ? "Cartes accessibles"
+      : age <= 21
+      ? "Nouveautés"
+      : "Suggestion interne";
+
+  const result = {
+    score: finalScore,
+    reasons: reasons.slice(0, 6),
+    penalties,
+    placement,
+    confidence,
+    profit,
+    margin,
+  };
+  if (!hasContext) {
+    if (merchandisingScoreCache.size > 500) merchandisingScoreCache.clear();
+    merchandisingScoreCache.set(cacheKey, result);
+  }
+  return result;
+}
+
+function merchandisingPool(products = inventory) {
+  return products.filter(
+    (product) =>
+      !["Preorder", "Accessories"].includes(product.category) &&
+      getProductStatus(product) === "available" &&
+      Number(product.stock || 0) > 0 &&
+      hasValidProductImage(product)
+  );
+}
+
+function passesDiversity(product, selected, limits = {}) {
+  const pokemonLimit = limits.pokemon || 1;
+  const setLimit = limits.set || 2;
+  const categoryLimit = limits.category || {};
+  const pokemon = productPokemonKey(product);
+  const set = product.setName || product.setId || "";
+  if (selected.filter((item) => productPokemonKey(item) === pokemon).length >= pokemonLimit) return false;
+  if (set && selected.filter((item) => (item.setName || item.setId || "") === set).length >= setLimit) return false;
+  if (categoryLimit[product.category] && selected.filter((item) => item.category === product.category).length >= categoryLimit[product.category]) return false;
+  return true;
+}
+
+function rankedMerchProducts(products, section, options = {}) {
+  const selected = [];
+  const candidates = products
+    .filter((product) => !isMerchExcluded(section, product))
+    .filter((product) => (options.filter ? options.filter(product) : true))
+    .map((product) => ({ product, score: calculateMerchandisingScore(product) }))
+    .filter((entry) => entry.score.score >= (options.minScore || 0))
+    .sort((a, b) => {
+      const decisionA = merchDecision(section, a.product.id);
+      const decisionB = merchDecision(section, b.product.id);
+      return (
+        Number(decisionB?.status === "locked") - Number(decisionA?.status === "locked") ||
+        Number(isMerchValidated(section, b.product)) - Number(isMerchValidated(section, a.product)) ||
+        b.score.score - a.score.score ||
+        merchDateValue(b.product.createdAt || b.product.updatedAt) - merchDateValue(a.product.createdAt || a.product.updatedAt)
+      );
+    });
+
+  for (const entry of candidates) {
+    if (!passesDiversity(entry.product, selected, options.limits)) continue;
+    selected.push(entry.product);
+    if (selected.length >= (options.max || 6)) break;
+  }
+  return selected;
+}
+
+function automaticNewArrivals(products) {
+  return rankedMerchProducts(products, "new", {
+    max: 6,
+    minScore: 35,
+    limits: { pokemon: 1, set: 2 },
+    filter: (product) => !["sold", "removed", "draft", "admin_draft"].includes(String(product.status || "")),
+  }).sort((a, b) => merchDateValue(b.createdAt || b.updatedAt) - merchDateValue(a.createdAt || a.updatedAt));
+}
+
+function validatedMerchSection(products, section, options = {}) {
+  const validated = products.filter((product) => isMerchValidated(section, product) && !isMerchExcluded(section, product));
+  const ranked = rankedMerchProducts(validated, section, { ...options, minScore: options.minScore || 0 });
+  return ranked.slice(0, options.max || merchandisingSectionsConfig[section]?.max || 6);
+}
+
+function buildMerchandisingSelections(products = inventory, { includeSuggestions = false } = {}) {
+  const pool = merchandisingPool(products);
+  const selections = {
+    new: automaticNewArrivals(pool).slice(0, 6),
+    vitrine: validatedMerchSection(pool, "vitrine", {
+      max: 6,
+      minScore: 0,
+      limits: { pokemon: 1, set: 2, category: { Singles: 2, Graded: 2, Sealed: 1 } },
+    }),
+    "slabs-under-100": validatedMerchSection(pool, "slabs-under-100", {
+      max: 6,
+      minScore: 45,
+      limits: { pokemon: 1, set: 2 },
+      filter: (product) => product.category === "Graded" && Number(product.price || 0) <= 100,
+    }),
+    accessible: validatedMerchSection(pool, "accessible", {
+      max: 8,
+      minScore: 40,
+      limits: { pokemon: 1, set: 2 },
+      filter: (product) => Number(product.price || 0) >= 15 && Number(product.price || 0) <= 75,
+    }),
+  };
+
+  if (includeSuggestions) {
+    selections.suggestions = {
+      vitrine: rankedMerchProducts(pool, "vitrine", {
+        max: 6,
+        minScore: 55,
+        limits: { pokemon: 1, set: 2, category: { Singles: 2, Graded: 2, Sealed: 1 } },
+      }),
+      new: selections.new,
+      "slabs-under-100": rankedMerchProducts(pool, "slabs-under-100", {
+        max: 6,
+        minScore: 45,
+        limits: { pokemon: 1, set: 2 },
+        filter: (product) => product.category === "Graded" && Number(product.price || 0) <= 100,
+      }),
+      accessible: rankedMerchProducts(pool, "accessible", {
+        max: 8,
+        minScore: 40,
+        limits: { pokemon: 1, set: 2 },
+        filter: (product) => Number(product.price || 0) >= 15 && Number(product.price || 0) <= 75,
+      }),
+      dormant: pool
+        .filter((product) => daysSince(product.createdAt || product.updatedAt) > 45 || (Number(product.market || 0) > 0 && Number(product.price || 0) > Number(product.market || 0) * 1.1))
+        .sort((a, b) => daysSince(b.createdAt || b.updatedAt) - daysSince(a.createdAt || a.updatedAt))
+        .slice(0, 8),
+      content: rankedMerchProducts(pool, "content", { max: 6, minScore: 60, limits: { pokemon: 1, set: 2 } }),
+    };
+  }
+
+  return selections;
+}
+
 function featuredRank(product) {
   const rank = Number(product.featuredRank || 999);
   return Number.isFinite(rank) ? rank : 999;
@@ -1268,23 +1657,16 @@ function setSectionVisibility(element, visible) {
 }
 
 function renderHomeSections() {
-  const available = availableHomeProducts();
-  const newest = available
-    .slice()
-    .sort((a, b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0) || originalOrder(a, b))
-    .slice(0, 6);
+  const selections = buildMerchandisingSelections(inventory);
+  const newest = selections.new || [];
   if (newArrivalsGrid) {
     newArrivalsGrid.innerHTML = newest.map((product) => homeProductCard(product)).join("");
     setSectionVisibility(newArrivalsGrid, newest.length > 0);
   }
 
-  const featured = available
-    .filter(isHomepageFeatured)
-    .sort((a, b) => Number(Boolean(b.heroFeatured)) - Number(Boolean(a.heroFeatured)) || featuredRank(a) - featuredRank(b) || originalOrder(a, b));
-  const fallbackFeatured = available.slice().sort((a, b) => sortNumber(b.price) - sortNumber(a.price) || originalOrder(a, b)).slice(0, 6);
-  const vitrineItems = (featured.length ? featured : fallbackFeatured).slice(0, 6);
+  const vitrineItems = selections.vitrine || [];
   if (coffeeVitrineGrid) {
-    const hero = vitrineItems.find((product) => product.heroFeatured) || vitrineItems[0];
+    const hero = vitrineItems.find((product) => product.heroFeatured || calculateMerchandisingScore(product).score >= 75) || vitrineItems[0];
     const secondary = vitrineItems.filter((product) => product !== hero).slice(0, 5);
     coffeeVitrineGrid.innerHTML = hero
       ? `${homeProductCard(hero, { hero: true })}<div class="editorial-featured-secondary">${secondary.map((product) => homeProductCard(product)).join("")}</div>`
@@ -1292,7 +1674,13 @@ function renderHomeSections() {
     setSectionVisibility(coffeeVitrineGrid, Boolean(hero));
   }
 
-  const slabsUnder = available.filter((product) => product.category === "Graded" && Number(product.price || 0) <= 100).slice(0, 6);
+  const accessible = selections.accessible || [];
+  if (accessibleGrid) {
+    accessibleGrid.innerHTML = accessible.map((product) => homeProductCard(product)).join("");
+    setSectionVisibility(accessibleGrid, accessible.length >= 4);
+  }
+
+  const slabsUnder = selections["slabs-under-100"] || [];
   if (slabsUnderGrid) {
     slabsUnderGrid.innerHTML = slabsUnder.map((product) => homeProductCard(product)).join("");
     setSectionVisibility(slabsUnderGrid, slabsUnder.length >= 3);
@@ -2253,6 +2641,134 @@ function renderAdminInventoryRow(item) {
   `;
 }
 
+function merchStatusLabel(section, product) {
+  const decision = merchDecision(section, product.id);
+  if (decision?.status === "locked") return "Verrouillé";
+  if (decision?.status === "accepted") return "Accepté";
+  if (decision?.status === "excluded") return "Exclu";
+  if (isMerchValidated(section, product)) return "Manuel";
+  return "Suggestion";
+}
+
+function merchandisingReasonList(score) {
+  const reasons = score.reasons?.length ? score.reasons : ["Signaux insuffisants, recommandation prudente."];
+  const penalties = score.penalties?.length ? score.penalties : [];
+  return `
+    <ul>
+      ${reasons.slice(0, 4).map((reason) => `<li>${escapeAttribute(reason)}</li>`).join("")}
+      ${penalties.slice(0, 2).map((penalty) => `<li class="penalty">${escapeAttribute(penalty)}</li>`).join("")}
+    </ul>
+  `;
+}
+
+function merchandisingSuggestionCard(product, section, index, options = {}) {
+  const score = calculateMerchandisingScore(product);
+  const decision = merchDecision(section, product.id);
+  const isLocked = decision?.status === "locked";
+  const alternatives = options.showAlternatives
+    ? rankedMerchProducts(adminInventoryCache, section, {
+        max: 3,
+        minScore: section === "slabs-under-100" ? 45 : section === "accessible" ? 40 : 35,
+        filter:
+          section === "slabs-under-100"
+            ? (candidate) => candidate.category === "Graded" && Number(candidate.price || 0) <= 100
+            : section === "accessible"
+            ? (candidate) => Number(candidate.price || 0) >= 15 && Number(candidate.price || 0) <= 75
+            : undefined,
+      }).filter((candidate) => candidate.id !== product.id)
+    : [];
+
+  return `
+    <article class="merchandising-card ${isLocked ? "is-locked" : ""}">
+      <div class="merchandising-product">
+        ${adminProductThumb(product)}
+        <div>
+          <div class="merchandising-title-line">
+            <strong>${escapeAttribute(product.name)}</strong>
+            <span>${escapeAttribute(merchStatusLabel(section, product))}</span>
+          </div>
+          <p>${escapeAttribute(adminItemMeta(product) || product.category || "")}</p>
+          <div class="merchandising-meta">
+            <span>${adminMoney(product.price)}</span>
+            <span>Score ${score.score}/100</span>
+            <span>Confiance ${score.confidence}</span>
+          </div>
+        </div>
+      </div>
+      <div class="merchandising-score">
+        <div>
+          <span>Placement recommandé</span>
+          <strong>${escapeAttribute(score.placement)}</strong>
+        </div>
+        <div>
+          <span>Dernière mise en avant</span>
+          <strong>${escapeAttribute(product.lastFeaturedAt ? new Date(product.lastFeaturedAt).toLocaleDateString("fr-CA") : "Jamais")}</strong>
+        </div>
+      </div>
+      ${merchandisingReasonList(score)}
+      <div class="merchandising-card-actions">
+        <button type="button" data-merch-action="accept" data-merch-section="${escapeAttribute(section)}" data-merch-product="${escapeAttribute(product.id)}">Accepter</button>
+        <button type="button" data-merch-action="replace" data-merch-section="${escapeAttribute(section)}" data-merch-product="${escapeAttribute(product.id)}">Remplacer</button>
+        <button type="button" data-merch-action="lock" data-merch-section="${escapeAttribute(section)}" data-merch-product="${escapeAttribute(product.id)}">${isLocked ? "Déjà verrouillé" : "Verrouiller"}</button>
+        <button type="button" data-merch-action="exclude" data-merch-section="${escapeAttribute(section)}" data-merch-product="${escapeAttribute(product.id)}">Exclure</button>
+      </div>
+      ${
+        alternatives.length
+          ? `<div class="merchandising-alternatives">
+              <span>Alternatives</span>
+              ${alternatives
+                .map((candidate) => {
+                  const candidateScore = calculateMerchandisingScore(candidate);
+                  return `<button type="button" data-merch-action="accept" data-merch-section="${escapeAttribute(section)}" data-merch-product="${escapeAttribute(candidate.id)}">${escapeAttribute(candidate.name)} · ${candidateScore.score}/100</button>`;
+                })
+                .join("")}
+            </div>`
+          : ""
+      }
+    </article>
+  `;
+}
+
+function renderMerchandisingAdmin(products = adminInventoryCache) {
+  if (!merchandisingSections) return;
+  const selections = buildMerchandisingSelections(products, { includeSuggestions: true });
+  const sectionOrder = ["vitrine", "new", "slabs-under-100", "accessible", "dormant", "content"];
+  merchandisingSections.innerHTML = sectionOrder
+    .map((section) => {
+      const config = merchandisingSectionsConfig[section];
+      const suggestions = selections.suggestions?.[section] || [];
+      const publicSelection = selections[section] || [];
+      const countText =
+        section === "dormant" || section === "content"
+          ? `${suggestions.length} suggestion${suggestions.length > 1 ? "s" : ""} interne${suggestions.length > 1 ? "s" : ""}`
+          : `${publicSelection.length}/${config.max} validé${publicSelection.length > 1 ? "s" : ""}`;
+      return `
+        <details class="merchandising-panel" ${section === "vitrine" ? "open" : ""}>
+          <summary>
+            <span>${escapeAttribute(config.title)}</span>
+            <small>${escapeAttribute(countText)}</small>
+          </summary>
+          <p>${escapeAttribute(config.description)}</p>
+          <div class="merchandising-grid">
+            ${
+              suggestions.length
+                ? suggestions
+                    .slice(0, config.max)
+                    .map((product, index) =>
+                      merchandisingSuggestionCard(product, section, index, {
+                        showAlternatives: merchandisingAlternativeSection === `${section}:${product.id}`,
+                      })
+                    )
+                    .join("")
+                : `<div class="admin-empty-state"><strong>Aucun produit admissible.</strong><p>Il faut des produits réels, en ligne, en stock et avec image valide.</p></div>`
+            }
+          </div>
+        </details>
+      `;
+    })
+    .join("");
+}
+
 async function renderAdmin() {
   if (!adminPage) return;
   syncAdminFilterButtons();
@@ -2264,8 +2780,9 @@ async function renderAdmin() {
     return;
   }
   showAdminContent();
-  const { summary, inventory: adminInventory, orders, accounting, priceSync, cardShows: adminCardShows = [], reviews: adminReviews = [] } = payload;
+  const { summary, inventory: adminInventory, orders, accounting, priceSync, cardShows: adminCardShows = [], reviews: adminReviews = [], merchandising } = payload;
   adminInventoryCache = adminInventory || [];
+  merchandisingState = merchandising || { decisions: {}, history: [], updatedAt: "" };
   cardShows = adminCardShows || [];
   reviews = adminReviews || [];
   adminMetrics.innerHTML = [
@@ -2285,6 +2802,7 @@ async function renderAdmin() {
   renderAccounting(accounting);
   const draftItems = adminInventoryCache.filter((item) => item.status === "draft");
   renderAdminSession(draftItems);
+  renderMerchandisingAdmin(adminInventoryCache);
 
   if (adminCardShowRows) {
     adminCardShowRows.innerHTML = cardShows.length
@@ -2651,6 +3169,72 @@ async function publishDraftProducts() {
   } finally {
     publishDraftProductsButton.textContent = "Mettre sur le site";
     publishDraftProductsButton.disabled = adminInventoryCache.filter((item) => item.status === "draft").length === 0;
+  }
+}
+
+async function applyMerchandisingAction({ section, productId, action, button }) {
+  if (!section || !productId || !action) return;
+  if (action === "replace") {
+    merchandisingAlternativeSection = merchandisingAlternativeSection === `${section}:${productId}` ? "" : `${section}:${productId}`;
+    renderMerchandisingAdmin(adminInventoryCache);
+    return;
+  }
+  const product = adminInventoryCache.find((item) => item.id === productId);
+  button.disabled = true;
+  const previousText = button.textContent;
+  button.textContent = "Sauvegarde...";
+  try {
+    const score = product ? calculateMerchandisingScore(product) : null;
+    const payload = await api("/api/admin/merchandising", {
+      method: "POST",
+      body: JSON.stringify({
+        action,
+        section,
+        productId,
+        score: score?.score,
+        reasons: score?.reasons || [],
+        penalties: score?.penalties || [],
+        placement: score?.placement || "",
+        confidence: score?.confidence || "",
+      }),
+    });
+    merchandisingState = payload.merchandising || merchandisingState;
+    adminInventoryCache = payload.inventory || adminInventoryCache;
+    inventory = payload.publicInventory || inventory;
+    renderMerchandisingAdmin(adminInventoryCache);
+    renderProducts();
+    if (merchandisingStatus) {
+      const labels = { accept: "accepté", lock: "verrouillé", exclude: "exclu" };
+      merchandisingStatus.textContent = `${product?.name || "Produit"} ${labels[action] || "mis à jour"}.`;
+    }
+  } catch (error) {
+    if (merchandisingStatus) merchandisingStatus.textContent = error.message;
+    button.disabled = false;
+    button.textContent = previousText;
+  }
+}
+
+async function resetMerchandisingSuggestions(button) {
+  if (!button) return;
+  button.disabled = true;
+  const previousText = button.textContent;
+  button.textContent = "Réinitialisation...";
+  try {
+    const payload = await api("/api/admin/merchandising", {
+      method: "POST",
+      body: JSON.stringify({ action: "reset-unlocked" }),
+    });
+    merchandisingState = payload.merchandising || merchandisingState;
+    adminInventoryCache = payload.inventory || adminInventoryCache;
+    inventory = payload.publicInventory || inventory;
+    renderMerchandisingAdmin(adminInventoryCache);
+    renderProducts();
+    if (merchandisingStatus) merchandisingStatus.textContent = "Suggestions non verrouillées réinitialisées.";
+  } catch (error) {
+    if (merchandisingStatus) merchandisingStatus.textContent = error.message;
+  } finally {
+    button.disabled = false;
+    button.textContent = previousText;
   }
 }
 
@@ -3347,6 +3931,7 @@ document.addEventListener("click", (event) => {
   const deleteReviewButton = event.target.closest("[data-delete-review]");
   const adminCancelOrderButton = event.target.closest("[data-admin-cancel-order]");
   const adminPaidOrderButton = event.target.closest("[data-admin-paid-order]");
+  const merchActionButton = event.target.closest("[data-merch-action]");
   const addCartButton = event.target.closest("[data-add-cart]");
   const backShopButton = event.target.closest("[data-back-shop]");
   const homeLink = event.target.closest("[data-home-link]");
@@ -3411,6 +3996,15 @@ document.addEventListener("click", (event) => {
     }
     if (command === "jarvis") window.location.href = "/jarvis";
     if (!["add", "session", "sale"].includes(command)) closeAdminPanels();
+  }
+  if (merchActionButton) {
+    event.preventDefault();
+    applyMerchandisingAction({
+      section: merchActionButton.dataset.merchSection,
+      productId: merchActionButton.dataset.merchProduct,
+      action: merchActionButton.dataset.merchAction,
+      button: merchActionButton,
+    });
   }
   if (editProfileButton) {
     event.preventDefault();
@@ -3918,6 +4512,11 @@ imageSearchPreview?.addEventListener("click", (event) => {
   if (choice) selectImageCandidate(choice, roleButton?.dataset.imageRole || "front");
 });
 suggestMarketButton?.addEventListener("click", suggestMarketPrice);
+recalculateMerchandisingButton?.addEventListener("click", () => {
+  renderMerchandisingAdmin(adminInventoryCache);
+  if (merchandisingStatus) merchandisingStatus.textContent = "Scores recalculés avec l’inventaire actuel.";
+});
+resetMerchandisingButton?.addEventListener("click", () => resetMerchandisingSuggestions(resetMerchandisingButton));
 adminProductForm?.querySelector('select[name="gradingCompany"]')?.addEventListener("change", applySlabMode);
 publishDraftProductsButton?.addEventListener("click", publishDraftProducts);
 toggleSoldCardsButton?.addEventListener("click", () => {

@@ -3898,6 +3898,231 @@ body.admin-mode .admin-page {
   padding: 0 12px;
 }
 
+.merchandising-admin {
+  overflow: hidden;
+}
+
+.merchandising-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.merchandising-actions span {
+  color: var(--clay);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.merchandising-sections {
+  display: grid;
+  gap: 12px;
+}
+
+.merchandising-panel {
+  overflow: hidden;
+  border: 1px solid rgba(75, 49, 33, 0.14);
+  border-radius: 16px;
+  background: rgba(255, 249, 239, 0.68);
+}
+
+.merchandising-panel > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  color: var(--coffee);
+  cursor: pointer;
+  font-weight: 950;
+  list-style: none;
+}
+
+.merchandising-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.merchandising-panel > summary small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.merchandising-panel > p {
+  max-width: 760px;
+  margin: -4px 18px 16px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.merchandising-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 18px 18px;
+}
+
+.merchandising-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(75, 49, 33, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 16px 36px rgba(62, 38, 24, 0.06);
+}
+
+.merchandising-card.is-locked {
+  border-color: rgba(213, 116, 45, 0.42);
+  box-shadow: 0 18px 40px rgba(213, 116, 45, 0.12);
+}
+
+.merchandising-product {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.merchandising-title-line {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.merchandising-title-line strong {
+  color: var(--coffee);
+  font-size: 15px;
+  line-height: 1.18;
+}
+
+.merchandising-title-line span,
+.merchandising-meta span {
+  display: inline-flex;
+  width: fit-content;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(213, 116, 45, 0.1);
+  color: var(--clay);
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.merchandising-product p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.merchandising-meta,
+.merchandising-score {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.merchandising-score > div {
+  flex: 1 1 150px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(251, 234, 216, 0.5);
+}
+
+.merchandising-score span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.merchandising-score strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--coffee);
+  font-size: 13px;
+}
+
+.merchandising-card ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.merchandising-card li.penalty {
+  color: #9a4630;
+}
+
+.merchandising-card-actions,
+.merchandising-alternatives {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.merchandising-card-actions button,
+.merchandising-alternatives button {
+  padding: 9px 11px;
+  border: 1px solid rgba(75, 49, 33, 0.16);
+  border-radius: 999px;
+  background: #fffaf3;
+  color: var(--coffee);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.merchandising-card-actions button:hover,
+.merchandising-alternatives button:hover {
+  border-color: var(--clay);
+  color: var(--clay);
+}
+
+.merchandising-alternatives {
+  padding-top: 10px;
+  border-top: 1px solid rgba(75, 49, 33, 0.1);
+}
+
+.merchandising-alternatives > span {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+@media (max-width: 760px) {
+  .merchandising-grid {
+    grid-template-columns: 1fr;
+    padding-inline: 12px;
+  }
+
+  .merchandising-panel > summary,
+  .merchandising-panel > p {
+    margin-inline: 12px;
+    padding-inline: 0;
+  }
+
+  .merchandising-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .merchandising-actions .button {
+    width: 100%;
+  }
+}
+
 .show-admin-actions {
   display: flex;
   flex-wrap: wrap;

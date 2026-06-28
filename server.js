@@ -159,6 +159,10 @@ async function readDb() {
     if (!Array.isArray(db.jarvisEmailActions)) db.jarvisEmailActions = [];
     if (!Array.isArray(db.jarvisCalendarEvents)) db.jarvisCalendarEvents = [];
     if (!Array.isArray(db.jarvisTasks)) db.jarvisTasks = [];
+    if (!db.merchandising) db.merchandising = { decisions: {}, history: [], updatedAt: "" };
+    if (!db.merchandising.decisions) db.merchandising.decisions = {};
+    if (!Array.isArray(db.merchandising.history)) db.merchandising.history = [];
+    if (!Array.isArray(db.merchandising.performance)) db.merchandising.performance = [];
     if (!db.jarvisGoogleTokens) db.jarvisGoogleTokens = {};
     if (!db.jarvisCalendarTokens) db.jarvisCalendarTokens = {};
     if (!db.jarvisOAuthStates) db.jarvisOAuthStates = {};
@@ -197,6 +201,7 @@ async function readDb() {
       cardShows: [],
       reviews: defaultReviews(),
       inventory: defaultInventory(),
+      merchandising: { decisions: {}, history: [], performance: [], updatedAt: "" },
     };
     try {
       const seed = JSON.parse(await fs.readFile(seedPath, "utf8"));
@@ -1792,6 +1797,8 @@ function publicProduct(product) {
     homepageCollection: product.homepageCollection || "",
     badge: product.badge || "",
     createdAt: product.createdAt || product.updatedAt || "",
+    updatedAt: product.updatedAt || "",
+    lastFeaturedAt: product.lastFeaturedAt || "",
   };
 }
 
@@ -4938,6 +4945,123 @@ async function handleApi(req, res) {
       cardShows: db.cardShows || [],
       reviews: (db.reviews || []).map(publicReview),
       priceSync: db.priceSync || null,
+      merchandising: db.merchandising || { decisions: {}, history: [], updatedAt: "" },
+    });
+  }
+
+  if (url.pathname === "/api/admin/merchandising" && req.method === "POST") {
+    const body = await readBody(req);
+    const action = String(body.action || "").trim();
+    const now = new Date().toISOString();
+    db.merchandising = db.merchandising || { decisions: {}, history: [], updatedAt: "" };
+    db.merchandising.decisions = db.merchandising.decisions || {};
+    db.merchandising.history = Array.isArray(db.merchandising.history) ? db.merchandising.history : [];
+    db.merchandising.performance = Array.isArray(db.merchandising.performance) ? db.merchandising.performance : [];
+
+    if (action === "reset-unlocked") {
+      for (const section of Object.keys(db.merchandising.decisions)) {
+        for (const productId of Object.keys(db.merchandising.decisions[section] || {})) {
+          if (db.merchandising.decisions[section][productId]?.status !== "locked") {
+            delete db.merchandising.decisions[section][productId];
+          }
+        }
+      }
+      db.merchandising.history.unshift({ action, at: now });
+      db.merchandising.history = db.merchandising.history.slice(0, 120);
+      db.merchandising.updatedAt = now;
+      await writeDb(db);
+      return json(res, 200, {
+        merchandising: db.merchandising,
+        inventory: db.inventory,
+        publicInventory: db.inventory
+          .filter((product) => !["draft", "admin_draft"].includes(product.status))
+          .map(publicProduct)
+          .filter((product) => product.status !== "reserved"),
+      });
+    }
+
+    const section = String(body.section || "").trim();
+    const productId = String(body.productId || "").trim();
+    const product = db.inventory.find((item) => item.id === productId);
+    if (!section || !productId || !product) return json(res, 400, { error: "Produit ou section merchandising introuvable." });
+    if (!["accept", "lock", "exclude"].includes(action)) return json(res, 400, { error: "Action merchandising invalide." });
+
+    db.merchandising.decisions[section] = db.merchandising.decisions[section] || {};
+    const status = action === "lock" ? "locked" : action === "exclude" ? "excluded" : "accepted";
+    db.merchandising.decisions[section][productId] = {
+      section,
+      productId,
+      status,
+      score: Number(body.score || 0),
+      reasons: Array.isArray(body.reasons) ? body.reasons.slice(0, 8) : [],
+      penalties: Array.isArray(body.penalties) ? body.penalties.slice(0, 8) : [],
+      placement: String(body.placement || "").trim(),
+      confidence: String(body.confidence || "").trim(),
+      updatedAt: now,
+    };
+
+    if (status === "excluded") {
+      if (String(product.homepageCollection || "") === section) product.homepageCollection = "";
+      if (section === "vitrine") {
+        product.featured = false;
+        product.heroFeatured = false;
+      }
+      for (const entry of db.merchandising.performance) {
+        if (entry.productId === productId && entry.section === section && !entry.dateFin) entry.dateFin = now;
+      }
+    } else if (section !== "dormant" && section !== "content") {
+      product.homepageCollection = section;
+      product.lastFeaturedAt = now;
+      if (section === "vitrine") {
+        product.featured = true;
+        const acceptedVitrine = Object.values(db.merchandising.decisions.vitrine || {}).filter((decision) =>
+          ["accepted", "locked"].includes(decision.status)
+        );
+        product.heroFeatured = acceptedVitrine.length === 1 || Boolean(product.heroFeatured);
+        product.featuredRank = Number(product.featuredRank || acceptedVitrine.length || 1);
+      }
+      const existingPerformance = db.merchandising.performance.find(
+        (entry) => entry.productId === productId && entry.section === section && !entry.dateFin
+      );
+      if (!existingPerformance) {
+        db.merchandising.performance.unshift({
+          section,
+          productId,
+          productName: product.name,
+          dateDebut: now,
+          dateFin: "",
+          position: Number(product.featuredRank || 0),
+          scoreInitial: Number(body.score || 0),
+          views: Number(product.views || 0),
+          addToCart: Number(product.addToCart || 0),
+          ventes: 0,
+          revenu: 0,
+          conversion: 0,
+          decision: "humaine",
+        });
+        db.merchandising.performance = db.merchandising.performance.slice(0, 200);
+      }
+    }
+    product.updatedAt = now;
+
+    db.merchandising.history.unshift({
+      action,
+      section,
+      productId,
+      productName: product.name,
+      score: Number(body.score || 0),
+      at: now,
+    });
+    db.merchandising.history = db.merchandising.history.slice(0, 120);
+    db.merchandising.updatedAt = now;
+    await writeDb(db);
+    return json(res, 200, {
+      merchandising: db.merchandising,
+      inventory: db.inventory,
+      publicInventory: db.inventory
+        .filter((candidate) => !["draft", "admin_draft"].includes(candidate.status))
+        .map(publicProduct)
+        .filter((candidate) => candidate.status !== "reserved"),
     });
   }
 
@@ -5190,6 +5314,7 @@ async function handleApi(req, res) {
       heroFeatured: Boolean(body.heroFeatured),
       featuredRank: Number(body.featuredRank || 0),
       homepageCollection: String(body.homepageCollection || "").trim(),
+      lastFeaturedAt: existingProduct?.lastFeaturedAt || "",
       badge: String(body.badge || "").trim(),
       createdAt: body.createdAt || existingProduct?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
