@@ -214,11 +214,12 @@ const translations = {
     stayTuned: "Restez à l’affût des prochains drops à l’avance!",
     emailPlaceholder: "Votre courriel",
     curatedEyebrow: "Sélection Coffee Break",
-    featuredTitle: "La vitrine CoffeeBreak",
+    featuredTitle: "LA VITRINE COFFEEBREAK",
     featuredText: "Une sélection qu’on garderait nous-mêmes.",
     newTitle: "Nouveautés",
     newText: "Les derniers ajouts à la vitrine.",
     viewAllNew: "Voir toutes les nouveautés →",
+    viewFullSelection: "Voir toute la sélection →",
     exploreTitle: "Explorer la vitrine",
     exploreText: "Chaque catégorie a son moment.",
     exploreSingles: "Pour les cartes à collectionner, jouer ou offrir.",
@@ -354,6 +355,7 @@ const translations = {
     newTitle: "New arrivals",
     newText: "The latest additions to the showcase.",
     viewAllNew: "View all new arrivals →",
+    viewFullSelection: "View the full selection →",
     exploreTitle: "Explore the showcase",
     exploreText: "Each category has its moment.",
     exploreSingles: "For collecting, playing or gifting.",
@@ -440,6 +442,7 @@ const categoryLabels = {
   all: () => t("availableCards"),
   new: () => t("newCategory"),
   sale: () => t("saleCategory"),
+  featured: () => t("featuredTitle"),
   Singles: "Singles",
   Sealed: "Sealed",
   Graded: "Graded",
@@ -632,7 +635,8 @@ function getProducts() {
       state.category === "all" ||
       product.category === state.category ||
       (state.category === "new" && isRecentProduct(product)) ||
-      (state.category === "sale" && isSaleProduct(product));
+      (state.category === "sale" && isSaleProduct(product)) ||
+      (state.category === "featured" && isHomepageFeatured(product));
     const matchesType = state.typeFilter === "all" || product.kind === state.typeFilter || product.visual === state.typeFilter;
     const matchesSet = state.setFilter === "all" || product.setId === state.setFilter || product.setName === state.setFilter;
     const conditionCode = cardConditionCode(product);
@@ -1652,24 +1656,75 @@ function homeProductCard(product, options = {}) {
   `;
 }
 
+function vitrineBadge(product, role) {
+  if (role === "hero") return "Choix CoffeeBreak";
+  if (isSlabProduct(product) && product.gradingCompany && product.grade) return `${product.gradingCompany} ${product.grade}`;
+  if (String(product.rarity || "").trim()) return product.rarity;
+  if (isRecentProduct(product)) return "Nouveau";
+  return product.category || "";
+}
+
+function vitrineProductCard(product, role = "mini") {
+  const meta = productMetaLine(product) || "Détails à confirmer";
+  const badge = vitrineBadge(product, role);
+  return `
+    <a class="vitrine-card vitrine-card-${escapeAttribute(role)} ${isSlabProduct(product) ? "is-slab" : ""}" href="${productDetailPath(product)}" data-view-product="${escapeAttribute(product.id)}" style="--accent:${product.accent || "#d5742d"}">
+      <div class="vitrine-art">
+        ${productVisual(product)}
+      </div>
+      <div class="vitrine-copy">
+        ${badge ? `<span>${escapeAttribute(badge)}</span>` : ""}
+        <h3>${escapeAttribute(product.name)}</h3>
+        ${role !== "mini" ? `<p>${escapeAttribute(meta)}</p>` : ""}
+        <div class="vitrine-bottom">
+          ${priceMarkup(product)}
+          ${role !== "mini" ? `<em>${t("viewCard")}</em>` : ""}
+        </div>
+      </div>
+    </a>
+  `;
+}
+
+function vitrineDisplayProducts(selections) {
+  const selected = selections.vitrine || [];
+  const fallback = selections.suggestions?.vitrine || [];
+  const products = [];
+  for (const product of [...selected, ...fallback]) {
+    if (products.some((item) => item.id === product.id)) continue;
+    if (isMerchExcluded("vitrine", product)) continue;
+    if (getProductStatus(product) !== "available" || Number(product.stock || 0) <= 0 || !hasValidProductImage(product)) continue;
+    products.push(product);
+    if (products.length >= 6) break;
+  }
+  return products;
+}
+
 function setSectionVisibility(element, visible) {
   element?.closest("section")?.classList.toggle("hidden", !visible);
 }
 
 function renderHomeSections() {
-  const selections = buildMerchandisingSelections(inventory);
+  const selections = buildMerchandisingSelections(inventory, { includeSuggestions: true });
   const newest = selections.new || [];
   if (newArrivalsGrid) {
     newArrivalsGrid.innerHTML = newest.map((product) => homeProductCard(product)).join("");
     setSectionVisibility(newArrivalsGrid, newest.length > 0);
   }
 
-  const vitrineItems = selections.vitrine || [];
+  const vitrineItems = vitrineDisplayProducts(selections);
   if (coffeeVitrineGrid) {
-    const hero = vitrineItems.find((product) => product.heroFeatured || calculateMerchandisingScore(product).score >= 75) || vitrineItems[0];
-    const secondary = vitrineItems.filter((product) => product !== hero).slice(0, 5);
+    const hero =
+      vitrineItems.find((product) => product.heroFeatured) ||
+      vitrineItems.slice().sort((a, b) => calculateMerchandisingScore(b).score - calculateMerchandisingScore(a).score)[0];
+    const secondary = vitrineItems.filter((product) => product !== hero);
+    const sideCards = secondary.slice(0, 2);
+    const miniCards = secondary.slice(2, 5);
     coffeeVitrineGrid.innerHTML = hero
-      ? `${homeProductCard(hero, { hero: true })}<div class="editorial-featured-secondary">${secondary.map((product) => homeProductCard(product)).join("")}</div>`
+      ? `
+          ${vitrineProductCard(hero, "hero")}
+          ${sideCards.length ? `<div class="editorial-featured-side">${sideCards.map((product) => vitrineProductCard(product, "secondary")).join("")}</div>` : ""}
+          ${miniCards.length ? `<div class="editorial-featured-mini">${miniCards.map((product) => vitrineProductCard(product, "mini")).join("")}</div>` : ""}
+        `
       : "";
     setSectionVisibility(coffeeVitrineGrid, Boolean(hero));
   }
