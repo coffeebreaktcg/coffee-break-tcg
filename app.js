@@ -2,6 +2,7 @@ let inventory = [];
 
 const state = {
   category: "all",
+  game: "Pokemon",
   search: "",
   sort: "featured",
   typeFilter: "all",
@@ -40,6 +41,7 @@ const syncPricesButton = document.querySelector("#syncPricesButton");
 const adminInventoryRows = document.querySelector("#adminInventoryRows");
 const adminInventorySearch = document.querySelector("#adminInventorySearch");
 const adminInventoryCategory = document.querySelector("#adminInventoryCategory");
+const adminInventoryGame = document.querySelector("#adminInventoryGame");
 const adminInventoryStatus = document.querySelector("#adminInventoryStatus");
 const adminInventorySort = document.querySelector("#adminInventorySort");
 const adminOrderRows = document.querySelector("#adminOrderRows");
@@ -54,6 +56,7 @@ const accountingDashboard = document.querySelector("#accountingDashboard");
 const reportStatus = document.querySelector("#reportStatus");
 const adminProductForm = document.querySelector("#adminProductForm");
 const pokemonSetSelect = document.querySelector("#pokemonSetSelect");
+const productGameSelect = document.querySelector("#productGameSelect");
 const toggleSoldCardsButton = document.querySelector("#toggleSoldCardsButton");
 const soldCardsWrap = document.querySelector("#soldCardsWrap");
 const searchCardImageButton = document.querySelector("#searchCardImageButton");
@@ -102,7 +105,7 @@ const featuredSections = document.querySelector("#featuredSections");
 const curatedSections = document.querySelector("#curatedSections");
 const newArrivalsGrid = document.querySelector("#newArrivalsGrid");
 const coffeeVitrineGrid = document.querySelector("#coffeeVitrineGrid");
-const slabsUnderGrid = document.querySelector("#slabsUnderGrid");
+const onePieceGrid = document.querySelector("#onePieceGrid");
 const accessibleGrid = document.querySelector("#accessibleGrid");
 const merchandisingSections = document.querySelector("#merchandisingSections");
 const merchandisingStatus = document.querySelector("#merchandisingStatus");
@@ -112,7 +115,7 @@ const reviewSection = document.querySelector("#reviewSection");
 const languageLoader = document.querySelector("#languageLoader");
 const welcomeToast = document.querySelector("#welcomeToast");
 let adminInventoryCache = [];
-let adminInventoryView = { search: "", category: "all", status: "all", sort: "recent" };
+let adminInventoryView = { search: "", category: "all", game: "all", status: "all", sort: "recent" };
 let adminSubmitMode = "session";
 let merchandisingState = { decisions: {}, history: [], updatedAt: "" };
 let merchandisingAlternativeSection = "";
@@ -225,20 +228,22 @@ const translations = {
     exploreSingles: "Pour les cartes à collectionner, jouer ou offrir.",
     exploreGraded: "Pour les pièces protégées et les cartes qui méritent la vitrine.",
     exploreSealed: "Pour garder fermé, ouvrir ou offrir.",
+    exploreOnePiece: "Singles, slabs et boîtes One Piece sélectionnés pour la vitrine.",
     exploreUnder100: "Des cartes protégées qui restent accessibles.",
     sellTradeTitle: "Vendre / Échanger",
     sellStepOne: "Envoie-nous photos ou liste rapide.",
     sellStepTwo: "Reçois une offre claire.",
     sellStepThree: "Vends, expédie ou échange vers une carte plus importante.",
     howItWorks: "Comment ça fonctionne",
-    viewAllGradedArrow: "Voir les graded →",
+    viewAllGradedArrow: "Voir les slabs →",
+    viewAllOnePieceArrow: "Voir One Piece →",
     newsletterTitle: "Les prochains drops, avant tout le monde.",
     newsletterText: "Nouveautés, Card Shows et collections fraîchement arrivées.",
     newsletterCta: "Recevoir les prochains drops →",
     under25Title: "Singles sous 25 $",
     under25Text: "Des ajouts faciles pour compléter une commande.",
-    under100Title: "Slabs sous 100 $",
-    under100Text: "Des graded accessibles pour commencer ou compléter une collection.",
+    onePieceTitle: "One Piece",
+    onePieceText: "Singles, slabs et boîtes pour ouvrir une deuxième vitrine.",
     reviewsEyebrow: "Avis clients",
     reviewsTitle: "Des collectionneurs nous font <span>confiance</span>.",
     reviewsText: "",
@@ -251,7 +256,7 @@ const translations = {
     mobileMoreTitle: "Voir plus",
     mobileMoreText: "Ouvre la collection complète sur une page dédiée.",
     viewAllSingles: "Voir tous les singles",
-    viewAllGraded: "Voir tous les graded",
+    viewAllGraded: "Voir tous les slabs",
     viewAllSealed: "Voir tout le sealed",
     buyCardsEyebrow: "On achète vos cartes",
     buyCardsTitle: "Soumets-nous ta collection.",
@@ -266,6 +271,12 @@ const translations = {
     upcomingShowsShort: "Prochains shows",
     footerLocation: "Laval, Québec",
     pokemonCategory: "Pokémon",
+    accessoriesCategory: "Accessoires",
+    accessoriesAll: "Tous les accessoires",
+    onePieceBoxes: "Box / boîtes",
+    communityCategory: "Communauté",
+    helpCategory: "Aide",
+    tradeCard: "Échanger une carte",
   },
   en: {
     menuOpen: "Open menu",
@@ -361,20 +372,22 @@ const translations = {
     exploreSingles: "For collecting, playing or gifting.",
     exploreGraded: "For protected pieces and cards worth displaying.",
     exploreSealed: "To keep sealed, open or gift.",
+    exploreOnePiece: "One Piece singles, slabs and boxes selected for the showcase.",
     exploreUnder100: "Protected cards that stay accessible.",
     sellTradeTitle: "Sell / Trade",
     sellStepOne: "Send photos or a quick list.",
     sellStepTwo: "Receive a clear offer.",
     sellStepThree: "Sell, ship or trade toward a bigger card.",
     howItWorks: "How it works",
-    viewAllGradedArrow: "View graded →",
+    viewAllGradedArrow: "View slabs →",
+    viewAllOnePieceArrow: "View One Piece →",
     newsletterTitle: "Upcoming drops, before everyone else.",
     newsletterText: "New arrivals, Card Shows and fresh collections.",
     newsletterCta: "Get upcoming drops →",
     under25Title: "Singles under $25",
     under25Text: "Easy additions to complete an order.",
-    under100Title: "Slabs under $100",
-    under100Text: "Accessible graded cards to start or grow a collection.",
+    onePieceTitle: "One Piece",
+    onePieceText: "Singles, slabs and boxes for a second showcase.",
     reviewsEyebrow: "Customer reviews",
     reviewsTitle: "Collectors <span>trust</span> us.",
     reviewsText: "",
@@ -387,7 +400,7 @@ const translations = {
     mobileMoreTitle: "See more",
     mobileMoreText: "Open the full collection on a dedicated page.",
     viewAllSingles: "View all singles",
-    viewAllGraded: "View all graded",
+    viewAllGraded: "View all slabs",
     viewAllSealed: "View all sealed",
     buyCardsEyebrow: "We buy cards",
     buyCardsTitle: "Submit your collection.",
@@ -402,6 +415,12 @@ const translations = {
     upcomingShowsShort: "Upcoming shows",
     footerLocation: "Laval, Quebec",
     pokemonCategory: "Pokemon",
+    accessoriesCategory: "Accessories",
+    accessoriesAll: "All accessories",
+    onePieceBoxes: "Boxes",
+    communityCategory: "Community",
+    helpCategory: "Help",
+    tradeCard: "Trade a card",
   },
 };
 
@@ -435,7 +454,16 @@ const categoryRoutes = {
   "/": "all",
   "/singles": "Singles",
   "/sealed": "Sealed",
+  "/slabs": "Graded",
   "/graded": "Graded",
+  "/accessoires": "Accessories",
+};
+
+const gameRoutes = {
+  "/one-piece": { category: "all", game: "One Piece" },
+  "/one-piece/singles": { category: "Singles", game: "One Piece" },
+  "/one-piece/slabs": { category: "Graded", game: "One Piece" },
+  "/one-piece/box": { category: "Sealed", game: "One Piece" },
 };
 
 const categoryLabels = {
@@ -445,7 +473,7 @@ const categoryLabels = {
   featured: () => t("featuredTitle"),
   Singles: "Singles",
   Sealed: "Sealed",
-  Graded: "Graded",
+  Graded: "Slabs",
   Preorder: "Précommandes",
   Accessories: "Accessoires",
 };
@@ -629,8 +657,9 @@ function originalOrder(a, b) {
 
 function getProducts() {
   let products = inventory.filter((product) => {
-    if (["Preorder", "Accessories"].includes(product.category)) return false;
+    if (["Preorder"].includes(product.category)) return false;
     if (getProductStatus(product) === "reserved") return false;
+    const matchesGame = state.game === "all" || productGame(product) === state.game;
     const matchesCategory =
       state.category === "all" ||
       product.category === state.category ||
@@ -644,7 +673,7 @@ function getProducts() {
     const query = state.search.toLowerCase().trim();
     const searchableTokens = haystack.split(/[^a-z0-9]+/).filter(Boolean);
     const matchesSearch = ["nm", "lp", "mp"].includes(query) ? searchableTokens.includes(query) : haystack.includes(query);
-    return matchesCategory && matchesType && matchesSet && matchesSearch;
+    return matchesGame && matchesCategory && matchesType && matchesSet && matchesSearch;
   });
 
   products = [...products].sort((a, b) => {
@@ -670,6 +699,12 @@ function visualClass(product) {
 
 function isSlabProduct(product) {
   return product.category === "Graded" || product.kind === "slab" || product.visual === "graded" || Boolean(product.gradingCompany);
+}
+
+function productGame(product) {
+  const value = String(product.game || product.franchise || "").trim();
+  if (/one\s*piece/i.test(value)) return "One Piece";
+  return "Pokemon";
 }
 
 function slabCompanyClass(product) {
@@ -795,7 +830,7 @@ function productCategoryLabel(product) {
   return (
     {
       Singles: "Singles",
-      Graded: "Graded",
+      Graded: "Slabs",
       Sealed: "Sealed",
       Preorder: "Précommande",
       Accessories: "Accessoires",
@@ -807,13 +842,21 @@ function productDetailPath(product) {
   return `/produit/${product.id}`;
 }
 
-function categoryPath(category) {
+function categoryPath(category, game = state.game) {
+  if (game === "One Piece") {
+    if (category === "Singles") return "/one-piece/singles";
+    if (category === "Graded") return "/one-piece/slabs";
+    if (category === "Sealed") return "/one-piece/box";
+    return "/one-piece";
+  }
+  if (category === "Graded") return "/slabs";
   return Object.entries(categoryRoutes).find(([, value]) => value === category)?.[0] || "/";
 }
 
 function saveShopView(productId = "") {
   lastShopView = {
     category: state.category,
+    game: state.game,
     typeFilter: state.typeFilter,
     setFilter: state.setFilter,
     search: state.search,
@@ -831,6 +874,7 @@ function restoreShopView() {
     return;
   }
   state.category = view.category || "all";
+  state.game = view.game || "Pokemon";
   state.typeFilter = view.typeFilter || "all";
   state.setFilter = view.setFilter || "all";
   state.search = view.search || "";
@@ -1188,8 +1232,9 @@ function renderCardShows() {
 
 async function loadPokemonSets() {
   if (!pokemonSetSelect) return;
+  const game = productGameSelect?.value || "Pokemon";
   try {
-    const payload = await api("/api/admin/sets");
+    const payload = await api(`/api/admin/sets?game=${encodeURIComponent(game)}`);
     pokemonSetSelect.innerHTML = [
       `<option value="">Choisir une extension</option>`,
       ...(payload.sets || []).map(
@@ -1247,12 +1292,12 @@ const merchandisingSectionsConfig = {
     collection: "new",
     description: "Produits récents, en stock, publiés et avec photo réelle.",
   },
-  "slabs-under-100": {
-    title: "Slabs sous 100 $",
+  "one-piece": {
+    title: "One Piece",
     max: 6,
-    min: 3,
-    collection: "slabs-under-100",
-    description: "Slabs accessibles, assez forts pour mériter leur propre bloc.",
+    min: 1,
+    collection: "one-piece",
+    description: "Produits One Piece prêts pour une deuxième vitrine distincte de Pokémon.",
   },
   accessible: {
     title: "Cartes accessibles",
@@ -1472,8 +1517,8 @@ function calculateMerchandisingScore(product, context = {}) {
   const placement =
     finalScore >= 78 && (isSlabProduct(product) || price >= 75 || product.heroFeatured)
       ? "Carte héro / Vitrine"
-      : product.category === "Graded" && price <= 100
-      ? "Slabs sous 100 $"
+      : productGame(product) === "One Piece"
+      ? "One Piece"
       : price >= 15 && price <= 75
       ? "Cartes accessibles"
       : age <= 21
@@ -1568,11 +1613,11 @@ function buildMerchandisingSelections(products = inventory, { includeSuggestions
       minScore: 0,
       limits: { pokemon: 1, set: 2, category: { Singles: 2, Graded: 2, Sealed: 1 } },
     }),
-    "slabs-under-100": validatedMerchSection(pool, "slabs-under-100", {
+    "one-piece": validatedMerchSection(pool, "one-piece", {
       max: 6,
-      minScore: 45,
+      minScore: 35,
       limits: { pokemon: 1, set: 2 },
-      filter: (product) => product.category === "Graded" && Number(product.price || 0) <= 100,
+      filter: (product) => productGame(product) === "One Piece",
     }),
     accessible: validatedMerchSection(pool, "accessible", {
       max: 8,
@@ -1590,11 +1635,11 @@ function buildMerchandisingSelections(products = inventory, { includeSuggestions
         limits: { pokemon: 1, set: 2, category: { Singles: 2, Graded: 2, Sealed: 1 } },
       }),
       new: selections.new,
-      "slabs-under-100": rankedMerchProducts(pool, "slabs-under-100", {
+      "one-piece": rankedMerchProducts(pool, "one-piece", {
         max: 6,
-        minScore: 45,
+        minScore: 35,
         limits: { pokemon: 1, set: 2 },
-        filter: (product) => product.category === "Graded" && Number(product.price || 0) <= 100,
+        filter: (product) => productGame(product) === "One Piece",
       }),
       accessible: rankedMerchProducts(pool, "accessible", {
         max: 8,
@@ -1735,10 +1780,10 @@ function renderHomeSections() {
     setSectionVisibility(accessibleGrid, accessible.length >= 4);
   }
 
-  const slabsUnder = selections["slabs-under-100"] || [];
-  if (slabsUnderGrid) {
-    slabsUnderGrid.innerHTML = slabsUnder.map((product) => homeProductCard(product)).join("");
-    setSectionVisibility(slabsUnderGrid, slabsUnder.length >= 3);
+  const onePiece = selections["one-piece"] || [];
+  if (onePieceGrid) {
+    onePieceGrid.innerHTML = onePiece.map((product) => homeProductCard(product)).join("");
+    setSectionVisibility(onePieceGrid, onePiece.length > 0);
   }
 }
 
@@ -1801,17 +1846,24 @@ function renderProducts() {
 
 function categoryMoreLinks() {
   if (state.category === "Singles") {
-    return `<a class="button primary" href="/singles" data-route-category="Singles">${t("viewAllSingles")}</a>`;
+    return `<a class="button primary" href="${categoryPath("Singles", state.game)}" data-route-category="Singles" data-route-game="${escapeAttribute(state.game)}">${t("viewAllSingles")}</a>`;
   }
   if (state.category === "Graded") {
-    return `<a class="button primary" href="/graded" data-route-category="Graded">${t("viewAllGraded")}</a>`;
+    return `<a class="button primary" href="${categoryPath("Graded", state.game)}" data-route-category="Graded" data-route-game="${escapeAttribute(state.game)}">${t("viewAllGraded")}</a>`;
   }
   if (state.category === "Sealed") {
-    return `<a class="button primary" href="/sealed" data-route-category="Sealed">${t("viewAllSealed")}</a>`;
+    return `<a class="button primary" href="${categoryPath("Sealed", state.game)}" data-route-category="Sealed" data-route-game="${escapeAttribute(state.game)}">${t("viewAllSealed")}</a>`;
+  }
+  if (state.game === "One Piece") {
+    return `
+      <a class="button primary" href="/one-piece/singles" data-route-category="Singles" data-route-game="One Piece">${t("viewAllSingles")}</a>
+      <a class="button secondary" href="/one-piece/slabs" data-route-category="Graded" data-route-game="One Piece">${t("viewAllGraded")}</a>
+      <a class="button secondary" href="/one-piece/box" data-route-category="Sealed" data-route-game="One Piece">${t("viewAllSealed")}</a>
+    `;
   }
   return `
     <a class="button primary" href="/singles" data-route-category="Singles">${t("viewAllSingles")}</a>
-    <a class="button secondary" href="/graded" data-route-category="Graded">${t("viewAllGraded")}</a>
+    <a class="button secondary" href="/slabs" data-route-category="Graded">${t("viewAllGraded")}</a>
     <a class="button secondary" href="/sealed" data-route-category="Sealed">${t("viewAllSealed")}</a>
   `;
 }
@@ -1868,7 +1920,7 @@ function renderCuratedSections() {
   const featuredSection = [t("featuredTitle"), t("featuredText"), (featuredItems.length ? featuredItems : available).slice(0, 6)];
   const selectionSections = [
     [t("newTitle"), t("newText"), available.slice().sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)).slice(0, 6)],
-    [t("under100Title"), t("under100Text"), available.filter((product) => product.category === "Graded" && Number(product.price || 0) <= 100).slice(0, 6)],
+    [t("onePieceTitle"), t("onePieceText"), available.filter((product) => productGame(product) === "One Piece").slice(0, 6)],
   ].filter(([, , items]) => items.length);
 
   featuredSections.innerHTML = featuredSection[2].length
@@ -2371,9 +2423,10 @@ function scrollToProductDetailTop(behavior = "auto") {
   window.scrollTo({ top, behavior });
 }
 
-function goToCategory(category, push = true) {
-  const path = Object.entries(categoryRoutes).find(([, value]) => value === category)?.[0] || "/";
+function goToCategory(category, push = true, game = "Pokemon") {
+  const path = categoryPath(category, game);
   state.category = category;
+  state.game = game || "Pokemon";
   if (push) history.pushState({ category }, "", path);
   applyRoute();
   requestAnimationFrame(() => scrollToShopItems("smooth"));
@@ -2419,10 +2472,15 @@ function applyRoute() {
     renderContentPage(contentMatch[1]);
     return;
   }
-  const category = categoryRoutes[window.location.pathname] || "all";
+  const route = gameRoutes[window.location.pathname];
+  const category = route?.category || categoryRoutes[window.location.pathname] || "all";
   state.category = category;
+  state.game = route?.game || "Pokemon";
   document.querySelectorAll("[data-category]").forEach((tab) => {
     tab.classList.toggle("active", tab.dataset.category === category);
+  });
+  document.querySelectorAll("[data-game-category]").forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.gameCategory === state.game);
   });
   renderProducts();
   renderCardShows();
@@ -2549,6 +2607,7 @@ function adminVisibleInventory(items) {
   return (items || [])
     .filter((item) => {
       if (adminInventoryView.category !== "all" && item.category !== adminInventoryView.category) return false;
+      if (adminInventoryView.game !== "all" && productGame(item) !== adminInventoryView.game) return false;
       const status = getProductStatus(item);
       if (adminInventoryView.status === "available" && status !== "available" && status !== "preorder") return false;
       if (adminInventoryView.status === "draft" && item.status !== "draft") return false;
@@ -2560,6 +2619,7 @@ function adminVisibleInventory(items) {
       if (!search) return true;
       const haystack = [
         item.name,
+        productGame(item),
         item.category,
         item.kind,
         item.setName,
@@ -2598,6 +2658,7 @@ function isDormantAdminItem(item) {
 
 function adminItemMeta(item) {
   return [
+    productGame(item),
     item.setName,
     item.cardNumber ? `#${item.cardNumber}` : "",
     item.rarity,
@@ -2626,6 +2687,9 @@ function syncAdminFilterButtons() {
   });
   document.querySelectorAll("[data-admin-category-filter]").forEach((button) => {
     button.classList.toggle("active", (button.dataset.adminCategoryFilter || "all") === adminInventoryView.category);
+  });
+  document.querySelectorAll("[data-admin-game-filter]").forEach((button) => {
+    button.classList.toggle("active", (button.dataset.adminGameFilter || "all") === adminInventoryView.game);
   });
 }
 
@@ -2723,10 +2787,10 @@ function merchandisingSuggestionCard(product, section, index, options = {}) {
   const alternatives = options.showAlternatives
     ? rankedMerchProducts(adminInventoryCache, section, {
         max: 3,
-        minScore: section === "slabs-under-100" ? 45 : section === "accessible" ? 40 : 35,
+        minScore: section === "one-piece" ? 35 : section === "accessible" ? 40 : 35,
         filter:
-          section === "slabs-under-100"
-            ? (candidate) => candidate.category === "Graded" && Number(candidate.price || 0) <= 100
+          section === "one-piece"
+            ? (candidate) => productGame(candidate) === "One Piece"
             : section === "accessible"
             ? (candidate) => Number(candidate.price || 0) >= 15 && Number(candidate.price || 0) <= 75
             : undefined,
@@ -2787,7 +2851,7 @@ function merchandisingSuggestionCard(product, section, index, options = {}) {
 function renderMerchandisingAdmin(products = adminInventoryCache) {
   if (!merchandisingSections) return;
   const selections = buildMerchandisingSelections(products, { includeSuggestions: true });
-  const sectionOrder = ["vitrine", "new", "slabs-under-100", "accessible", "dormant", "content"];
+  const sectionOrder = ["vitrine", "new", "one-piece", "accessible", "dormant", "content"];
   merchandisingSections.innerHTML = sectionOrder
     .map((section) => {
       const config = merchandisingSectionsConfig[section];
@@ -3544,6 +3608,8 @@ function resetAdminProductForm() {
   if (status) status.textContent = "";
   if (imageSearchStatus) imageSearchStatus.textContent = "";
   if (marketSuggestStatus) marketSuggestStatus.textContent = "";
+  if (productGameSelect) productGameSelect.value = "Pokemon";
+  loadPokemonSets();
   setAdminDrawerSummary(null);
   if (adminPrevItemButton) adminPrevItemButton.hidden = true;
   if (adminNextItemButton) adminNextItemButton.hidden = true;
@@ -3661,6 +3727,7 @@ function editAdminItem(id) {
   setAdminField("price", item.price);
   setAdminField("stock", item.stock);
   setAdminField("category", item.category || "Singles");
+  setAdminField("game", productGame(item));
   setAdminField("kind", item.kind || "single");
   setAdminField("rarity", item.rarity);
   setAdminField("badge", item.badge || "");
@@ -3853,6 +3920,10 @@ function applySlabMode() {
 async function suggestMarketPrice(options = {}) {
   if (!adminProductForm || !suggestMarketButton) return;
   const form = new FormData(adminProductForm);
+  if ((form.get("game") || "Pokemon") === "One Piece") {
+    if (!options.silent && marketSuggestStatus) marketSuggestStatus.textContent = "Prix One Piece à valider manuellement pour l’instant.";
+    return;
+  }
   const params = new URLSearchParams({
     name: form.get("name") || "",
     setId: form.get("setId") || "",
@@ -3890,6 +3961,7 @@ async function searchCardImage() {
   const cardNumber = adminProductForm.querySelector('input[name="cardNumber"]')?.value.trim();
   const setId = pokemonSetSelect?.value || "";
   const productType = adminProductForm.querySelector('select[name="kind"]')?.value || "";
+  const game = adminProductForm.querySelector('select[name="game"]')?.value || "Pokemon";
   if (!name && !setId) {
     if (imageSearchStatus) imageSearchStatus.textContent = "Entre le nom ou choisis une extension.";
     return;
@@ -3901,6 +3973,7 @@ async function searchCardImage() {
   try {
     const payload = await api(
       `/api/admin/card-images?q=${encodeURIComponent(name)}&number=${encodeURIComponent(cardNumber || "")}&setId=${encodeURIComponent(setId)}&productType=${encodeURIComponent(productType)}`
+        + `&game=${encodeURIComponent(game)}`
     );
     const candidates = payload.candidates || [];
     if (!candidates.length) {
@@ -3979,6 +4052,7 @@ document.addEventListener("click", (event) => {
   const adminClosePanelButton = event.target.closest("[data-admin-close-panel]");
   const adminStatusFilterButton = event.target.closest("[data-admin-status-filter]");
   const adminCategoryFilterButton = event.target.closest("[data-admin-category-filter]");
+  const adminGameFilterButton = event.target.closest("[data-admin-game-filter]");
   const adminCommandButton = event.target.closest("[data-admin-command]");
   const editShowButton = event.target.closest("[data-edit-show]");
   const deleteShowButton = event.target.closest("[data-delete-show]");
@@ -4027,6 +4101,13 @@ document.addEventListener("click", (event) => {
     adminInventoryView.category = adminCategoryFilterButton.dataset.adminCategoryFilter || "all";
     if (adminInventoryCategory) adminInventoryCategory.value = adminInventoryView.category;
     document.querySelectorAll("[data-admin-category-filter]").forEach((button) => button.classList.toggle("active", button === adminCategoryFilterButton));
+    renderAdmin();
+  }
+  if (adminGameFilterButton) {
+    event.preventDefault();
+    adminInventoryView.game = adminGameFilterButton.dataset.adminGameFilter || "all";
+    if (adminInventoryGame) adminInventoryGame.value = adminInventoryView.game;
+    syncAdminFilterButtons();
     renderAdmin();
   }
   if (adminCommandButton) {
@@ -4136,6 +4217,7 @@ document.addEventListener("click", (event) => {
     closeDrawers();
     history.pushState({}, "", "/");
     state.category = "all";
+    state.game = "Pokemon";
     state.typeFilter = "all";
     state.setFilter = "all";
     state.search = "";
@@ -4181,19 +4263,30 @@ document.addEventListener("click", (event) => {
   ) {
     editAdminItem(adminOpenItemRow.dataset.adminOpenItem);
   }
-  if (tabButton) selectCategory(tabButton.dataset.category);
+  if (tabButton) {
+    state.game = "Pokemon";
+    selectCategory(tabButton.dataset.category);
+  }
+  const gameCategoryButton = event.target.closest("[data-game-category]");
+  if (gameCategoryButton) {
+    event.preventDefault();
+    state.typeFilter = "all";
+    state.setFilter = "all";
+    goToCategory("all", true, gameCategoryButton.dataset.gameCategory || "One Piece");
+  }
   if (routeCategory) {
     event.preventDefault();
     closeDrawers();
     state.typeFilter = "all";
-    goToCategory(routeCategory.dataset.routeCategory);
+    goToCategory(routeCategory.dataset.routeCategory, true, routeCategory.dataset.routeGame || "Pokemon");
   }
   if (kindRoute) {
     event.preventDefault();
     closeDrawers();
     state.category = kindRoute.dataset.kindRoute === "slab" ? "Graded" : "Sealed";
+    state.game = event.target.closest("[data-route-game]")?.dataset.routeGame || "Pokemon";
     state.typeFilter = kindRoute.dataset.kindRoute;
-    history.pushState({}, "", state.category === "Graded" ? "/graded" : "/sealed");
+    history.pushState({}, "", categoryPath(state.category, state.game));
     selectCategory(state.category, true);
   }
   if (viewProduct) {
@@ -4258,11 +4351,12 @@ document.querySelectorAll("[data-feature-checkbox]").forEach((input) => {
   input.addEventListener("change", updateFeatureLimitState);
 });
 
-[adminInventorySearch, adminInventoryCategory, adminInventoryStatus, adminInventorySort].forEach((control) => {
+[adminInventorySearch, adminInventoryCategory, adminInventoryGame, adminInventoryStatus, adminInventorySort].forEach((control) => {
   control?.addEventListener("input", () => {
     adminInventoryView = {
       search: adminInventorySearch?.value || "",
       category: adminInventoryCategory?.value || "all",
+      game: adminInventoryGame?.value || "all",
       status: adminInventoryStatus?.value || "all",
       sort: adminInventorySort?.value || "recent",
     };
@@ -4273,6 +4367,7 @@ document.querySelectorAll("[data-feature-checkbox]").forEach((input) => {
     adminInventoryView = {
       search: adminInventorySearch?.value || "",
       category: adminInventoryCategory?.value || "all",
+      game: adminInventoryGame?.value || "all",
       status: adminInventoryStatus?.value || "all",
       sort: adminInventorySort?.value || "recent",
     };
@@ -4553,6 +4648,10 @@ adminDrawerRemoveButton?.addEventListener("click", () => {
   if (adminDrawerRemoveButton.dataset.adminDrawerItem) removeAdminItem(adminDrawerRemoveButton.dataset.adminDrawerItem, adminDrawerRemoveButton);
 });
 searchCardImageButton?.addEventListener("click", searchCardImage);
+productGameSelect?.addEventListener("change", () => {
+  resetCardLookupDetails();
+  loadPokemonSets();
+});
 adminProductForm?.querySelector('input[name="name"]')?.addEventListener("input", () => {
   if (editingProductId?.value) {
     resetImageSearch();
@@ -4698,6 +4797,7 @@ adminProductForm?.addEventListener("submit", async (event) => {
   const body = {
     id,
     name: form.get("name"),
+    game: form.get("game") || "Pokemon",
     setId: form.get("setId"),
     setName: selectedSetOption?.dataset.name || selectedSetOption?.textContent?.replace(/\s+-\s+\d{4}\/\d{2}\/\d{2}$/, "") || "",
     category,

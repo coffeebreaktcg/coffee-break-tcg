@@ -1765,6 +1765,7 @@ function publicProduct(product) {
   return {
     id: product.id,
     name: product.name,
+    game: product.game || product.franchise || "Pokemon",
     category: product.category,
     kind: product.kind || product.visual || "single",
     status: baseStatus === "draft" ? "draft" : stock <= 0 && reservedQuantity > 0 ? "reserved" : baseStatus,
@@ -4025,6 +4026,91 @@ async function searchSealedProductImages(query, setId = "") {
   );
 }
 
+function fallbackOnePieceSets() {
+  return [
+    { id: "op12", name: "OP-12 Legacy of the Master", releaseDate: "2025/08/22" },
+    { id: "op11", name: "OP-11 A Fist of Divine Speed", releaseDate: "2025/06/06" },
+    { id: "op10", name: "OP-10 Royal Blood", releaseDate: "2025/03/21" },
+    { id: "op09", name: "OP-09 Emperors in the New World", releaseDate: "2024/12/13" },
+    { id: "op08", name: "OP-08 Two Legends", releaseDate: "2024/09/13" },
+    { id: "op07", name: "OP-07 500 Years in the Future", releaseDate: "2024/06/28" },
+    { id: "op06", name: "OP-06 Wings of the Captain", releaseDate: "2024/03/15" },
+    { id: "op05", name: "OP-05 Awakening of the New Era", releaseDate: "2023/12/08" },
+    { id: "op04", name: "OP-04 Kingdoms of Intrigue", releaseDate: "2023/09/22" },
+    { id: "op03", name: "OP-03 Pillars of Strength", releaseDate: "2023/06/30" },
+    { id: "op02", name: "OP-02 Paramount War", releaseDate: "2023/03/10" },
+    { id: "op01", name: "OP-01 Romance Dawn", releaseDate: "2022/12/02" },
+    { id: "eb02", name: "EB-02 Extra Booster", releaseDate: "" },
+    { id: "eb01", name: "EB-01 Memorial Collection", releaseDate: "2024/05/03" },
+    { id: "st21", name: "ST-21 Starter Deck", releaseDate: "" },
+    { id: "st20", name: "ST-20 Starter Deck", releaseDate: "" },
+    { id: "st19", name: "ST-19 Starter Deck", releaseDate: "" },
+    { id: "st18", name: "ST-18 Starter Deck", releaseDate: "" },
+    { id: "p", name: "P Promotional Cards", releaseDate: "" },
+  ];
+}
+
+function onePieceNumberCandidates(query = "", numberHint = "", setId = "") {
+  const text = `${query} ${numberHint} ${setId}`.toUpperCase();
+  const matches = text.match(/\b(?:OP|ST|EB)\s*-?\s*\d{1,2}\s*-?\s*\d{3}\b|\bP\s*-?\s*\d{3}\b/g) || [];
+  const normalized = matches
+    .map((value) => value.replace(/\s+/g, "").toUpperCase())
+    .map((value) => {
+      const promo = value.match(/^P-?(\d{3})$/);
+      if (promo) return `P-${promo[1]}`;
+      const card = value.match(/^(OP|ST|EB)-?(\d{1,2})-?(\d{3})$/);
+      if (!card) return value;
+      return `${card[1]}${card[2].padStart(2, "0")}-${card[3]}`;
+    });
+  if (numberHint && setId && !normalized.length) {
+    const prefix = String(setId).toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const number = String(numberHint).replace(/[^0-9]/g, "").padStart(3, "0").slice(-3);
+    if (/^(OP|ST|EB)\d{2}$/.test(prefix)) normalized.push(`${prefix}-${number}`);
+    if (prefix === "P") normalized.push(`P-${number}`);
+  }
+  return [...new Set(normalized)].slice(0, 18);
+}
+
+async function onePieceImageExists(url) {
+  return new Promise((resolve) => {
+    const request = https.request(url, { method: "HEAD", timeout: 3500 }, (response) => {
+      response.resume();
+      resolve(response.statusCode >= 200 && response.statusCode < 300);
+    });
+    request.on("timeout", () => {
+      request.destroy();
+      resolve(false);
+    });
+    request.on("error", () => resolve(false));
+    request.end();
+  });
+}
+
+async function searchOnePieceCardImages(query, numberHint = "", setId = "") {
+  const key = cacheKey(["one-piece", query, numberHint, setId]);
+  const cached = getCachedSearch(key);
+  if (cached) return cached;
+  const numbers = onePieceNumberCandidates(query, numberHint, setId);
+  const candidates = [];
+  for (const number of numbers) {
+    const imageUrl = `https://en.onepiece-cardgame.com/images/cardlist/card/${number}.png`;
+    if (!(await onePieceImageExists(imageUrl))) continue;
+    const set = fallbackOnePieceSets().find((entry) => number.toLowerCase().startsWith(entry.id.replace("-", ""))) || null;
+    candidates.push({
+      id: `onepiece-${number.toLowerCase()}`,
+      name: cleanCardSearchTerm(query) || number,
+      setId: set?.id || number.split("-")[0].toLowerCase(),
+      set: set?.name || number.split("-")[0],
+      number,
+      rarity: "One Piece",
+      imageType: "card",
+      imageUrl,
+      smallImageUrl: imageUrl,
+    });
+  }
+  return setCachedSearch(key, candidates.slice(0, 18));
+}
+
 function inferVisual(category, kind) {
   if (category === "Graded" || kind === "slab") return "graded";
   if (["Sealed", "Preorder", "Accessories"].includes(category) || kind !== "single") return "boxed";
@@ -5217,6 +5303,10 @@ async function handleApi(req, res) {
   }
 
   if (url.pathname === "/api/admin/sets" && req.method === "GET") {
+    const game = url.searchParams.get("game") || "Pokemon";
+    if (/one\s*piece/i.test(game)) {
+      return json(res, 200, { sets: fallbackOnePieceSets() });
+    }
     try {
       return json(res, 200, { sets: await fetchPokemonSets() });
     } catch {
@@ -5229,8 +5319,12 @@ async function handleApi(req, res) {
     const number = url.searchParams.get("number") || "";
     const setId = url.searchParams.get("setId") || "";
     const productType = url.searchParams.get("productType") || "";
-    if (query.trim().length < 2 && !setId) return json(res, 200, { candidates: [] });
+    const game = url.searchParams.get("game") || "Pokemon";
+    if (query.trim().length < 2 && !setId && !number.trim()) return json(res, 200, { candidates: [] });
     try {
+      if (/one\s*piece/i.test(game)) {
+        return json(res, 200, { candidates: await searchOnePieceCardImages(query, number, setId) });
+      }
       if (["etb", "utb", "pack", "booster-bundle", "booster-box", "japanese", "accessory"].includes(productType)) {
         return json(res, 200, { candidates: await searchSealedProductImages(query, setId) });
       }
@@ -5283,6 +5377,7 @@ async function handleApi(req, res) {
     const product = {
       id,
       name: String(body.name || "").trim(),
+      game: /one\s*piece/i.test(String(body.game || "")) ? "One Piece" : "Pokemon",
       category,
       kind: body.kind || "single",
       status: productStatus,

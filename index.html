@@ -43,7 +43,7 @@
       <nav class="main-nav" aria-label="Navigation principale">
         <a href="/#new-arrivals" data-home-section="new-arrivals">Nouveautés</a>
         <a href="/singles" data-route-category="Singles">Singles</a>
-        <a href="/graded" data-route-category="Graded">Graded</a>
+        <a href="/slabs" data-route-category="Graded">Slabs</a>
         <a href="/sealed" data-route-category="Sealed">Sealed</a>
         <a href="/vendre" data-content-route="vendre">Vendre / Échanger</a>
       </nav>
@@ -150,8 +150,9 @@
           <button class="tab" type="button" data-category="new" data-i18n="newCategory">Nouveauté</button>
           <button class="tab" type="button" data-category="sale" data-i18n="saleCategory">Rabais</button>
           <button class="tab" type="button" data-category="Singles">Singles</button>
-          <button class="tab" type="button" data-category="Graded">Graded</button>
+          <button class="tab" type="button" data-category="Graded">Slabs</button>
           <button class="tab" type="button" data-category="Sealed">Sealed</button>
+          <button class="tab" type="button" data-game-category="One Piece">One Piece</button>
         </div>
 
         <div class="inventory-tools">
@@ -195,20 +196,24 @@
         </div>
         <div class="category-explorer-grid">
           <a class="category-tile singles" href="/singles" data-route-category="Singles">
+            <img src="/assets/hero-pokemon-coffee-real-cards.png" alt="" loading="lazy" />
             <span>Singles</span>
             <p data-i18n="exploreSingles">Pour les cartes à collectionner, jouer ou offrir.</p>
           </a>
-          <a class="category-tile graded" href="/graded" data-route-category="Graded">
-            <span>Graded</span>
+          <a class="category-tile graded" href="/slabs" data-route-category="Graded">
+            <img src="/assets/hero-business-cards.png" alt="" loading="lazy" />
+            <span>Slabs</span>
             <p data-i18n="exploreGraded">Pour les pièces protégées et les cartes qui méritent la vitrine.</p>
           </a>
           <a class="category-tile sealed" href="/sealed" data-route-category="Sealed">
+            <img src="/assets/sealed-151-etb.webp" alt="" loading="lazy" />
             <span>Sealed</span>
             <p data-i18n="exploreSealed">Pour garder fermé, ouvrir ou offrir.</p>
           </a>
-          <a class="category-tile slabs-under" href="/#slabs-under-100" data-home-section="slabs-under-100">
-            <span>Slabs sous 100 $</span>
-            <p data-i18n="exploreUnder100">Des cartes protégées qui restent accessibles.</p>
+          <a class="category-tile one-piece" href="/one-piece" data-route-category="all" data-route-game="One Piece">
+            <img src="/assets/hero-shop.png" alt="" loading="lazy" />
+            <span>One Piece</span>
+            <p data-i18n="exploreOnePiece">Singles, slabs et boîtes One Piece sélectionnés pour la vitrine.</p>
           </a>
         </div>
       </section>
@@ -238,15 +243,15 @@
         </div>
       </section>
 
-      <section class="home-product-section slabs-under-section" id="slabs-under-100">
+      <section class="home-product-section one-piece-section" id="one-piece">
         <div class="home-section-heading">
           <div>
-            <p class="eyebrow" data-i18n="under100Title">Slabs sous 100 $</p>
-            <h2 data-i18n="under100Text">Des cartes protégées pour commencer ou compléter une collection.</h2>
+            <p class="eyebrow" data-i18n="onePieceTitle">One Piece</p>
+            <h2 data-i18n="onePieceText">Singles, slabs et boîtes pour ouvrir une deuxième vitrine.</h2>
           </div>
-          <a href="/graded" data-route-category="Graded" data-i18n="viewAllGradedArrow">Voir les graded →</a>
+          <a href="/one-piece" data-route-category="all" data-route-game="One Piece" data-i18n="viewAllOnePieceArrow">Voir One Piece →</a>
         </div>
-        <div class="home-product-grid compact" id="slabsUnderGrid"></div>
+        <div class="home-product-grid compact" id="onePieceGrid"></div>
       </section>
 
       <section class="shows-section reveal-section" id="cardshows">
@@ -391,6 +396,7 @@
             <button type="button" data-admin-category-filter="Singles">Singles</button>
             <button type="button" data-admin-category-filter="Graded">Slabs</button>
             <button type="button" data-admin-category-filter="Sealed">Sealed</button>
+            <button type="button" data-admin-game-filter="One Piece">One Piece</button>
             <button type="button" data-admin-status-filter="review">À vérifier</button>
             <button type="button" data-admin-status-filter="dormant">Dormant</button>
           </div>
@@ -403,6 +409,13 @@
                 <option value="Sealed">Sealed</option>
                 <option value="Preorder">Précommande</option>
                 <option value="Accessories">Accessoires</option>
+              </select>
+            </label>
+            <label>Univers
+              <select id="adminInventoryGame">
+                <option value="all">Tous</option>
+                <option value="Pokemon">Pokémon</option>
+                <option value="One Piece">One Piece</option>
               </select>
             </label>
             <label>Statut
@@ -473,14 +486,11 @@
             <section class="admin-form-panel admin-form-panel-primary">
               <div class="admin-step-label">1 · Recherche</div>
               <div class="form-row two">
-                <label>Nom <input name="name" required placeholder="Nom de la carte, set ou numéro..." autocomplete="off" /></label>
-                <label>Numéro <input name="cardNumber" placeholder="Ex. SM82, 215/203" /></label>
-              </div>
-              <div class="form-row two">
                 <label>
-                  Extension
-                  <select name="setId" id="pokemonSetSelect">
-                    <option value="">Chargement des extensions...</option>
+                  Univers
+                  <select name="game" id="productGameSelect">
+                    <option value="Pokemon">Pokémon</option>
+                    <option value="One Piece">One Piece</option>
                   </select>
                 </label>
                 <label>
@@ -493,8 +503,21 @@
                     <option value="pack">Pack</option>
                     <option value="booster-bundle">Booster bundle</option>
                     <option value="booster-box">Booster box</option>
+                    <option value="box">Box / boîte</option>
                     <option value="japanese">Japanese</option>
                     <option value="accessory">Accessoire</option>
+                  </select>
+                </label>
+              </div>
+              <div class="form-row two">
+                <label>Nom <input name="name" required placeholder="Nom de la carte, set ou numéro..." autocomplete="off" /></label>
+                <label>Numéro <input name="cardNumber" placeholder="Ex. SM82, 215/203" /></label>
+              </div>
+              <div class="form-row two">
+                <label>
+                  Extension
+                  <select name="setId" id="pokemonSetSelect">
+                    <option value="">Chargement des extensions...</option>
                   </select>
                 </label>
               </div>
@@ -614,7 +637,7 @@
                     <option value="">Aucune</option>
                     <option value="vitrine">Vitrine CoffeeBreak</option>
                     <option value="new">Nouveautés</option>
-                    <option value="slabs-under-100">Slabs sous 100 $</option>
+                    <option value="one-piece">One Piece</option>
                   </select>
                 </label>
                 <label>
@@ -918,7 +941,7 @@
         <p data-i18n="footerLocation">Laval, Québec</p>
       </div>
       <nav aria-label="Pied de page">
-        <a href="#shop" data-i18n="shopNow">Magasiner</a>
+        <a href="#shop" data-i18n="inventory">Vitrine</a>
         <a href="/vendre" data-content-route="vendre" data-i18n="sellCards">On achète vos cartes</a>
         <a href="/livraison" data-content-route="livraison" data-i18n="shipping">Livraison</a>
         <a href="/faq" data-content-route="faq">FAQ</a>
@@ -1007,25 +1030,38 @@
       </div>
       <nav class="drawer-nav">
         <details class="drawer-group">
-          <summary>Magasiner</summary>
+          <summary data-i18n="pokemonCategory">Pokémon</summary>
           <div class="drawer-subnav">
-            <a href="/#new-arrivals" data-home-section="new-arrivals">Nouveautés</a>
+            <a href="/#new-arrivals" data-home-section="new-arrivals" data-i18n="newTitle">Nouveautés</a>
             <a href="/singles" data-route-category="Singles">Singles</a>
-            <a href="/graded" data-route-category="Graded">Graded</a>
+            <a href="/slabs" data-route-category="Graded">Slabs</a>
             <a href="/sealed" data-route-category="Sealed">Sealed</a>
-            <a href="/#slabs-under-100" data-home-section="slabs-under-100">Slabs sous 100 $</a>
           </div>
         </details>
         <details class="drawer-group">
-          <summary>Vendre / Échanger</summary>
+          <summary>One Piece</summary>
           <div class="drawer-subnav">
-            <a href="/vendre" data-content-route="vendre">Soumettre une collection</a>
-            <a href="/vendre" data-content-route="vendre">Échanger une carte</a>
-            <a href="/faq" data-content-route="faq">Comment ça fonctionne</a>
+            <a href="/one-piece/singles" data-route-category="Singles" data-route-game="One Piece">Singles</a>
+            <a href="/one-piece/slabs" data-route-category="Graded" data-route-game="One Piece">Slabs</a>
+            <a href="/one-piece/box" data-route-category="Sealed" data-route-game="One Piece" data-i18n="onePieceBoxes">Box / boîtes</a>
           </div>
         </details>
         <details class="drawer-group">
-          <summary>Communauté</summary>
+          <summary data-i18n="accessoriesCategory">Accessoires</summary>
+          <div class="drawer-subnav">
+            <a href="/accessoires" data-route-category="Accessories" data-i18n="accessoriesAll">Tous les accessoires</a>
+          </div>
+        </details>
+        <details class="drawer-group">
+          <summary data-i18n="sellTradeTitle">Vendre / Échanger</summary>
+          <div class="drawer-subnav">
+            <a href="/vendre" data-content-route="vendre" data-i18n="submitCollection">Soumettre une collection</a>
+            <a href="/vendre" data-content-route="vendre" data-i18n="tradeCard">Échanger une carte</a>
+            <a href="/faq" data-content-route="faq" data-i18n="howItWorks">Comment ça fonctionne</a>
+          </div>
+        </details>
+        <details class="drawer-group">
+          <summary data-i18n="communityCategory">Communauté</summary>
           <div class="drawer-subnav">
             <a href="/#cardshows" data-show-anchor data-i18n="upcomingShowsShort">Prochains Card Shows</a>
             <a href="https://www.instagram.com/coffeebreaktcg" target="_blank" rel="noopener">Instagram</a>
@@ -1033,7 +1069,7 @@
           </div>
         </details>
         <details class="drawer-group">
-          <summary>Aide</summary>
+          <summary data-i18n="helpCategory">Aide</summary>
           <div class="drawer-subnav">
             <a href="/livraison" data-content-route="livraison">Livraison</a>
             <a href="/faq" data-content-route="faq">FAQ</a>
