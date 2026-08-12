@@ -28,7 +28,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&family=Space+Grotesk:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=checkout-account-polish-20260601" />
+    <link rel="stylesheet" href="/styles.css?v=mobile-storefront-20260812" />
   </head>
   <body>
     <header class="site-header">
@@ -38,7 +38,7 @@
         <span></span>
       </button>
       <a class="brand" href="/" data-home-link aria-label="Coffee Break TCG">
-        <img class="brand-logo-img" src="/assets/coffee-break-logo-cbtcg-wordmark-header-transparent.png?v=cbtcg-header-transparent-20260531" alt="Coffee Break TCG" />
+        <img class="brand-logo-img" src="/assets/coffee-break-cbtcg-logo-web-20260812.jpg" alt="Coffee Break TCG" />
       </a>
       <nav class="main-nav" aria-label="Navigation principale">
         <a href="/#new-arrivals" data-home-section="new-arrivals">Nouveautés</a>
@@ -85,17 +85,29 @@
             <a class="button secondary" href="/vendre" data-content-route="vendre" data-i18n="seeOptions">Vendre ou échanger</a>
           </div>
         </div>
-        <div class="hero-media parallax-media motion-card" data-depth="0.12">
-          <video class="hero-reel" autoplay muted loop playsinline poster="/assets/hero-business-cards.png?v=card-show-slabs-20260617" aria-label="Ambiance Coffee Break TCG: card shows, échanges et cartes Pokémon">
-            <source src="/assets/card-show-reel.mp4" type="video/mp4" />
-          </video>
-          <img class="hero-reel-fallback" src="/assets/hero-business-cards.png?v=card-show-slabs-20260617" alt="Bannière Coffee Break TCG dans un card show avec des slabs Pokémon" />
-          <div class="hero-motion-copy" aria-hidden="true">
-            <span>Card shows</span>
-            <span>Trades</span>
-            <span>Slabs</span>
-          </div>
-        </div>
+      </section>
+
+      <section class="storefront-shortcuts" aria-label="Raccourcis boutique">
+        <a class="storefront-shortcut" href="/singles" data-route-category="Singles">
+          <img src="/assets/hero-pokemon-coffee-real-cards.png" alt="" loading="lazy" />
+          <span>Pokémon</span>
+          <strong>Singles</strong>
+        </a>
+        <a class="storefront-shortcut" href="/slabs" data-route-category="Graded">
+          <img src="/assets/hero-business-cards.png" alt="" loading="lazy" />
+          <span>Pokémon</span>
+          <strong>Slabs</strong>
+        </a>
+        <a class="storefront-shortcut" href="/sealed" data-route-category="Sealed">
+          <img src="/assets/sealed-151-etb.webp" alt="" loading="lazy" />
+          <span>Pokémon</span>
+          <strong>Sealed</strong>
+        </a>
+        <a class="storefront-shortcut" href="/one-piece" data-route-category="all" data-route-game="One Piece">
+          <img src="/assets/hero-shop.png" alt="" loading="lazy" />
+          <span>TCG</span>
+          <strong>One Piece</strong>
+        </a>
       </section>
 
       <section class="trust-strip" aria-label="Pourquoi commander chez Coffee Break TCG">
@@ -936,7 +948,7 @@
     <footer class="site-footer">
       <div class="footer-brand">
         <a class="brand footer-logo" href="/" data-home-link aria-label="Coffee Break TCG">
-          <img class="brand-logo-img brand-logo-transparent" src="/assets/coffee-break-logo-cbtcg-wordmark-transparent.png?v=cbtcg-transparent-20260531" alt="Coffee Break TCG" />
+          <img class="brand-logo-img brand-logo-transparent" src="/assets/coffee-break-cbtcg-logo-web-20260812.jpg" alt="Coffee Break TCG" />
         </a>
         <p data-i18n="footerLocation">Laval, Québec</p>
       </div>
@@ -961,7 +973,7 @@
 
     <div class="language-loader" id="languageLoader" aria-hidden="true">
       <div>
-        <img class="brand-logo-img loader-logo brand-logo-transparent" src="/assets/coffee-break-logo-cbtcg-wordmark-transparent.png?v=cbtcg-transparent-20260531" alt="Coffee Break TCG" />
+        <img class="brand-logo-img loader-logo brand-logo-transparent" src="/assets/coffee-break-cbtcg-logo-web-20260812.jpg" alt="Coffee Break TCG" />
       </div>
       <p>Chargement</p>
     </div>
@@ -1014,7 +1026,7 @@
     <aside class="menu-drawer" aria-label="Menu principal" aria-hidden="true">
       <div class="drawer-head">
         <a class="brand drawer-brand" href="/" data-home-link aria-label="Coffee Break TCG">
-          <img class="brand-logo-img brand-logo-transparent" src="/assets/coffee-break-logo-cbtcg-wordmark-transparent.png?v=cbtcg-transparent-20260531" alt="Coffee Break TCG" />
+          <img class="brand-logo-img brand-logo-transparent" src="/assets/coffee-break-cbtcg-logo-web-20260812.jpg" alt="Coffee Break TCG" />
         </a>
         <div class="drawer-head-actions">
           <div class="language-toggle drawer-language-toggle" aria-label="Langue">
@@ -1081,6 +1093,6 @@
       </nav>
     </aside>
 
-    <script src="/app.js?v=checkout-account-polish-20260601"></script>
+    <script src="/app.js?v=mobile-storefront-20260812"></script>
   </body>
 </html>

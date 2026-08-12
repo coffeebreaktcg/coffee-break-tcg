@@ -1748,12 +1748,24 @@ function setSectionVisibility(element, visible) {
   element?.closest("section")?.classList.toggle("hidden", !visible);
 }
 
+function emptyHomeDropCard(title, text, href = "/admin") {
+  return `
+    <a class="home-empty-drop" href="${href}">
+      <span>Prochain drop</span>
+      <strong>${title}</strong>
+      <p>${text}</p>
+    </a>
+  `;
+}
+
 function renderHomeSections() {
   const selections = buildMerchandisingSelections(inventory, { includeSuggestions: true });
   const newest = selections.new || [];
   if (newArrivalsGrid) {
-    newArrivalsGrid.innerHTML = newest.map((product) => homeProductCard(product)).join("");
-    setSectionVisibility(newArrivalsGrid, newest.length > 0);
+    newArrivalsGrid.innerHTML = newest.length
+      ? newest.map((product) => homeProductCard(product)).join("")
+      : emptyHomeDropCard("Nouveautés en préparation.", "Les prochains ajouts apparaîtront ici dès la mise en ligne.");
+    setSectionVisibility(newArrivalsGrid, true);
   }
 
   const vitrineItems = vitrineDisplayProducts(selections);
@@ -1770,8 +1782,8 @@ function renderHomeSections() {
           ${sideCards.length ? `<div class="editorial-featured-side">${sideCards.map((product) => vitrineProductCard(product, "secondary")).join("")}</div>` : ""}
           ${miniCards.length ? `<div class="editorial-featured-mini">${miniCards.map((product) => vitrineProductCard(product, "mini")).join("")}</div>` : ""}
         `
-      : "";
-    setSectionVisibility(coffeeVitrineGrid, Boolean(hero));
+      : emptyHomeDropCard("Sélection en construction.", "Ajoute tes pièces favorites dans l’admin pour bâtir cette vitrine.");
+    setSectionVisibility(coffeeVitrineGrid, true);
   }
 
   const accessible = selections.accessible || [];
