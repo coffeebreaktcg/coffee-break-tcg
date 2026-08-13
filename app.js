@@ -29,6 +29,7 @@ const sortSelect = document.querySelector("#sortSelect");
 const setFilterSelect = document.querySelector("#setFilterSelect");
 const categoryTitle = document.querySelector("#categoryTitle");
 const categoryEyebrow = document.querySelector("#categoryEyebrow");
+const categoryIntro = document.querySelector("#categoryIntro");
 const adminPage = document.querySelector("#adminPage");
 const adminLogin = document.querySelector("#adminLogin");
 const adminContent = document.querySelector("#adminContent");
@@ -104,6 +105,7 @@ const cardShowsGrid = document.querySelector("#cardShowsGrid");
 const featuredSections = document.querySelector("#featuredSections");
 const curatedSections = document.querySelector("#curatedSections");
 const newArrivalsGrid = document.querySelector("#newArrivalsGrid");
+const newArrivalsCarousel = document.querySelector("#newArrivalsCarousel");
 const coffeeVitrineGrid = document.querySelector("#coffeeVitrineGrid");
 const onePieceGrid = document.querySelector("#onePieceGrid");
 const accessibleGrid = document.querySelector("#accessibleGrid");
@@ -112,6 +114,9 @@ const merchandisingStatus = document.querySelector("#merchandisingStatus");
 const recalculateMerchandisingButton = document.querySelector("#recalculateMerchandisingButton");
 const resetMerchandisingButton = document.querySelector("#resetMerchandisingButton");
 const reviewSection = document.querySelector("#reviewSection");
+const adminNewArrivalSlideForm = document.querySelector("#adminNewArrivalSlideForm");
+const adminNewArrivalSlideRows = document.querySelector("#adminNewArrivalSlideRows");
+const newArrivalSlideStatus = document.querySelector("#newArrivalSlideStatus");
 const languageLoader = document.querySelector("#languageLoader");
 const welcomeToast = document.querySelector("#welcomeToast");
 let adminInventoryCache = [];
@@ -124,6 +129,7 @@ let cart = JSON.parse(localStorage.getItem("coffeeBreakCart") || "[]");
 let lastShopView = JSON.parse(sessionStorage.getItem("coffeeBreakLastShopView") || "null");
 let cardShows = [];
 let reviews = [];
+let newArrivalSlides = [];
 let currentUser = null;
 let customerOrders = [];
 let profileEditMode = false;
@@ -141,13 +147,13 @@ const translations = {
     account: "Compte",
     navAbout: "À propos",
     heroEyebrow: "CoffeeBreakTCG · Laval",
-    heroTitle: "Des cartes qu’on garde.",
-    heroText: "Singles, slabs et sealed choisis pour les collectionneurs. Photos réelles, livraison suivie et service local.",
-    shopNow: "Voir les nouveautés",
-    seeOptions: "Vendre ou échanger",
-    trustPhotos: "Photos réelles",
-    trustShipping: "Livraison suivie",
-    trustPayment: "Paiement sécurisé",
+    heroTitle: "Des cartes qu’on choisirait pour nous.",
+    heroText: "Singles, slabs et sealed choisis par des collectionneurs. Du beau stock, des deals clairs, pis du monde avec qui c’est le fun de jaser cartes.",
+    shopNow: "Voir ce qui vient d’arriver",
+    seeOptions: "Fais-nous voir ta collection",
+    trustPhotos: "Par des collectionneurs",
+    trustShipping: "Deals clairs",
+    trustPayment: "Emballé comme si c’était à nous",
     trustReserve: "Réservation 10 min",
     trustLocal: "Laval, Québec",
     searchCard: "Rechercher une carte",
@@ -214,32 +220,32 @@ const translations = {
     saveProfile: "Sauvegarder ces informations dans mon compte",
     or: "ou",
     sellCards: "On achète vos cartes",
-    stayTuned: "Restez à l’affût des prochains drops à l’avance!",
+    stayTuned: "Les drops qui valent la peine, avant tout le monde.",
     emailPlaceholder: "Votre courriel",
     curatedEyebrow: "Sélection Coffee Break",
     featuredTitle: "LA VITRINE COFFEEBREAK",
-    featuredText: "Une sélection qu’on garderait nous-mêmes.",
+    featuredText: "Le stock qu’on mettrait sur notre propre table.",
     newTitle: "Nouveautés",
-    newText: "Les derniers ajouts à la vitrine.",
-    viewAllNew: "Voir toutes les nouveautés →",
+    newText: "Ce qui vient d’atterrir sur la table.",
+    viewAllNew: "Voir tout ce qui vient d’arriver →",
     viewFullSelection: "Voir toute la sélection →",
-    exploreTitle: "Explorer la vitrine",
-    exploreText: "Chaque catégorie a son moment.",
-    exploreSingles: "Pour les cartes à collectionner, jouer ou offrir.",
-    exploreGraded: "Pour les pièces protégées et les cartes qui méritent la vitrine.",
-    exploreSealed: "Pour garder fermé, ouvrir ou offrir.",
-    exploreOnePiece: "Singles, slabs et boîtes One Piece sélectionnés pour la vitrine.",
+    exploreTitle: "Choisis ton coin de table",
+    exploreText: "Va direct à ce que tu veux voir.",
+    exploreSingles: "Cartes modernes, coups de cœur et ajouts faciles.",
+    exploreGraded: "Grosses cartes protégées, prêtes pour la vitrine.",
+    exploreSealed: "À garder fermé, ouvrir entre amis ou mettre de côté.",
+    exploreOnePiece: "Un deuxième univers pour les gros hits et les belles pièces.",
     exploreUnder100: "Des cartes protégées qui restent accessibles.",
-    sellTradeTitle: "Vendre / Échanger",
-    sellStepOne: "Envoie-nous photos ou liste rapide.",
-    sellStepTwo: "Reçois une offre claire.",
-    sellStepThree: "Vends, expédie ou échange vers une carte plus importante.",
+    sellTradeTitle: "On achète aussi",
+    sellStepOne: "Montre-nous ce que t’as.",
+    sellStepTwo: "On te revient avec un deal clair.",
+    sellStepThree: "On règle ça simplement.",
     howItWorks: "Comment ça fonctionne",
     viewAllGradedArrow: "Voir les slabs →",
     viewAllOnePieceArrow: "Voir One Piece →",
-    newsletterTitle: "Les prochains drops, avant tout le monde.",
-    newsletterText: "Nouveautés, Card Shows et collections fraîchement arrivées.",
-    newsletterCta: "Recevoir les prochains drops →",
+    newsletterTitle: "Pré-commande / Mystery Box.",
+    newsletterText: "Les pré-commandes, mystery boxes et drops spéciaux avant leur mise en ligne officielle.",
+    newsletterCta: "Recevoir les alertes →",
     under25Title: "Singles sous 25 $",
     under25Text: "Des ajouts faciles pour compléter une commande.",
     onePieceTitle: "One Piece",
@@ -259,17 +265,17 @@ const translations = {
     viewAllGraded: "Voir tous les slabs",
     viewAllSealed: "Voir tout le sealed",
     buyCardsEyebrow: "On achète vos cartes",
-    buyCardsTitle: "Soumets-nous ta collection.",
+    buyCardsTitle: "Fais-nous voir ta collection.",
     buyCardsCardTitle: "On achète vos cartes",
     buyCardsCardText: "Soumets ta collection de 1 000 $ et plus avec un résumé clair, les cartes importantes et des photos nettes.",
-    submitCollection: "Soumettre une collection",
+    submitCollection: "Envoyer ma collection",
     shippingCardTitle: "Livraison claire",
     shippingCardText: "Livraison depuis Laval, suivi inclus, avec protection adaptée pour singles, sealed et slabs.",
     viewShipping: "Voir la livraison",
-    eventsEyebrow: "Événements",
-    upcomingShows: "Prochains card shows",
-    upcomingShowsShort: "Prochains shows",
-    footerLocation: "Laval, Québec",
+    eventsEyebrow: "On apporte les cartes. Tu apportes ton binder.",
+    upcomingShows: "Viens nous voir en vrai.",
+    upcomingShowsShort: "Prochains arrêts",
+    footerLocation: "Laval, Québec · Cartes aujourd’hui. Coffee shop demain.",
     pokemonCategory: "Pokémon",
     accessoriesCategory: "Accessoires",
     accessoriesAll: "Tous les accessoires",
@@ -285,13 +291,13 @@ const translations = {
     account: "Account",
     navAbout: "About",
     heroEyebrow: "CoffeeBreakTCG · Laval",
-    heroTitle: "Cards worth keeping.",
-    heroText: "Singles, slabs and sealed product selected for collectors. Real photos, tracked shipping and local service.",
-    shopNow: "See new arrivals",
-    seeOptions: "Sell or trade",
-    trustPhotos: "Real photos",
-    trustShipping: "Tracked shipping",
-    trustPayment: "Secure payment",
+    heroTitle: "Cards we’d pick for ourselves.",
+    heroText: "Singles, slabs and sealed picked by collectors. Good stock, clear deals and people who actually like talking cards.",
+    shopNow: "See what just landed",
+    seeOptions: "Show us your collection",
+    trustPhotos: "By collectors",
+    trustShipping: "Clear deals",
+    trustPayment: "Packed like it was ours",
     trustReserve: "10-minute checkout hold",
     trustLocal: "Laval, Quebec",
     searchCard: "Search for a card",
@@ -358,32 +364,32 @@ const translations = {
     saveProfile: "Save these details to my account",
     or: "or",
     sellCards: "We buy your cards",
-    stayTuned: "Get early notice of upcoming drops!",
+    stayTuned: "Only the drops worth opening, before everyone else.",
     emailPlaceholder: "Your email",
     curatedEyebrow: "Coffee Break picks",
     featuredTitle: "The CoffeeBreak Showcase",
-    featuredText: "A selection we would keep ourselves.",
+    featuredText: "The kind of stock we would put on our own table.",
     newTitle: "New arrivals",
-    newText: "The latest additions to the showcase.",
-    viewAllNew: "View all new arrivals →",
+    newText: "What just landed on the table.",
+    viewAllNew: "See everything that just landed →",
     viewFullSelection: "View the full selection →",
-    exploreTitle: "Explore the showcase",
-    exploreText: "Each category has its moment.",
-    exploreSingles: "For collecting, playing or gifting.",
-    exploreGraded: "For protected pieces and cards worth displaying.",
-    exploreSealed: "To keep sealed, open or gift.",
-    exploreOnePiece: "One Piece singles, slabs and boxes selected for the showcase.",
+    exploreTitle: "Pick your side of the table",
+    exploreText: "Go straight to what you want to see.",
+    exploreSingles: "Modern cards, favorites and easy pickups.",
+    exploreGraded: "Big protected cards, ready for the showcase.",
+    exploreSealed: "Keep it sealed, rip it with friends or put it away.",
+    exploreOnePiece: "A second universe for big hits and clean pieces.",
     exploreUnder100: "Protected cards that stay accessible.",
-    sellTradeTitle: "Sell / Trade",
-    sellStepOne: "Send photos or a quick list.",
-    sellStepTwo: "Receive a clear offer.",
-    sellStepThree: "Sell, ship or trade toward a bigger card.",
+    sellTradeTitle: "We buy too",
+    sellStepOne: "Show us what you have.",
+    sellStepTwo: "We come back with a clear deal.",
+    sellStepThree: "We make it simple.",
     howItWorks: "How it works",
     viewAllGradedArrow: "View slabs →",
     viewAllOnePieceArrow: "View One Piece →",
-    newsletterTitle: "Upcoming drops, before everyone else.",
-    newsletterText: "New arrivals, Card Shows and fresh collections.",
-    newsletterCta: "Get upcoming drops →",
+    newsletterTitle: "Preorder / Mystery Box.",
+    newsletterText: "Preorders, mystery boxes and special drops before they go live.",
+    newsletterCta: "Get alerts →",
     under25Title: "Singles under $25",
     under25Text: "Easy additions to complete an order.",
     onePieceTitle: "One Piece",
@@ -403,17 +409,17 @@ const translations = {
     viewAllGraded: "View all slabs",
     viewAllSealed: "View all sealed",
     buyCardsEyebrow: "We buy cards",
-    buyCardsTitle: "Submit your collection.",
+    buyCardsTitle: "Show us your collection.",
     buyCardsCardTitle: "We buy cards",
     buyCardsCardText: "Submit your collection of $1,000 and up with a clear summary, key cards and sharp photos.",
-    submitCollection: "Submit a collection",
+    submitCollection: "Send my collection",
     shippingCardTitle: "Clear shipping",
     shippingCardText: "Shipping from Laval, tracking included, with protection adapted to singles, sealed products and slabs.",
     viewShipping: "View shipping",
-    eventsEyebrow: "Events",
-    upcomingShows: "Upcoming card shows",
-    upcomingShowsShort: "Upcoming shows",
-    footerLocation: "Laval, Quebec",
+    eventsEyebrow: "We bring the cards. You bring the binder.",
+    upcomingShows: "Come see us in person.",
+    upcomingShowsShort: "Upcoming stops",
+    footerLocation: "Laval, Quebec · Cards today. Coffee shop tomorrow.",
     pokemonCategory: "Pokemon",
     accessoriesCategory: "Accessories",
     accessoriesAll: "All accessories",
@@ -474,8 +480,65 @@ const categoryLabels = {
   Singles: "Singles",
   Sealed: "Sealed",
   Graded: "Slabs",
-  Preorder: "Précommandes",
+  Preorder: "Pré-commande / Mystery Box",
   Accessories: "Accessoires",
+};
+
+const categoryPageCopy = {
+  fr: {
+    "/singles": {
+      eyebrow: "Pokémon",
+      title: "Singles",
+      intro: "Toutes les cartes singles disponibles, prêtes à ajouter à ta collection.",
+    },
+    "/slabs": {
+      eyebrow: "Pokémon",
+      title: "Slabs",
+      intro: "Toutes les cartes gradées disponibles, protégées et prêtes pour la vitrine.",
+    },
+    "/graded": {
+      eyebrow: "Pokémon",
+      title: "Slabs",
+      intro: "Toutes les cartes gradées disponibles, protégées et prêtes pour la vitrine.",
+    },
+    "/sealed": {
+      eyebrow: "Pokémon",
+      title: "Sealed",
+      intro: "Tous les produits scellés disponibles : boîtes, packs et items à garder fermés ou ouvrir.",
+    },
+    "/one-piece": {
+      eyebrow: "TCG",
+      title: "One Piece",
+      intro: "Tous les produits One Piece disponibles : singles, slabs et boîtes.",
+    },
+  },
+  en: {
+    "/singles": {
+      eyebrow: "Pokemon",
+      title: "Singles",
+      intro: "All available singles, ready to add to your collection.",
+    },
+    "/slabs": {
+      eyebrow: "Pokemon",
+      title: "Slabs",
+      intro: "All available graded cards, protected and ready for the showcase.",
+    },
+    "/graded": {
+      eyebrow: "Pokemon",
+      title: "Slabs",
+      intro: "All available graded cards, protected and ready for the showcase.",
+    },
+    "/sealed": {
+      eyebrow: "Pokemon",
+      title: "Sealed",
+      intro: "All available sealed products: boxes, packs and items to keep sealed or open.",
+    },
+    "/one-piece": {
+      eyebrow: "TCG",
+      title: "One Piece",
+      intro: "All available One Piece products: singles, slabs and boxes.",
+    },
+  },
 };
 
 function applyTranslations() {
@@ -1140,6 +1203,15 @@ async function loadReviews() {
   }
 }
 
+async function loadNewArrivalSlides() {
+  try {
+    const payload = await api("/api/new-arrival-slides");
+    newArrivalSlides = payload.slides || [];
+  } catch {
+    newArrivalSlides = [];
+  }
+}
+
 function reviewStars(rating) {
   const count = Math.max(1, Math.min(5, Number(rating || 5)));
   return "★".repeat(count) + "☆".repeat(5 - count);
@@ -1157,37 +1229,50 @@ function renderReviews() {
 }
 
 function trustMarqueeItems() {
-  const published = reviews
-    .filter((review) => review.published !== false && String(review.text || "").trim())
-    .slice(0, 6)
-    .map((review) => ({
-      name: String(review.name || "Coffee Break").trim(),
-      city: String(review.city || "").trim(),
-      product: String(review.product || "").trim(),
-      rating: Number(review.rating || 5),
-      text: String(review.text || "").trim(),
-      photoUrl: String(review.photoUrl || "").trim(),
-    }));
-  if (!published.length) {
-    published.push({
-      name: "Coffee Break TCG",
-      city: "Laval",
-      product: "",
-      rating: 5,
-      text: currentLang === "en" ? "Customer reviews will appear here soon." : "Les premiers avis clients apparaîtront ici bientôt.",
-    });
-  }
-  return [...published, ...published, ...published];
+  const trustSignals =
+    currentLang === "en"
+      ? [
+          "By collectors",
+          "Clear deals",
+          "Packed like it was ours",
+          "Card shows • coffee • cardboard",
+          "We buy too",
+          "Stock we actually like",
+          "Real photos",
+          "Coffee shop tomorrow",
+        ]
+      : [
+          "Par des collectionneurs",
+          "Deals clairs",
+          "Emballé comme si c’était à nous",
+          "Card shows • café • carton",
+          "On achète aussi",
+          "Du stock qu’on aime pour vrai",
+          "Photos réelles",
+          "Coffee shop demain",
+        ];
+  const signals = trustSignals.map((text) => ({
+    text,
+    isSignal: true,
+  }));
+  const items = signals;
+  return [...items, ...items, ...items];
 }
 
 function renderTrustStrip() {
   if (!trustStrip) return;
+  const items = trustMarqueeItems();
   trustStrip.innerHTML = `
-    <div class="trust-list">
-      <span>${t("trustPhotos")}</span>
-      <span>${t("trustShipping")}</span>
-      <span>${t("trustPayment")}</span>
-      <span>${t("trustLocal")}</span>
+    <div class="trust-track" aria-label="${currentLang === "en" ? "Coffee Break promises" : "Promesses Coffee Break"}">
+      ${items
+        .map((item) => {
+          return `
+            <span class="trust-review-chip is-signal">
+              <span class="trust-review-text">${escapeAttribute(item.text)}</span>
+            </span>
+          `;
+        })
+        .join("")}
     </div>
   `;
 }
@@ -1204,29 +1289,109 @@ function formatShowDateRange(show) {
   return end && end !== start ? `${start} au ${end}` : start;
 }
 
+function formatShowDateBadge(show) {
+  if (!show?.date) return { day: "--", month: currentLang === "en" ? "TBC" : "À CONF." };
+  const date = new Date(`${show.date}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return { day: show.date, month: "" };
+  return {
+    day: date.toLocaleDateString("fr-CA", { day: "2-digit" }),
+    month: date.toLocaleDateString(currentLang === "en" ? "en-CA" : "fr-CA", { month: "short" }).replace(".", ""),
+  };
+}
+
+function showAddress(show) {
+  return [show.location, show.city].filter(Boolean).join(", ");
+}
+
+function showMapUrl(show) {
+  const query = showAddress(show) || show.name || "CoffeeBreakTCG";
+  return `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+}
+
+function showMapsLink(show) {
+  const query = showAddress(show) || show.name || "CoffeeBreakTCG";
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+function showDateLine(show) {
+  return [formatShowDateRange(show), show.time].filter(Boolean).join(" · ") || (currentLang === "en" ? "To be confirmed" : "À confirmer");
+}
+
+function renderShowListItem(show, index) {
+  const badge = formatShowDateBadge(show);
+  const address = showAddress(show);
+  const open = index === 0 ? " open" : "";
+  return `
+    <details class="show-accordion-item"${open}>
+      <summary>
+        <span class="show-mini-date">
+          <strong>${escapeAttribute(badge.day)}</strong>
+          <small>${escapeAttribute(badge.month)}</small>
+        </span>
+        <span class="show-mini-main">
+          <strong>${escapeAttribute(show.name)}</strong>
+          <small>${escapeAttribute(address || (currentLang === "en" ? "Location to confirm" : "Lieu à confirmer"))}</small>
+        </span>
+        <span class="show-mini-time">${escapeAttribute(show.time || (currentLang === "en" ? "TBC" : "À confirmer"))}</span>
+      </summary>
+      <div class="show-accordion-panel">
+        ${show.tables ? `<p>${escapeAttribute(show.tables)}</p>` : ""}
+        ${show.collaborator ? `<p>${currentLang === "en" ? "With" : "Avec"} ${escapeAttribute(show.collaborator)}</p>` : ""}
+        <div class="show-accordion-actions">
+          <a href="${escapeAttribute(showMapsLink(show))}" target="_blank" rel="noopener">${currentLang === "en" ? "Open in Maps" : "Ouvrir dans Maps"}</a>
+          ${show.announcementUrl ? `<a href="${escapeAttribute(show.announcementUrl)}" target="_blank" rel="noopener">${currentLang === "en" ? "View announcement" : "Voir l’annonce"}</a>` : ""}
+        </div>
+      </div>
+    </details>
+  `;
+}
+
 function renderCardShows() {
   if (!cardShowsGrid) return;
   const section = cardShowsGrid.closest(".shows-section");
   section?.classList.toggle("hidden", cardShows.length === 0);
-  cardShowsGrid.innerHTML = cardShows.length
-    ? cardShows
-        .map((show) => {
-          const meta = [formatShowDateRange(show), show.time, show.tables].filter(Boolean);
-          return `
-            <article class="show-card">
-              <div class="show-card-body">
-                <div class="show-meta">${meta.map((item) => `<span>${escapeAttribute(item)}</span>`).join("")}</div>
-                <h3>${escapeAttribute(show.name)}</h3>
-                <p>${[show.location, show.city].filter(Boolean).map(escapeAttribute).join(" - ")}</p>
-                ${show.collaborator ? `<p>Avec ${escapeAttribute(show.collaborator)}</p>` : ""}
-                ${show.announcementUrl ? `<a class="show-link" href="${escapeAttribute(show.announcementUrl)}" target="_blank" rel="noopener">Voir l’annonce</a>` : ""}
-              </div>
-              ${show.imageUrl ? `<img src="${escapeAttribute(show.imageUrl)}" alt="${escapeAttribute(show.name)}" />` : ""}
-            </article>
-          `;
-        })
-        .join("")
-    : "";
+  if (!cardShows.length) {
+    cardShowsGrid.innerHTML = "";
+    return;
+  }
+  const sortedShows = [...cardShows].sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+  const nextShow = sortedShows[0];
+  const badge = formatShowDateBadge(nextShow);
+  const address = showAddress(nextShow);
+  cardShowsGrid.innerHTML = `
+    <div class="show-experience">
+      <article class="next-show-card">
+        <div class="next-show-copy">
+          <span class="next-stop-pill">${currentLang === "en" ? "Next stop" : "Prochain arrêt"}</span>
+          <div class="next-show-main">
+            <div class="next-show-date">
+              <strong>${escapeAttribute(badge.day)}</strong>
+              <small>${escapeAttribute(badge.month)}</small>
+            </div>
+            <div>
+              <p class="next-show-day">${escapeAttribute(showDateLine(nextShow))}</p>
+              <h3>${escapeAttribute(nextShow.name)}</h3>
+            </div>
+          </div>
+          <div class="next-show-details">
+            <p><span aria-hidden="true">•</span> ${escapeAttribute(address || (currentLang === "en" ? "Location to confirm" : "Lieu à confirmer"))}</p>
+            ${nextShow.tables ? `<p><span aria-hidden="true">•</span> ${escapeAttribute(nextShow.tables)}</p>` : ""}
+            ${nextShow.collaborator ? `<p><span aria-hidden="true">•</span> ${currentLang === "en" ? "With" : "Avec"} ${escapeAttribute(nextShow.collaborator)}</p>` : ""}
+          </div>
+          <div class="next-show-actions">
+            <a class="next-show-button" href="${escapeAttribute(nextShow.announcementUrl || showMapsLink(nextShow))}" target="_blank" rel="noopener">${currentLang === "en" ? "Reserve for booth pickup" : "Réserver pour pickup au booth"}</a>
+            <a class="next-show-map-link" href="${escapeAttribute(showMapsLink(nextShow))}" target="_blank" rel="noopener">${currentLang === "en" ? "Open in Maps" : "Ouvrir dans Maps"}</a>
+          </div>
+        </div>
+        <div class="next-show-map">
+          <iframe title="${escapeAttribute(nextShow.name)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${escapeAttribute(showMapUrl(nextShow))}"></iframe>
+        </div>
+      </article>
+      <div class="show-accordion-list">
+        ${sortedShows.map(renderShowListItem).join("")}
+      </div>
+    </div>
+  `;
   observeDynamicElements();
 }
 
@@ -1248,11 +1413,19 @@ async function loadPokemonSets() {
 }
 
 function updateCategoryHeading() {
+  const routeCopy = categoryPageCopy[currentLang]?.[window.location.pathname] || categoryPageCopy.fr[window.location.pathname];
+  if (routeCopy) {
+    if (categoryTitle) categoryTitle.textContent = routeCopy.title;
+    if (categoryEyebrow) categoryEyebrow.textContent = routeCopy.eyebrow;
+    if (categoryIntro) categoryIntro.textContent = routeCopy.intro;
+    return;
+  }
   const label = categoryLabels[state.category];
   if (categoryTitle) categoryTitle.textContent = typeof label === "function" ? label() : label || t("availableCards");
   if (categoryEyebrow) {
     categoryEyebrow.textContent = state.category === "all" ? t("inventory") : typeof label === "function" ? label() : productCategoryLabel({ category: state.category });
   }
+  if (categoryIntro) categoryIntro.textContent = currentLang === "en" ? "Browse the full category with search, sorting and set filters." : "Parcours la catégorie complète avec recherche, tri et filtre par extension.";
 }
 
 function isMobileShop() {
@@ -1260,7 +1433,7 @@ function isMobileShop() {
 }
 
 function isHomeShopPreview() {
-  return window.location.pathname === "/" && !state.search.trim() && state.typeFilter === "all";
+  return window.location.pathname === "/";
 }
 
 function hasValidProductImage(product) {
@@ -1590,12 +1763,10 @@ function rankedMerchProducts(products, section, options = {}) {
 }
 
 function automaticNewArrivals(products) {
-  return rankedMerchProducts(products, "new", {
-    max: 6,
-    minScore: 35,
-    limits: { pokemon: 1, set: 2 },
-    filter: (product) => !["sold", "removed", "draft", "admin_draft"].includes(String(product.status || "")),
-  }).sort((a, b) => merchDateValue(b.createdAt || b.updatedAt) - merchDateValue(a.createdAt || a.updatedAt));
+  return products
+    .filter((product) => !["sold", "removed", "draft", "admin_draft"].includes(String(product.status || "")))
+    .sort((a, b) => merchDateValue(b.createdAt || b.updatedAt) - merchDateValue(a.createdAt || a.updatedAt))
+    .slice(0, 12);
 }
 
 function validatedMerchSection(products, section, options = {}) {
@@ -1751,51 +1922,91 @@ function setSectionVisibility(element, visible) {
 function emptyHomeDropCard(title, text, href = "/admin") {
   return `
     <a class="home-empty-drop" href="${href}">
-      <span>Prochain drop</span>
+      <span>${currentLang === "en" ? "Preorder / Mystery Box" : "Pré-commande / Mystery Box"}</span>
       <strong>${title}</strong>
       <p>${text}</p>
     </a>
   `;
 }
 
+function renderNewArrivalsCarousel() {
+  if (!newArrivalsCarousel) return;
+  const slides = (newArrivalSlides || []).filter((slide) => slide.active !== false && slide.imageUrl);
+  const newestProducts = (buildMerchandisingSelections(inventory, { includeSuggestions: true }).new || []).filter(hasValidProductImage).slice(0, 12);
+  const productFallbackSlides =
+    currentLang === "en"
+      ? [
+          { title: "Fresh slabs incoming", imageUrl: "/assets/category-slabs-upload-v2-20260812.png", href: "/slabs" },
+          { title: "Modern singles watchlist", imageUrl: "/assets/category-singles-cafe-real-cards-20260812.jpg", href: "/singles" },
+          { title: "Chase cards on deck", imageUrl: "/assets/pokemon-single-pikachu-surging-sparks-sir.png", href: "/singles" },
+          { title: "One Piece grails", imageUrl: "/assets/one-piece-chase-card-op05-119-p2.png", href: "/one-piece" },
+        ]
+      : [
+          { title: "Slabs fraîchement arrivés", imageUrl: "/assets/category-slabs-upload-v2-20260812.png", href: "/slabs" },
+          { title: "Singles modernes à surveiller", imageUrl: "/assets/category-singles-cafe-real-cards-20260812.jpg", href: "/singles" },
+          { title: "Cartes chase sur le radar", imageUrl: "/assets/pokemon-single-pikachu-surging-sparks-sir.png", href: "/singles" },
+          { title: "Grails One Piece", imageUrl: "/assets/one-piece-chase-card-op05-119-p2.png", href: "/one-piece" },
+        ];
+  let carouselItems = [];
+  if (newestProducts.length) {
+    carouselItems = newestProducts.map((product) => ({
+      type: "product",
+      product,
+      title: product.name,
+      imageUrl: product.imageUrl,
+      href: productDetailPath(product),
+    }));
+  } else if (slides.length) {
+    carouselItems = slides.map((slide) => ({
+      type: "slide",
+      title: slide.title || "Nouveauté",
+      imageUrl: slide.imageUrl,
+      href: slide.href || "/#new-arrivals",
+    }));
+  } else {
+    carouselItems = productFallbackSlides.map((slide) => ({ type: "product-fallback", ...slide }));
+  }
+  newArrivalsCarousel.classList.toggle("hidden", carouselItems.length === 0);
+  if (!carouselItems.length) {
+    newArrivalsCarousel.innerHTML = "";
+    return;
+  }
+  const loopItems = carouselItems.length === 1 ? [...carouselItems, ...carouselItems, ...carouselItems, ...carouselItems] : [...carouselItems, ...carouselItems];
+  const duration = Math.max(26, Math.min(82, loopItems.length * 7));
+  newArrivalsCarousel.style.setProperty("--marquee-duration", `${duration}s`);
+  newArrivalsCarousel.innerHTML = `
+    <div class="new-arrivals-track">
+      ${loopItems
+        .map((item) => {
+          const title = item.title || "Nouveauté";
+          const image = item.imageUrl || "";
+          const href = item.href || "/#new-arrivals";
+          return `
+            <a class="new-arrival-slide ${item.type === "product" ? "is-product" : ""} ${item.type === "product-fallback" ? "product-fallback" : ""}" href="${escapeAttribute(href)}" ${item.product ? `data-view-product="${escapeAttribute(item.product.id)}"` : ""}>
+              <img src="${escapeAttribute(image)}" alt="${escapeAttribute(title)}" loading="lazy" />
+              <span>${escapeAttribute(title)}</span>
+              ${item.product ? `<small>${escapeAttribute(productCategoryLabel(item.product))}</small>` : ""}
+            </a>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
 function renderHomeSections() {
   const selections = buildMerchandisingSelections(inventory, { includeSuggestions: true });
   const newest = selections.new || [];
+  renderNewArrivalsCarousel();
   if (newArrivalsGrid) {
     newArrivalsGrid.innerHTML = newest.length
-      ? newest.map((product) => homeProductCard(product)).join("")
-      : emptyHomeDropCard("Nouveautés en préparation.", "Les prochains ajouts apparaîtront ici dès la mise en ligne.");
+      ? ""
+      : emptyHomeDropCard(
+          currentLang === "en" ? "Preorder / Mystery Box is being prepared." : "Pré-commande / Mystery Box se prépare.",
+          currentLang === "en" ? "We’re preparing the next sealed drops, mystery boxes and special releases." : "On prépare les prochains sealed, mystery boxes et drops spéciaux."
+        );
+    newArrivalsGrid.classList.toggle("hidden", newest.length > 0);
     setSectionVisibility(newArrivalsGrid, true);
-  }
-
-  const vitrineItems = vitrineDisplayProducts(selections);
-  if (coffeeVitrineGrid) {
-    const hero =
-      vitrineItems.find((product) => product.heroFeatured) ||
-      vitrineItems.slice().sort((a, b) => calculateMerchandisingScore(b).score - calculateMerchandisingScore(a).score)[0];
-    const secondary = vitrineItems.filter((product) => product !== hero);
-    const sideCards = secondary.slice(0, 2);
-    const miniCards = secondary.slice(2, 5);
-    coffeeVitrineGrid.innerHTML = hero
-      ? `
-          ${vitrineProductCard(hero, "hero")}
-          ${sideCards.length ? `<div class="editorial-featured-side">${sideCards.map((product) => vitrineProductCard(product, "secondary")).join("")}</div>` : ""}
-          ${miniCards.length ? `<div class="editorial-featured-mini">${miniCards.map((product) => vitrineProductCard(product, "mini")).join("")}</div>` : ""}
-        `
-      : emptyHomeDropCard("Sélection en construction.", "Ajoute tes pièces favorites dans l’admin pour bâtir cette vitrine.");
-    setSectionVisibility(coffeeVitrineGrid, true);
-  }
-
-  const accessible = selections.accessible || [];
-  if (accessibleGrid) {
-    accessibleGrid.innerHTML = accessible.map((product) => homeProductCard(product)).join("");
-    setSectionVisibility(accessibleGrid, accessible.length >= 4);
-  }
-
-  const onePiece = selections["one-piece"] || [];
-  if (onePieceGrid) {
-    onePieceGrid.innerHTML = onePiece.map((product) => homeProductCard(product)).join("");
-    setSectionVisibility(onePieceGrid, onePiece.length > 0);
   }
 }
 
@@ -2128,13 +2339,13 @@ function wireAddressAutocomplete(scope = document) {
 const contentPages = {
   vendre: {
     eyebrow: "Achat de collections",
-    title: "On achète vos cartes.",
+    title: "Fais-nous voir ta collection.",
     text:
-      "Soumets-nous ta collection d’une valeur minimale de 1 000 $. Ajoute un résumé clair, les cartes importantes et des photos nettes pour qu’on puisse te répondre sérieusement.",
+      "T’as une collection de 1 000 $ et plus qui cherche une nouvelle maison? Envoie-nous un résumé, quelques photos et les cartes qui comptent. On va te répondre clairement.",
     cards: [
-      ["Photos claires", "Ajoute le devant, le dos, les coins et les défauts visibles."],
-      ["Résumé complet", "Décris la collection, les cartes importantes, l’état général et tout détail utile pour comprendre ce que tu proposes."],
-      ["Prix demandé", "Indique le montant souhaité pour la collection complète afin de nous aider à répondre rapidement."],
+      ["Montre-nous ce que t’as", "Photos, liste ou vidéo rapide. Pas besoin que ce soit parfait."],
+      ["On te revient avec un deal clair", "Cash, trade ou combinaison des deux, selon ce qui fait le plus de sens."],
+      ["On règle ça simplement", "En personne, par expédition ou en card show."],
     ],
     sellForm: true,
   },
@@ -2142,7 +2353,7 @@ const contentPages = {
     eyebrow: "Livraison",
     title: "Livraison suivie depuis Laval.",
     text:
-      "Chaque commande est protégée selon le type d’item. Le suivi est inclus et l’emballage est préparé avec soin.",
+      "Chaque commande est emballée comme si elle allait dans notre propre collection. Le suivi est inclus et la protection est adaptée à l’item.",
     cards: [
       ["Singles", "Sleeve, top loader ou card saver, team bag et enveloppe rigide."],
       ["Slabs", "Protection à bulles, boîte solide et suivi."],
@@ -2153,7 +2364,7 @@ const contentPages = {
     eyebrow: "FAQ",
     title: "Questions fréquentes.",
     text:
-      "Coffee Break TCG est nouveau, mais nous sommes réellement investis. Nous adorons ce que nous faisons, nous emballons chaque commande avec soin et nous voulons bâtir une relation de confiance avec les collectionneurs.",
+      "On est encore au début de l’aventure, mais on prend chaque commande, chaque trade et chaque collection au sérieux. Le but est simple: bâtir quelque chose de solide avec les collectionneurs.",
     cards: [
       ["Livraison", "Nous expédions depuis Laval avec suivi. La livraison est gratuite à partir de 100 $, sinon elle est de 6,99 $."],
       ["Protection des cartes", "Les singles sont envoyés en sleeve, top loader ou card saver, puis protégés dans un emballage rigide."],
@@ -2161,15 +2372,15 @@ const contentPages = {
       ["Paiement", "Le paiement Square est en intégration. Les commandes peuvent être confirmées avant le paiement lorsque nécessaire."],
       ["Réservation", "Lorsqu’un paiement Square est lancé, les items sont réservés pendant 10 minutes. Si le paiement n’est pas complété, ils reviennent automatiquement en vitrine."],
       ["État des cartes", "Nous faisons de notre mieux pour décrire chaque carte clairement. Tu peux demander des photos additionnelles avant de payer."],
-      ["On achète vos cartes", "Nous évaluons les collections de 1 000 $ et plus avec photos, résumé et prix demandé."],
-      ["Card shows", "Les prochains événements sont affichés sur la page d’accueil lorsqu’ils sont confirmés."],
+      ["On achète vos cartes", "On évalue les collections de 1 000 $ et plus avec photos, résumé et prix demandé."],
+      ["Card shows", "Les prochains arrêts CoffeeBreak sont affichés sur la page d’accueil lorsqu’ils sont confirmés. Apporte ton binder."],
     ],
   },
   apropos: {
     eyebrow: "À propos",
     title: "Coffee Break TCG, basé à Laval.",
     text:
-      "Nous sommes une jeune boutique Pokémon TCG bâtie autour d’une idée simple: prendre le temps de bien faire les choses, une carte, une commande et une rencontre à la fois.",
+      "Deux amis, beaucoup de café, trop de binders et l’envie de bâtir un vrai spot TCG au Québec. Cartes aujourd’hui. Coffee shop demain.",
     cards: [
       ["Notre approche", "Chaque item est choisi, photographié, décrit et emballé avec attention. On veut que le collectionneur sache exactement ce qu’il regarde et reçoive quelque chose préparé avec soin."],
       ["Pour l’instant en ligne", "Nous faisons seulement de l’expédition pour le moment, avec une boutique physique visée à Laval en 2027, on l’espère 🤞."],
@@ -2182,20 +2393,20 @@ const contentPages = {
 const contentPagesEn = {
   vendre: {
     eyebrow: "Buying cards",
-    title: "We buy your cards.",
+    title: "Show us your collection.",
     text:
-      "Submit your collection with a minimum value of $1,000. Add a clear summary, key cards and sharp photos so we can review it seriously.",
+      "Have a $1,000+ collection looking for a new home? Send a summary, a few photos and the cards that matter. We’ll come back clearly.",
     cards: [
-      ["Clear photos", "Add the front, back, corners and visible flaws."],
-      ["Full summary", "Describe the collection, key cards, general condition and any useful details that help us understand what you are offering."],
-      ["Asking price", "Tell us what you want for the full collection so we can answer faster."],
+      ["Show us what you have", "Photos, a list or a quick video. It does not need to be perfect."],
+      ["We come back with a clear deal", "Cash, trade or a mix of both, depending on what makes sense."],
+      ["We make it simple", "In person, by shipping or at a card show."],
     ],
     sellForm: true,
   },
   livraison: {
     eyebrow: "Shipping",
     title: "Tracked shipping from Laval.",
-    text: "Each order is protected based on the item type. Tracking is included and packaging is prepared with care.",
+    text: "Every order is packed like it was going into our own collection. Tracking is included and protection is adapted to the item.",
     cards: [
       ["Singles", "Sleeve, top loader or card saver, team bag and rigid mailer."],
       ["Slabs", "Bubble protection, solid box and tracking."],
@@ -2206,7 +2417,7 @@ const contentPagesEn = {
     eyebrow: "FAQ",
     title: "Frequently asked questions.",
     text:
-      "Coffee Break TCG is new, but we are genuinely invested. We love what we do, package every order carefully and want to build trust with collectors.",
+      "We are still early in the journey, but we take every order, trade and collection seriously. The goal is simple: build something solid with collectors.",
     cards: [
       ["Shipping", "We ship from Laval with tracking. Free shipping starts at $100, otherwise shipping is $6.99."],
       ["Card protection", "Singles are shipped in a sleeve, top loader or card saver, then protected in rigid packaging."],
@@ -2215,14 +2426,14 @@ const contentPagesEn = {
       ["Reservation", "When a Square payment is started, items are held for 10 minutes. If payment is not completed, they automatically return to the showcase."],
       ["Condition", "We do our best to describe each card clearly. You can ask for additional photos before paying."],
       ["Sell your cards", "We review collections of $1,000 and up with photos, a summary and an asking price."],
-      ["Card shows", "Upcoming shows appear on the home page once confirmed."],
+      ["Card shows", "Upcoming CoffeeBreak stops appear on the home page once confirmed. Bring your binder."],
     ],
   },
   apropos: {
     eyebrow: "About",
     title: "Coffee Break TCG, based in Laval.",
     text:
-      "We are a young Pokemon TCG shop built around a simple idea: taking the time to do things properly, one card, one order and one conversation at a time.",
+      "Two friends, a lot of coffee, too many binders and the ambition to build a real TCG spot in Quebec. Cards today. Coffee shop tomorrow.",
     cards: [
       ["Our approach", "Every item is chosen, photographed, described and packed with attention. We want collectors to know exactly what they are looking at and receive something prepared with care."],
       ["Online for now", "We only ship for now, with a physical Laval shop targeted for 2027, fingers crossed 🤞."],
@@ -2441,8 +2652,12 @@ function goToCategory(category, push = true, game = "Pokemon") {
   state.game = game || "Pokemon";
   if (push) history.pushState({ category }, "", path);
   applyRoute();
-  requestAnimationFrame(() => scrollToShopItems("smooth"));
-  window.setTimeout(() => scrollToShopItems("smooth"), 120);
+  if (path === "/") {
+    requestAnimationFrame(() => document.querySelector("#top")?.scrollIntoView({ behavior: "smooth" }));
+    return;
+  }
+  requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+  window.setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 120);
 }
 
 function applyRoute() {
@@ -2452,11 +2667,13 @@ function applyRoute() {
   const isCreateAccount = window.location.pathname === "/creer-compte";
   const productMatch = window.location.pathname.match(/^\/produit\/([^/]+)$/);
   const contentMatch = window.location.pathname.match(/^\/(vendre|livraison|faq|apropos)$/);
+  const isCategoryPage = Boolean(categoryRoutes[window.location.pathname] || gameRoutes[window.location.pathname]) && window.location.pathname !== "/";
   document.body.classList.toggle("admin-mode", isAdmin);
   document.body.classList.toggle("checkout-mode", isCheckout);
   document.body.classList.toggle("account-mode", isAccount || isCreateAccount);
   document.body.classList.toggle("product-mode", Boolean(productMatch));
   document.body.classList.toggle("content-mode", Boolean(contentMatch));
+  document.body.classList.toggle("category-page", isCategoryPage);
   if (isCheckout) {
     renderCart();
     return;
@@ -2496,9 +2713,9 @@ function applyRoute() {
   });
   renderProducts();
   renderCardShows();
-  if (window.location.pathname !== "/" && category !== "all") {
-    requestAnimationFrame(() => scrollToShopItems("auto"));
-    window.setTimeout(() => scrollToShopItems("auto"), 160);
+  if (window.location.pathname !== "/" && (category !== "all" || state.game !== "Pokemon")) {
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "auto" }));
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: "auto" }), 160);
   }
 }
 
@@ -2911,11 +3128,22 @@ async function renderAdmin() {
     return;
   }
   showAdminContent();
-  const { summary, inventory: adminInventory, orders, accounting, priceSync, cardShows: adminCardShows = [], reviews: adminReviews = [], merchandising } = payload;
+  const {
+    summary,
+    inventory: adminInventory,
+    orders,
+    accounting,
+    priceSync,
+    cardShows: adminCardShows = [],
+    reviews: adminReviews = [],
+    newArrivalSlides: adminNewArrivalSlides = [],
+    merchandising,
+  } = payload;
   adminInventoryCache = adminInventory || [];
   merchandisingState = merchandising || { decisions: {}, history: [], updatedAt: "" };
   cardShows = adminCardShows || [];
   reviews = adminReviews || [];
+  newArrivalSlides = adminNewArrivalSlides || [];
   adminMetrics.innerHTML = [
     ["Ventes", summary.orders],
     ["Unités vendues", summary.unitsSold],
@@ -3007,6 +3235,38 @@ async function renderAdmin() {
           )
           .join("")
       : `<tr><td colspan="5">Aucun avis pour le moment.</td></tr>`;
+  }
+
+  if (adminNewArrivalSlideRows) {
+    adminNewArrivalSlideRows.innerHTML = newArrivalSlides.length
+      ? newArrivalSlides
+          .slice()
+          .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))
+          .map(
+            (slide) => `
+              <tr>
+                <td>
+                  <div class="admin-item">
+                    ${slide.imageUrl ? `<img class="admin-photo" src="${escapeAttribute(slide.imageUrl)}" alt="" />` : ""}
+                    <div>
+                      <strong>${escapeAttribute(slide.title || "Slide nouveautés")}</strong><br />
+                      <span>${escapeAttribute(slide.updatedAt ? new Date(slide.updatedAt).toLocaleDateString("fr-CA") : "-")}</span>
+                    </div>
+                  </div>
+                </td>
+                <td>${escapeAttribute(slide.href || "-")}</td>
+                <td>${slide.active === false ? "Masqué" : "Publié"}</td>
+                <td>
+                  <div class="sale-inline">
+                    <button class="sale-button edit-button" type="button" data-edit-new-slide="${escapeAttribute(slide.id)}">Modifier</button>
+                    <button class="sale-button" type="button" data-delete-new-slide="${escapeAttribute(slide.id)}">Enlever</button>
+                  </div>
+                </td>
+              </tr>
+            `
+          )
+          .join("")
+      : `<tr><td colspan="4">Aucun slide pour le moment.</td></tr>`;
   }
 
   const visibleAdminInventory = adminVisibleInventory(adminInventory);
@@ -3475,6 +3735,19 @@ function editReview(id) {
   adminReviewForm.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
+function editNewArrivalSlide(id) {
+  const slide = newArrivalSlides.find((item) => item.id === id);
+  if (!slide || !adminNewArrivalSlideForm) return;
+  ["id", "title", "href", "imageUrl"].forEach((field) => {
+    const input = adminNewArrivalSlideForm.querySelector(`[name="${field}"]`);
+    if (input) input.value = slide[field] || "";
+  });
+  const active = adminNewArrivalSlideForm.querySelector('[name="active"]');
+  if (active) active.checked = slide.active !== false;
+  if (newArrivalSlideStatus) newArrivalSlideStatus.textContent = `Modification du slide ${slide.title || ""}.`;
+  adminNewArrivalSlideForm.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
 async function deleteCardShow(id) {
   if (!id) return;
   try {
@@ -3498,6 +3771,19 @@ async function deleteReview(id) {
     renderAdmin();
   } catch (error) {
     if (reviewStatus) reviewStatus.textContent = error.message;
+  }
+}
+
+async function deleteNewArrivalSlide(id) {
+  if (!id) return;
+  try {
+    await api("/api/admin/new-arrival-slides/delete", { method: "POST", body: JSON.stringify({ id }) });
+    if (newArrivalSlideStatus) newArrivalSlideStatus.textContent = "Slide enlevé.";
+    await loadNewArrivalSlides();
+    renderNewArrivalsCarousel();
+    renderAdmin();
+  } catch (error) {
+    if (newArrivalSlideStatus) newArrivalSlideStatus.textContent = error.message;
   }
 }
 
@@ -4070,6 +4356,8 @@ document.addEventListener("click", (event) => {
   const deleteShowButton = event.target.closest("[data-delete-show]");
   const editReviewButton = event.target.closest("[data-edit-review]");
   const deleteReviewButton = event.target.closest("[data-delete-review]");
+  const editNewSlideButton = event.target.closest("[data-edit-new-slide]");
+  const deleteNewSlideButton = event.target.closest("[data-delete-new-slide]");
   const adminCancelOrderButton = event.target.closest("[data-admin-cancel-order]");
   const adminPaidOrderButton = event.target.closest("[data-admin-paid-order]");
   const merchActionButton = event.target.closest("[data-merch-action]");
@@ -4096,6 +4384,14 @@ document.addEventListener("click", (event) => {
     event.preventDefault();
     const input = passwordToggle.parentElement?.querySelector("input");
     if (input) input.type = input.type === "password" ? "text" : "password";
+  }
+  if (editNewSlideButton) {
+    event.preventDefault();
+    editNewArrivalSlide(editNewSlideButton.dataset.editNewSlide);
+  }
+  if (deleteNewSlideButton) {
+    event.preventDefault();
+    deleteNewArrivalSlide(deleteNewSlideButton.dataset.deleteNewSlide);
   }
   if (adminClosePanelButton) {
     event.preventDefault();
@@ -4789,6 +5085,31 @@ adminReviewForm?.addEventListener("submit", async (event) => {
   }
 });
 
+adminNewArrivalSlideForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = new FormData(adminNewArrivalSlideForm);
+  const body = {
+    id: form.get("id") || "",
+    title: form.get("title"),
+    href: form.get("href"),
+    imageUrl: form.get("imageUrl") || "",
+    active: Boolean(form.get("active")),
+    imageData: await fileToDataUrl(form.get("imageFile")),
+  };
+  try {
+    await api("/api/admin/new-arrival-slides", { method: "POST", body: JSON.stringify(body) });
+    if (newArrivalSlideStatus) newArrivalSlideStatus.textContent = body.id ? "Slide mis à jour." : "Slide sauvegardé.";
+    adminNewArrivalSlideForm.reset();
+    const active = adminNewArrivalSlideForm.querySelector('[name="active"]');
+    if (active) active.checked = true;
+    await loadNewArrivalSlides();
+    renderNewArrivalsCarousel();
+    renderAdmin();
+  } catch (error) {
+    if (newArrivalSlideStatus) newArrivalSlideStatus.textContent = error.message;
+  }
+});
+
 adminProductForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const status = adminProductForm.querySelector(".admin-status");
@@ -4892,9 +5213,11 @@ loadPokemonSets();
 applyTranslations();
 fillProvinceSelects();
 wireAddressAutocomplete();
-Promise.all([loadProducts(), loadCardShows(), loadReviews(), loadCurrentUser()]).then(() => {
+Promise.all([loadProducts(), loadCardShows(), loadReviews(), loadNewArrivalSlides(), loadCurrentUser()]).then(() => {
   applyRoute();
   renderCardShows();
   renderReviews();
+  renderHomeSections();
+  renderNewArrivalsCarousel();
   renderCart();
 });

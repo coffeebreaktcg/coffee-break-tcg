@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Concepts merci - Coffee Break TCG</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&family=Rubik+One&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --orange: #d5742d;
+        --beige: #fbead8;
+        --coffee: #3b241a;
+        --line: #ead8c6;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #fff7ea;
+        color: var(--coffee);
+        font-family: Inter, Arial, sans-serif;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 28px clamp(18px, 5vw, 64px);
+        border-bottom: 1px solid var(--line);
+      }
+      h1 {
+        margin: 0;
+        font-family: "Rubik One", "Arial Black", sans-serif;
+        font-size: clamp(26px, 4vw, 56px);
+        color: var(--orange);
+        letter-spacing: 0;
+      }
+      header p {
+        max-width: 520px;
+        margin: 0;
+        color: #806452;
+        font-weight: 800;
+        line-height: 1.45;
+      }
+      main {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 22px;
+        padding: clamp(18px, 5vw, 64px);
+      }
+      article {
+        display: grid;
+        gap: 14px;
+        min-width: 0;
+      }
+      .preview {
+        width: 100%;
+        aspect-ratio: 4 / 5;
+        border: 1px solid var(--line);
+        background: var(--beige);
+        overflow: hidden;
+      }
+      .preview img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      h2 {
+        margin: 0;
+        font-size: 18px;
+        text-transform: uppercase;
+      }
+      article p {
+        margin: 0;
+        color: #806452;
+        line-height: 1.45;
+        font-weight: 700;
+      }
+      a {
+        color: var(--orange);
+        font-weight: 900;
+        text-transform: uppercase;
+        text-decoration: none;
+      }
+      @media (max-width: 900px) {
+        header {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+        main {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>3 concepts merci</h1>
+      <p>Des apercus animes pour l'ecran apres paiement Square. Choisis la vibe, ensuite je l'integre au vrai retour de commande.</p>
+    </header>
+    <main>
+      <article>
+        <div class="preview"><img src="/assets/thank-you-concept-1.svg" alt="Concept premium" /></div>
+        <h2>1. Premium calme</h2>
+        <p>Minimal, propre, tres boutique premium. Ideal si tu veux que le paiement fini sente rassurant et haut de gamme.</p>
+        <a href="/assets/thank-you-concept-1.svg" target="_blank" rel="noopener">Ouvrir plein ecran</a>
+      </article>
+      <article>
+        <div class="preview"><img src="/assets/thank-you-concept-2.svg" alt="Concept emballage" /></div>
+        <h2>2. Packed with care</h2>
+        <p>Plus narratif: on voit l'emballage, le soin et le suivi. Tres bon pour renforcer la confiance apres achat.</p>
+        <a href="/assets/thank-you-concept-2.svg" target="_blank" rel="noopener">Ouvrir plein ecran</a>
+      </article>
+    </main>
+  </body>
+</html>

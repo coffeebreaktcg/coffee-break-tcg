@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" role="img" aria-label="Concept merci emballage Coffee Break TCG">
+  <defs>
+    <style>
+      @keyframes box { 0% { transform: translateY(50px) scale(.94); opacity: 0; } 22%, 100% { transform: translateY(0) scale(1); opacity: 1; } }
+      @keyframes lid { 0%, 22% { transform: translateY(-36px) rotate(-5deg); opacity: 0; } 42%, 100% { transform: translateY(0) rotate(0); opacity: 1; } }
+      @keyframes card { 0%, 28% { transform: translateY(30px); opacity: 0; } 50%, 100% { transform: translateY(-18px); opacity: 1; } }
+      @keyframes steam { 0% { transform: translateY(22px); opacity: 0; } 45% { opacity: 1; } 100% { transform: translateY(-32px); opacity: 0; } }
+      @keyframes stamp { 0%, 46% { transform: scale(1.6) rotate(-14deg); opacity: 0; } 64%, 100% { transform: scale(1) rotate(-8deg); opacity: 1; } }
+      .bg { fill: #d5742d; }
+      .cream { fill: #fbead8; }
+      .paper { fill: #fff7ea; }
+      .coffee { fill: #3b241a; }
+      .muted { fill: #7a5947; }
+      .title { font-family: "Rubik One", "Arial Black", sans-serif; font-size: 66px; }
+      .copy { font-family: Inter, Arial, sans-serif; font-size: 29px; font-weight: 800; }
+      .tiny { font-family: Inter, Arial, sans-serif; font-size: 20px; font-weight: 900; letter-spacing: 3px; }
+      #box { transform-origin: 540px 670px; animation: box 3.8s cubic-bezier(.2,.8,.2,1) infinite; }
+      #lid { transform-origin: 540px 520px; animation: lid 3.8s cubic-bezier(.2,.8,.2,1) infinite; }
+      #cards { transform-origin: 540px 540px; animation: card 3.8s cubic-bezier(.2,.8,.2,1) infinite; }
+      #stamp { transform-origin: 740px 748px; animation: stamp 3.8s cubic-bezier(.2,.8,.2,1) infinite; }
+      .steam1 { animation: steam 2.2s ease-in-out infinite; }
+      .steam2 { animation: steam 2.2s ease-in-out .35s infinite; }
+    </style>
+  </defs>
+  <rect class="bg" width="1080" height="1350"/>
+  <circle cx="945" cy="130" r="180" fill="#fbead8" opacity=".18"/>
+  <circle cx="110" cy="1160" r="230" fill="#3b241a" opacity=".1"/>
+  <g id="cards">
+    <rect x="398" y="382" width="128" height="184" rx="14" fill="#fff" stroke="#fbead8" stroke-width="5" transform="rotate(-10 462 474)"/>
+    <rect x="554" y="382" width="128" height="184" rx="14" fill="#fff" stroke="#fbead8" stroke-width="5" transform="rotate(10 618 474)"/>
+    <rect x="426" y="410" width="76" height="80" rx="10" fill="#d5742d" opacity=".78" transform="rotate(-10 462 474)"/>
+    <rect x="580" y="410" width="76" height="80" rx="10" fill="#3b241a" opacity=".75" transform="rotate(10 618 474)"/>
+  </g>
+  <g id="box">
+    <path d="M298 595h484l-70 322H368z" class="paper"/>
+    <path d="M298 595h484l-82 92H380z" fill="#f3dcc5"/>
+    <path d="M380 687h320v230H380z" fill="#fff1de"/>
+    <path d="M298 595l82 92v230l-72-284zM782 595l-82 92v230l72-284z" fill="#e9c9aa"/>
+    <path d="M410 735h260" stroke="#d5742d" stroke-width="14" stroke-linecap="round"/>
+    <path d="M410 782h170" stroke="#3b241a" stroke-width="12" stroke-linecap="round" opacity=".34"/>
+  </g>
+  <g id="lid">
+    <path d="M330 510h420l34 86H296z" class="cream"/>
+    <path d="M382 550h316" stroke="#d5742d" stroke-width="14" stroke-linecap="round"/>
+  </g>
+  <g id="stamp">
+    <circle cx="742" cy="746" r="74" fill="none" stroke="#d5742d" stroke-width="12"/>
+    <text x="742" y="738" text-anchor="middle" class="tiny coffee">PACKED</text>
+    <text x="742" y="766" text-anchor="middle" class="tiny coffee">WITH CARE</text>
+  </g>
+  <g transform="translate(164 246)">
+    <path class="steam1" d="M50 70c34-38-16-54 24-94" fill="none" stroke="#fbead8" stroke-width="14" stroke-linecap="round"/>
+    <path class="steam2" d="M100 70c34-38-16-54 24-94" fill="none" stroke="#fbead8" stroke-width="14" stroke-linecap="round"/>
+    <path d="M24 105c0-54 150-54 150 0v40c0 48-34 80-75 80s-75-32-75-80z" class="cream"/>
+    <path d="M173 126h38c34 0 54 22 48 52-7 30-31 50-68 50h-34" fill="none" stroke="#fbead8" stroke-width="24" stroke-linecap="round"/>
+  </g>
+  <text x="540" y="1048" text-anchor="middle" class="title cream">COMMANDE RECUE</text>
+  <text x="540" y="1110" text-anchor="middle" class="copy cream">On emballe ca proprement.</text>
+  <text x="540" y="1160" text-anchor="middle" class="copy cream" opacity=".82">Suivi envoye des que ca part.</text>
+</svg>

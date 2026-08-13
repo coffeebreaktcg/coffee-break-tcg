@@ -149,6 +149,7 @@ async function readDb() {
     if (!Array.isArray(db.emailOutbox)) db.emailOutbox = [];
     if (!Array.isArray(db.cardShows)) db.cardShows = [];
     if (!Array.isArray(db.reviews)) db.reviews = defaultReviews();
+    if (!Array.isArray(db.newArrivalSlides)) db.newArrivalSlides = [];
     if (!Array.isArray(db.users)) db.users = [];
     if (!Array.isArray(db.newsletter)) db.newsletter = [];
     if (!db.sessions) db.sessions = {};
@@ -200,6 +201,7 @@ async function readDb() {
       newsletter: [],
       cardShows: [],
       reviews: defaultReviews(),
+      newArrivalSlides: [],
       inventory: defaultInventory(),
       merchandising: { decisions: {}, history: [], performance: [], updatedAt: "" },
     };
@@ -1819,6 +1821,18 @@ function publicReview(review) {
   };
 }
 
+function publicNewArrivalSlide(slide) {
+  return {
+    id: slide.id,
+    title: String(slide.title || "").trim(),
+    href: String(slide.href || "").trim(),
+    imageUrl: String(slide.imageUrl || "").trim(),
+    active: slide.active !== false,
+    createdAt: slide.createdAt || "",
+    updatedAt: slide.updatedAt || "",
+  };
+}
+
 function moneyText(value) {
   return new Intl.NumberFormat("fr-CA", { style: "currency", currency: "CAD" }).format(Number(value || 0));
 }
@@ -2503,6 +2517,11 @@ async function saveProductGalleryImages(imageDataList, id) {
 async function saveCardShowImage(imageData, id) {
   const suffix = crypto.createHash("sha1").update(String(imageData || "")).digest("hex").slice(0, 10);
   return saveImageData(imageData, `show-${id}-${Date.now()}-${suffix}`);
+}
+
+async function saveNewArrivalSlideImage(imageData, id) {
+  const suffix = crypto.createHash("sha1").update(String(imageData || "")).digest("hex").slice(0, 10);
+  return saveImageData(imageData, `new-arrival-${id}-${Date.now()}-${suffix}`);
 }
 
 function summarizeSales(db) {
@@ -4335,6 +4354,15 @@ async function handleApi(req, res) {
     });
   }
 
+  if (url.pathname === "/api/new-arrival-slides" && req.method === "GET") {
+    return json(res, 200, {
+      slides: (db.newArrivalSlides || [])
+        .filter((slide) => slide.active !== false && slide.imageUrl)
+        .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))
+        .map(publicNewArrivalSlide),
+    });
+  }
+
   if (url.pathname === "/api/jarvis/login" && req.method === "POST") {
     const attempts = jarvisAttemptState(req);
     if (attempts.lockedUntil && attempts.lockedUntil > Date.now()) {
@@ -5030,6 +5058,7 @@ async function handleApi(req, res) {
       backup: publicBackupStatus(),
       cardShows: db.cardShows || [],
       reviews: (db.reviews || []).map(publicReview),
+      newArrivalSlides: (db.newArrivalSlides || []).map(publicNewArrivalSlide),
       priceSync: db.priceSync || null,
       merchandising: db.merchandising || { decisions: {}, history: [], updatedAt: "" },
     });
@@ -5529,6 +5558,45 @@ async function handleApi(req, res) {
     return json(res, 200, { ok: true });
   }
 
+  if (url.pathname === "/api/admin/new-arrival-slides" && req.method === "POST") {
+    const body = await readBody(req);
+    const baseTitle = String(body.title || "nouveaute")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const id = body.id || `${baseTitle || "slide"}-${Date.now().toString(36)}`;
+    const existingIndex = (db.newArrivalSlides || []).findIndex((slide) => slide.id === id);
+    const existingSlide = existingIndex >= 0 ? db.newArrivalSlides[existingIndex] : null;
+    const imageUrl =
+      (await saveNewArrivalSlideImage(body.imageData, id)) ||
+      String(body.imageUrl || existingSlide?.imageUrl || "").trim();
+    const slide = {
+      id,
+      title: String(body.title || "").trim(),
+      href: String(body.href || "").trim() || "/#new-arrivals",
+      imageUrl,
+      active: body.active !== false,
+      createdAt: existingSlide?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    if (!slide.title) return json(res, 400, { error: "Titre du slide requis" });
+    if (!slide.imageUrl) return json(res, 400, { error: "Image du slide requise" });
+    if (!Array.isArray(db.newArrivalSlides)) db.newArrivalSlides = [];
+    if (existingIndex >= 0) db.newArrivalSlides[existingIndex] = slide;
+    else db.newArrivalSlides.push(slide);
+    await writeDb(db);
+    return json(res, 201, { slide: publicNewArrivalSlide(slide) });
+  }
+
+  if (url.pathname === "/api/admin/new-arrival-slides/delete" && req.method === "POST") {
+    const body = await readBody(req);
+    const before = (db.newArrivalSlides || []).length;
+    db.newArrivalSlides = (db.newArrivalSlides || []).filter((slide) => slide.id !== body.id);
+    if (db.newArrivalSlides.length === before) return json(res, 404, { error: "Slide introuvable" });
+    await writeDb(db);
+    return json(res, 200, { ok: true });
+  }
+
   if (url.pathname === "/api/address/find" && req.method === "GET") {
     const query = url.searchParams.get("q") || "";
     if (query.trim().length < 3) return json(res, 200, { suggestions: [] });
@@ -5768,8 +5836,26 @@ function clearJarvisCookieHeader() {
 
 async function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  const appRoutes = new Set([
+    "/singles",
+    "/slabs",
+    "/graded",
+    "/sealed",
+    "/one-piece",
+    "/one-piece/singles",
+    "/one-piece/slabs",
+    "/one-piece/box",
+    "/accessoires",
+    "/checkout",
+    "/compte",
+    "/creer-compte",
+    "/vendre",
+    "/livraison",
+    "/faq",
+    "/apropos",
+  ]);
   const safePath = path.normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, "");
-  const requested = safePath === "/" ? "/index.html" : safePath === "/jarvis" ? "/jarvis.html" : safePath;
+  const requested = safePath === "/" || appRoutes.has(safePath) ? "/index.html" : safePath === "/jarvis" ? "/jarvis.html" : safePath;
   const isUploadAsset = requested.startsWith("/assets/uploads/");
   const uploadFileName = isUploadAsset ? path.basename(requested) : "";
   const filePath = isUploadAsset ? path.join(uploadDir, uploadFileName) : path.join(root, requested);

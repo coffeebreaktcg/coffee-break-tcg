@@ -25,10 +25,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Rubik+One&family=Space+Grotesk:wght@500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Chewy&family=Inter:wght@500;600;700;800;900&family=Rubik+One&family=Space+Grotesk:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=mobile-storefront-20260812" />
+    <link rel="stylesheet" href="/styles.css?v=cardshows-next-stop-20260812" />
+    <script>
+      if (window.location.protocol === "file:") {
+        window.location.href = "http://localhost:4173/?fresh=cardshows-next-stop-20260812";
+      }
+    </script>
   </head>
   <body>
     <header class="site-header">
@@ -45,7 +50,7 @@
         <a href="/singles" data-route-category="Singles">Singles</a>
         <a href="/slabs" data-route-category="Graded">Slabs</a>
         <a href="/sealed" data-route-category="Sealed">Sealed</a>
-        <a href="/vendre" data-content-route="vendre">Vendre / Échanger</a>
+        <a href="/vendre" data-content-route="vendre">On achète aussi</a>
       </nav>
       <div class="header-actions">
         <a class="icon-button" href="/compte" data-account-link aria-label="Compte client" data-i18n-aria="account">
@@ -76,45 +81,67 @@
       <section class="hero">
         <div class="hero-copy">
           <p class="eyebrow" data-i18n="heroEyebrow">CoffeeBreakTCG · Laval</p>
-          <h1 data-i18n="heroTitle">Des cartes qu’on garde.</h1>
+          <h1 data-i18n="heroTitle">Des cartes qu’on choisirait pour nous.</h1>
           <p data-i18n="heroText">
-            Singles, slabs et sealed choisis pour les collectionneurs. Photos réelles, livraison suivie et service local.
+            Singles, slabs et sealed choisis par des collectionneurs. Du beau stock, des deals clairs, pis du monde avec qui c’est le fun de jaser cartes.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="#new-arrivals" data-i18n="shopNow">Voir les nouveautés</a>
-            <a class="button secondary" href="/vendre" data-content-route="vendre" data-i18n="seeOptions">Vendre ou échanger</a>
+            <a class="button primary" href="#new-arrivals" data-i18n="shopNow">Voir ce qui vient d’arriver</a>
+            <a class="button secondary" href="/vendre" data-content-route="vendre" data-i18n="seeOptions">Fais-nous voir ta collection</a>
           </div>
         </div>
       </section>
 
-      <section class="storefront-shortcuts" aria-label="Raccourcis boutique">
-        <a class="storefront-shortcut" href="/singles" data-route-category="Singles">
-          <img src="/assets/hero-pokemon-coffee-real-cards.png" alt="" loading="lazy" />
-          <span>Pokémon</span>
-          <strong>Singles</strong>
-        </a>
-        <a class="storefront-shortcut" href="/slabs" data-route-category="Graded">
-          <img src="/assets/hero-business-cards.png" alt="" loading="lazy" />
-          <span>Pokémon</span>
-          <strong>Slabs</strong>
-        </a>
-        <a class="storefront-shortcut" href="/sealed" data-route-category="Sealed">
-          <img src="/assets/sealed-151-etb.webp" alt="" loading="lazy" />
-          <span>Pokémon</span>
-          <strong>Sealed</strong>
-        </a>
-        <a class="storefront-shortcut" href="/one-piece" data-route-category="all" data-route-game="One Piece">
-          <img src="/assets/hero-shop.png" alt="" loading="lazy" />
-          <span>TCG</span>
-          <strong>One Piece</strong>
-        </a>
+      <section class="storefront-shortcuts storefront-shortcuts-marquee" aria-label="Catégories boutique">
+        <div class="storefront-shortcuts-track">
+          <a class="storefront-shortcut singles-shortcut" href="/singles" data-route-category="Singles">
+            <img src="/assets/category-singles-cafe-real-cards-20260812.jpg" alt="Singles Pokémon modernes" />
+            <span>Pokémon</span>
+            <strong>Singles</strong>
+          </a>
+          <a class="storefront-shortcut slabs-shortcut" href="/slabs" data-route-category="Graded">
+            <img src="/assets/category-slabs-upload-v2-20260812.png" alt="Slabs Pokémon gradés" />
+            <span>Pokémon</span>
+            <strong>Slabs</strong>
+          </a>
+          <a class="storefront-shortcut sealed-shortcut" href="/sealed" data-route-category="Sealed">
+            <img src="/assets/category-sealed-upload-v3-20260812.png" alt="Produits scellés Pokémon" />
+            <span>Pokémon</span>
+            <strong>Sealed</strong>
+          </a>
+          <a class="storefront-shortcut one-piece-shortcut" href="/one-piece" data-game-category="One Piece">
+            <img src="/assets/category-one-piece-upload-v2-20260812.png" alt="Cartes One Piece TCG" />
+            <span>TCG</span>
+            <strong>One Piece</strong>
+          </a>
+          <a class="storefront-shortcut singles-shortcut" href="/singles" data-route-category="Singles" aria-hidden="true" tabindex="-1">
+            <img src="/assets/category-singles-cafe-real-cards-20260812.jpg" alt="" />
+            <span>Pokémon</span>
+            <strong>Singles</strong>
+          </a>
+          <a class="storefront-shortcut slabs-shortcut" href="/slabs" data-route-category="Graded" aria-hidden="true" tabindex="-1">
+            <img src="/assets/category-slabs-upload-v2-20260812.png" alt="" />
+            <span>Pokémon</span>
+            <strong>Slabs</strong>
+          </a>
+          <a class="storefront-shortcut sealed-shortcut" href="/sealed" data-route-category="Sealed" aria-hidden="true" tabindex="-1">
+            <img src="/assets/category-sealed-upload-v3-20260812.png" alt="" />
+            <span>Pokémon</span>
+            <strong>Sealed</strong>
+          </a>
+          <a class="storefront-shortcut one-piece-shortcut" href="/one-piece" data-game-category="One Piece" aria-hidden="true" tabindex="-1">
+            <img src="/assets/category-one-piece-upload-v2-20260812.png" alt="" />
+            <span>TCG</span>
+            <strong>One Piece</strong>
+          </a>
+        </div>
       </section>
 
-      <section class="trust-strip" aria-label="Pourquoi commander chez Coffee Break TCG">
+      <section class="trust-strip brand-promise-strip" aria-label="Promesses Coffee Break TCG">
         <div class="trust-list">
-          <span data-i18n="trustPhotos">Photos réelles</span>
-          <span data-i18n="trustShipping">Livraison suivie</span>
-          <span data-i18n="trustPayment">Paiement sécurisé</span>
+          <span data-i18n="trustPhotos">Par des collectionneurs</span>
+          <span data-i18n="trustShipping">Deals clairs</span>
+          <span data-i18n="trustPayment">Emballé comme si c’était à nous</span>
           <span data-i18n="trustLocal">Laval, Québec</span>
         </div>
       </section>
@@ -123,38 +150,19 @@
         <div class="home-section-heading">
           <div>
             <p class="eyebrow" data-i18n="newTitle">Nouveautés</p>
-            <h2 data-i18n="newText">Les derniers ajouts à la vitrine.</h2>
+            <h2 data-i18n="newText">Ce qui vient d’atterrir sur la table.</h2>
           </div>
-          <a href="/?category=new#shop" data-home-filter="new" data-i18n="viewAllNew">Voir toutes les nouveautés →</a>
+          <a href="#new-arrivals" data-i18n="viewAllNew">Voir tout ce qui vient d’arriver →</a>
         </div>
+        <div class="new-arrivals-carousel hidden" id="newArrivalsCarousel" aria-label="Slides nouveautés"></div>
         <div class="home-product-grid compact" id="newArrivalsGrid"></div>
       </section>
 
-      <section class="home-product-section home-featured-section" id="coffee-vitrine">
-        <div class="home-section-heading">
-          <div>
-            <p class="eyebrow" data-i18n="featuredTitle">LA VITRINE COFFEEBREAK</p>
-            <h2 data-i18n="featuredText">Une sélection qu’on garderait nous-mêmes.</h2>
-          </div>
-          <a href="/?category=featured#shop" data-home-filter="featured" data-i18n="viewFullSelection">Voir toute la sélection →</a>
-        </div>
-        <div class="editorial-featured-grid" id="coffeeVitrineGrid"></div>
-      </section>
-
-      <section class="home-product-section" id="accessible-cards">
-        <div class="home-section-heading">
-          <div>
-            <p class="eyebrow">Cartes accessibles</p>
-            <h2>Des choix faciles à ajouter à la collection.</h2>
-          </div>
-          <a href="/singles" data-route-category="Singles">Voir les singles →</a>
-        </div>
-        <div class="home-product-grid compact" id="accessibleGrid"></div>
-      </section>
-
       <section class="inventory-shell" id="shop">
-        <div class="section-break-label">
-          <span>Vitrine</span>
+        <div class="category-page-heading">
+          <p class="eyebrow" id="categoryEyebrow">Boutique</p>
+          <h1 id="categoryTitle">Produits disponibles</h1>
+          <p id="categoryIntro">Parcours la catégorie complète avec recherche, tri et filtre par extension.</p>
         </div>
 
         <div class="category-tabs" role="tablist" aria-label="Categories">
@@ -199,54 +207,31 @@
         <div class="product-grid" id="productGrid" aria-live="polite"></div>
       </section>
 
-      <section class="category-explorer reveal-section" id="explorer">
-        <div class="home-section-heading">
-          <div>
-            <p class="eyebrow" data-i18n="exploreTitle">Explorer la vitrine</p>
-            <h2 data-i18n="exploreText">Chaque catégorie a son moment.</h2>
-          </div>
+      <section class="shows-section reveal-section" id="cardshows">
+        <div class="section-heading compact">
+          <p class="eyebrow" data-i18n="eventsEyebrow">On apporte les cartes. Tu apportes ton binder.</p>
+          <h2 data-i18n="upcomingShows">Viens nous voir en vrai.</h2>
         </div>
-        <div class="category-explorer-grid">
-          <a class="category-tile singles" href="/singles" data-route-category="Singles">
-            <img src="/assets/hero-pokemon-coffee-real-cards.png" alt="" loading="lazy" />
-            <span>Singles</span>
-            <p data-i18n="exploreSingles">Pour les cartes à collectionner, jouer ou offrir.</p>
-          </a>
-          <a class="category-tile graded" href="/slabs" data-route-category="Graded">
-            <img src="/assets/hero-business-cards.png" alt="" loading="lazy" />
-            <span>Slabs</span>
-            <p data-i18n="exploreGraded">Pour les pièces protégées et les cartes qui méritent la vitrine.</p>
-          </a>
-          <a class="category-tile sealed" href="/sealed" data-route-category="Sealed">
-            <img src="/assets/sealed-151-etb.webp" alt="" loading="lazy" />
-            <span>Sealed</span>
-            <p data-i18n="exploreSealed">Pour garder fermé, ouvrir ou offrir.</p>
-          </a>
-          <a class="category-tile one-piece" href="/one-piece" data-route-category="all" data-route-game="One Piece">
-            <img src="/assets/hero-shop.png" alt="" loading="lazy" />
-            <span>One Piece</span>
-            <p data-i18n="exploreOnePiece">Singles, slabs et boîtes One Piece sélectionnés pour la vitrine.</p>
-          </a>
-        </div>
+        <div class="shows-grid" id="cardShowsGrid"></div>
       </section>
 
       <section class="priority-block reveal-section">
         <div>
-          <p class="eyebrow" data-i18n="sellTradeTitle">Vendre / Échanger</p>
-          <h2 data-i18n="buyCardsTitle">Soumets-nous ta collection.</h2>
+          <p class="eyebrow" data-i18n="sellTradeTitle">On achète aussi</p>
+          <h2 data-i18n="buyCardsTitle">Fais-nous voir ta collection.</h2>
         </div>
         <div class="sell-steps">
           <article>
             <span>01</span>
-            <p data-i18n="sellStepOne">Envoie-nous photos ou liste rapide.</p>
+            <p data-i18n="sellStepOne">Montre-nous ce que t’as.</p>
           </article>
           <article>
             <span>02</span>
-            <p data-i18n="sellStepTwo">Reçois une offre claire.</p>
+            <p data-i18n="sellStepTwo">On te revient avec un deal clair.</p>
           </article>
           <article>
             <span>03</span>
-            <p data-i18n="sellStepThree">Vends, expédie ou échange vers une carte plus importante.</p>
+            <p data-i18n="sellStepThree">On règle ça simplement.</p>
           </article>
         </div>
         <div class="sell-actions">
@@ -255,36 +240,18 @@
         </div>
       </section>
 
-      <section class="home-product-section one-piece-section" id="one-piece">
-        <div class="home-section-heading">
-          <div>
-            <p class="eyebrow" data-i18n="onePieceTitle">One Piece</p>
-            <h2 data-i18n="onePieceText">Singles, slabs et boîtes pour ouvrir une deuxième vitrine.</h2>
-          </div>
-          <a href="/one-piece" data-route-category="all" data-route-game="One Piece" data-i18n="viewAllOnePieceArrow">Voir One Piece →</a>
-        </div>
-        <div class="home-product-grid compact" id="onePieceGrid"></div>
-      </section>
-
-      <section class="shows-section reveal-section" id="cardshows">
-        <div class="section-heading compact">
-          <p class="eyebrow" data-i18n="eventsEyebrow">Événements</p>
-          <h2 data-i18n="upcomingShows">Prochains card shows</h2>
-        </div>
-        <div class="shows-grid" id="cardShowsGrid"></div>
-      </section>
-
       <section class="home-newsletter reveal-section">
         <div>
-          <p class="eyebrow">Newsletter</p>
-          <h2 data-i18n="newsletterTitle">Les prochains drops, avant tout le monde.</h2>
-          <p data-i18n="newsletterText">Nouveautés, Card Shows et collections fraîchement arrivées.</p>
+          <p class="eyebrow">Drop spécial</p>
+          <h2 data-i18n="newsletterTitle">Pré-commande / Mystery Box.</h2>
+          <p data-i18n="newsletterText">Les pré-commandes, mystery boxes et drops spéciaux avant leur mise en ligne officielle.</p>
         </div>
         <form class="newsletter home-newsletter-form">
           <input type="email" placeholder="Votre courriel" data-i18n-placeholder="emailPlaceholder" />
-          <button type="submit" data-i18n="newsletterCta">Recevoir les prochains drops →</button>
+          <button type="submit" data-i18n="newsletterCta">Recevoir les alertes →</button>
         </form>
       </section>
+
     </main>
 
     <section class="product-detail-page" id="productDetailPage" aria-label="Detail produit">
@@ -419,7 +386,7 @@
                 <option value="Singles">Singles</option>
                 <option value="Graded">Slabs</option>
                 <option value="Sealed">Sealed</option>
-                <option value="Preorder">Précommande</option>
+                <option value="Preorder">Pré-commande / Mystery Box</option>
                 <option value="Accessories">Accessoires</option>
               </select>
             </label>
@@ -555,7 +522,7 @@
                     <option value="Singles">Singles</option>
                     <option value="Sealed">Sealed</option>
                     <option value="Graded">Slab</option>
-                    <option value="Preorder">Précommande</option>
+                    <option value="Preorder">Pré-commande / Mystery Box</option>
                     <option value="Accessories">Accessoires</option>
                   </select>
                 </label>
@@ -840,7 +807,43 @@
           </a>
         </div>
         <p class="admin-status" id="reportStatus" role="status"></p>
-      </details>
+        </details>
+
+        <details class="admin-card admin-accordion">
+          <summary>Carrousel nouveautés</summary>
+          <p class="accordion-help">Importe des images de drops, annonces ou nouveautés. Elles bougent automatiquement en haut de la section Nouveautés.</p>
+          <form class="admin-show-form" id="adminNewArrivalSlideForm">
+            <input type="hidden" name="id" />
+            <input type="hidden" name="imageUrl" />
+            <div class="form-row two">
+              <label>Titre <input name="title" required placeholder="Ex. Drop Pokémon ce soir" /></label>
+              <label>Lien <input name="href" placeholder="/singles" /></label>
+            </div>
+            <label>Image <input name="imageFile" type="file" accept="image/*" /></label>
+            <label class="save-check">
+              <input type="checkbox" name="active" checked />
+              Afficher sur le site
+            </label>
+            <div class="show-admin-actions">
+              <button class="button primary" type="submit">Sauvegarder le slide</button>
+              <button class="button secondary" type="reset">Effacer le formulaire</button>
+            </div>
+            <p class="admin-status" id="newArrivalSlideStatus" role="status"></p>
+          </form>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Slide</th>
+                  <th>Lien</th>
+                  <th>Statut</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="adminNewArrivalSlideRows"></tbody>
+            </table>
+          </div>
+        </details>
 
       <details class="admin-card admin-accordion">
         <summary>Avis clients</summary>
@@ -950,7 +953,7 @@
         <a class="brand footer-logo" href="/" data-home-link aria-label="Coffee Break TCG">
           <img class="brand-logo-img brand-logo-transparent" src="/assets/coffee-break-cbtcg-logo-web-20260812.jpg" alt="Coffee Break TCG" />
         </a>
-        <p data-i18n="footerLocation">Laval, Québec</p>
+        <p data-i18n="footerLocation">Laval, Québec · Cartes aujourd’hui. Coffee shop demain.</p>
       </div>
       <nav aria-label="Pied de page">
         <a href="#shop" data-i18n="inventory">Vitrine</a>
@@ -961,7 +964,7 @@
         <a href="mailto:coffeebreaktcg@gmail.com">Contact</a>
       </nav>
       <form class="newsletter">
-        <label for="newsletterEmail" data-i18n="stayTuned">Restez à l’affût des prochains drops à l’avance!</label>
+        <label for="newsletterEmail" data-i18n="stayTuned">Les drops qui valent la peine, avant tout le monde.</label>
         <div>
           <input id="newsletterEmail" type="email" placeholder="Votre courriel" data-i18n-placeholder="emailPlaceholder" />
           <button type="submit" aria-label="S'inscrire">-&gt;</button>
@@ -1065,7 +1068,7 @@
           </div>
         </details>
         <details class="drawer-group">
-          <summary data-i18n="sellTradeTitle">Vendre / Échanger</summary>
+          <summary data-i18n="sellTradeTitle">On achète aussi</summary>
           <div class="drawer-subnav">
             <a href="/vendre" data-content-route="vendre" data-i18n="submitCollection">Soumettre une collection</a>
             <a href="/vendre" data-content-route="vendre" data-i18n="tradeCard">Échanger une carte</a>
@@ -1093,6 +1096,6 @@
       </nav>
     </aside>
 
-    <script src="/app.js?v=mobile-storefront-20260812"></script>
+    <script src="/app.js?v=cardshows-next-stop-20260812"></script>
   </body>
 </html>
