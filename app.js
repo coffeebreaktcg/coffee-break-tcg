@@ -7,6 +7,8 @@ const state = {
   sort: "featured",
   typeFilter: "all",
   setFilter: "all",
+  conditionFilter: "all",
+  availabilityFilter: "available",
 };
 
 const mobileShopQuery = window.matchMedia("(max-width: 680px)");
@@ -30,12 +32,17 @@ const setFilterSelect = document.querySelector("#setFilterSelect");
 const categoryTitle = document.querySelector("#categoryTitle");
 const categoryEyebrow = document.querySelector("#categoryEyebrow");
 const categoryIntro = document.querySelector("#categoryIntro");
+const categorySeoPanel = document.querySelector("#categorySeoPanel");
+const conditionFilterSelect = document.querySelector("#conditionFilterSelect");
+const availabilityFilterSelect = document.querySelector("#availabilityFilterSelect");
 const adminPage = document.querySelector("#adminPage");
 const adminLogin = document.querySelector("#adminLogin");
 const adminContent = document.querySelector("#adminContent");
 const adminLoginForm = document.querySelector("#adminLoginForm");
 const adminLoginStatus = document.querySelector("#adminLoginStatus");
 const adminLogoutButton = document.querySelector("#adminLogoutButton");
+const adminSidebarLogoutButton = document.querySelector("#adminSidebarLogoutButton");
+const adminPageTitle = document.querySelector("#adminPageTitle");
 const adminMetrics = document.querySelector("#adminMetrics");
 const adminPriceSync = document.querySelector("#adminPriceSync");
 const syncPricesButton = document.querySelector("#syncPricesButton");
@@ -69,12 +76,19 @@ const draftInventoryCount = document.querySelector("#draftInventoryCount");
 const publishDraftProductsButton = document.querySelector("#publishDraftProductsButton");
 const publishDraftStatus = document.querySelector("#publishDraftStatus");
 const adminOpenAddButton = document.querySelector("#adminOpenAddButton");
+const adminOpenCardShowButton = document.querySelector("#adminOpenCardShowButton");
 const adminOpenSessionButton = document.querySelector("#adminOpenSessionButton");
 const adminCommandPaletteButton = document.querySelector("#adminCommandPaletteButton");
 const adminProductDrawer = document.querySelector("#adminProductDrawer");
 const adminSessionDrawer = document.querySelector("#adminSessionDrawer");
 const adminSessionList = document.querySelector("#adminSessionList");
 const adminSessionValue = document.querySelector("#adminSessionValue");
+const quickBatchInput = document.querySelector("#quickBatchInput");
+const quickBatchGame = document.querySelector("#quickBatchGame");
+const quickBatchPreviewButton = document.querySelector("#quickBatchPreviewButton");
+const quickBatchCreateButton = document.querySelector("#quickBatchCreateButton");
+const quickBatchPreview = document.querySelector("#quickBatchPreview");
+const quickBatchStatus = document.querySelector("#quickBatchStatus");
 const adminSaleModal = document.querySelector("#adminSaleModal");
 const adminSaleForm = document.querySelector("#adminSaleForm");
 const adminPriceModal = document.querySelector("#adminPriceModal");
@@ -121,6 +135,7 @@ const languageLoader = document.querySelector("#languageLoader");
 const welcomeToast = document.querySelector("#welcomeToast");
 let adminInventoryCache = [];
 let adminInventoryView = { search: "", category: "all", game: "all", status: "all", sort: "recent" };
+let activeAdminSection = "inventory";
 let adminSubmitMode = "session";
 let merchandisingState = { decisions: {}, history: [], updatedAt: "" };
 let merchandisingAlternativeSection = "";
@@ -184,6 +199,11 @@ const translations = {
     cartEmpty: "Ton panier est vide.",
     remove: "Retirer",
     subtotal: "Sous-total",
+    discount: "Rabais",
+    delivery: "Livraison",
+    deliveryNotCharged: "Non facturée au paiement",
+    freeShippingProgress: "Livraison gratuite atteinte selon la politique affichée.",
+    freeShippingRemaining: "Il te manque {amount} pour atteindre le seuil de livraison gratuite.",
     total: "Total",
     checkoutButton: "Passer à la commande",
     order: "Commande",
@@ -328,6 +348,11 @@ const translations = {
     cartEmpty: "Your cart is empty.",
     remove: "Remove",
     subtotal: "Subtotal",
+    discount: "Discount",
+    delivery: "Shipping",
+    deliveryNotCharged: "Not charged at payment",
+    freeShippingProgress: "Free shipping threshold reached based on the displayed policy.",
+    freeShippingRemaining: "{amount} left to reach the free shipping threshold.",
     total: "Total",
     checkoutButton: "Go to checkout",
     order: "Order",
@@ -435,6 +460,7 @@ function t(key) {
 }
 
 const provinceCodes = ["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"];
+const FREE_SHIPPING_THRESHOLD = 100;
 
 function provinceOptions(selected = "QC") {
   return provinceCodes
@@ -489,54 +515,94 @@ const categoryPageCopy = {
     "/singles": {
       eyebrow: "Pokémon",
       title: "Singles",
-      intro: "Toutes les cartes singles disponibles, prêtes à ajouter à ta collection.",
+      intro: "Cartes Pokémon singles inspectées une par une, avec photos réelles, condition claire et expédition suivie partout au Canada.",
+      metaTitle: "Singles Pokémon Canada | Coffee Break TCG",
+      metaDescription: "Magasine des singles Pokémon inspectés, photographiés et expédiés avec suivi depuis le Québec. Cartes modernes, hits, promos et ajouts de collection.",
+      proof: ["Photos réelles", "Condition NM / LP / MP indiquée", "Emballage rigide", "Expédition suivie au Canada"],
+      seoText: "Les singles sont pensés pour les collectionneurs qui veulent compléter un binder, ajouter un coup de cœur moderne ou trouver une carte propre sans deviner l’état. Chaque carte publiée est sélectionnée, photographiée et préparée pour arriver protégée.",
     },
     "/slabs": {
       eyebrow: "Pokémon",
       title: "Slabs",
-      intro: "Toutes les cartes gradées disponibles, protégées et prêtes pour la vitrine.",
+      intro: "Cartes Pokémon gradées PSA, CGC, SGC, TAG ou Beckett, choisies pour la vitrine, l’investissement personnel et les belles collections.",
+      metaTitle: "Slabs Pokémon gradés Canada | Coffee Break TCG",
+      metaDescription: "Découvre des slabs Pokémon gradés PSA, CGC, SGC, TAG et Beckett. Cartes inspectées, photos réelles, emballage protecteur et livraison suivie au Canada.",
+      proof: ["Slabs protégés", "Compagnie et grade affichés", "Photos nettes", "Expédition en boîte solide"],
+      seoText: "La page slabs regroupe les cartes gradées prêtes à exposer ou à garder long terme. On met de l’avant les grades, la compagnie de gradation, l’état visuel du slab et les détails qui comptent avant d’acheter.",
     },
     "/graded": {
       eyebrow: "Pokémon",
       title: "Slabs",
-      intro: "Toutes les cartes gradées disponibles, protégées et prêtes pour la vitrine.",
+      intro: "Cartes Pokémon gradées PSA, CGC, SGC, TAG ou Beckett, choisies pour la vitrine, l’investissement personnel et les belles collections.",
+      metaTitle: "Slabs Pokémon gradés Canada | Coffee Break TCG",
+      metaDescription: "Découvre des slabs Pokémon gradés PSA, CGC, SGC, TAG et Beckett. Cartes inspectées, photos réelles, emballage protecteur et livraison suivie au Canada.",
+      proof: ["Slabs protégés", "Compagnie et grade affichés", "Photos nettes", "Expédition en boîte solide"],
+      seoText: "La page slabs regroupe les cartes gradées prêtes à exposer ou à garder long terme. On met de l’avant les grades, la compagnie de gradation, l’état visuel du slab et les détails qui comptent avant d’acheter.",
     },
     "/sealed": {
       eyebrow: "Pokémon",
       title: "Sealed",
-      intro: "Tous les produits scellés disponibles : boîtes, packs et items à garder fermés ou ouvrir.",
+      intro: "Produits Pokémon sealed pour rip, garder fermé ou préparer un prochain drop : ETB, packs, boîtes et items scellés sélectionnés.",
+      metaTitle: "Produits Pokémon sealed Canada | Coffee Break TCG",
+      metaDescription: "Boîtes, ETB, packs et produits Pokémon sealed sélectionnés par Coffee Break TCG. Expédition suivie au Canada et emballage protecteur.",
+      proof: ["Scellé vérifié", "Protection adaptée", "Drops et précommandes", "Shipping suivi"],
+      seoText: "Le sealed attire autant les collectionneurs patients que ceux qui veulent ouvrir entre amis. On met l’accent sur l’état du produit, la protection d’expédition et les items qui ont du sens pour une collection.",
     },
     "/one-piece": {
       eyebrow: "TCG",
       title: "One Piece",
       intro: "Tous les produits One Piece disponibles : singles, slabs et boîtes.",
+      metaTitle: "One Piece TCG Canada | Coffee Break TCG",
+      metaDescription: "Singles, slabs et boîtes One Piece TCG sélectionnés par Coffee Break TCG, avec photos réelles et expédition suivie au Canada.",
+      proof: ["Singles et slabs", "Photos réelles", "Stock sélectionné", "Expédition suivie"],
+      seoText: "One Piece TCG est traité comme une vraie deuxième vitrine : beaux hits, cartes populaires et produits choisis pour les collectionneurs qui veulent sortir du Pokémon sans perdre le niveau de soin Coffee Break.",
     },
   },
   en: {
     "/singles": {
       eyebrow: "Pokemon",
       title: "Singles",
-      intro: "All available singles, ready to add to your collection.",
+      intro: "Pokemon singles inspected one by one, with real photos, clear condition notes and tracked shipping across Canada.",
+      metaTitle: "Pokemon Singles Canada | Coffee Break TCG",
+      metaDescription: "Shop inspected Pokemon singles with real photos, clear condition notes and tracked Canadian shipping from Coffee Break TCG.",
+      proof: ["Real photos", "NM / LP / MP condition", "Rigid protection", "Tracked Canadian shipping"],
+      seoText: "Singles are for collectors who want to complete a binder, grab a modern hit or buy a clean card without guessing condition. Every listed card is selected, photographed and packed with care.",
     },
     "/slabs": {
       eyebrow: "Pokemon",
       title: "Slabs",
-      intro: "All available graded cards, protected and ready for the showcase.",
+      intro: "Graded Pokemon cards from PSA, CGC, SGC, TAG and Beckett, chosen for showcases and serious collections.",
+      metaTitle: "Graded Pokemon Slabs Canada | Coffee Break TCG",
+      metaDescription: "Shop graded Pokemon slabs from PSA, CGC, SGC, TAG and Beckett with real photos, protective packaging and tracked Canadian shipping.",
+      proof: ["Protected slabs", "Company and grade shown", "Clear photos", "Solid box shipping"],
+      seoText: "The slabs page brings together graded cards ready to display or hold long term. We focus on grade, grading company, visual condition and the details that matter before buying.",
     },
     "/graded": {
       eyebrow: "Pokemon",
       title: "Slabs",
-      intro: "All available graded cards, protected and ready for the showcase.",
+      intro: "Graded Pokemon cards from PSA, CGC, SGC, TAG and Beckett, chosen for showcases and serious collections.",
+      metaTitle: "Graded Pokemon Slabs Canada | Coffee Break TCG",
+      metaDescription: "Shop graded Pokemon slabs from PSA, CGC, SGC, TAG and Beckett with real photos, protective packaging and tracked Canadian shipping.",
+      proof: ["Protected slabs", "Company and grade shown", "Clear photos", "Solid box shipping"],
+      seoText: "The slabs page brings together graded cards ready to display or hold long term. We focus on grade, grading company, visual condition and the details that matter before buying.",
     },
     "/sealed": {
       eyebrow: "Pokemon",
       title: "Sealed",
-      intro: "All available sealed products: boxes, packs and items to keep sealed or open.",
+      intro: "Pokemon sealed products for ripping, holding or planning the next drop: ETBs, packs, boxes and selected sealed items.",
+      metaTitle: "Pokemon Sealed Products Canada | Coffee Break TCG",
+      metaDescription: "Pokemon sealed products, ETBs, packs and boxes selected by Coffee Break TCG with protective packaging and tracked Canadian shipping.",
+      proof: ["Seal checked", "Protected packaging", "Drops and preorders", "Tracked shipping"],
+      seoText: "Sealed products speak to both patient collectors and people who want to rip with friends. We focus on product condition, shipping protection and items that make sense for a collection.",
     },
     "/one-piece": {
       eyebrow: "TCG",
       title: "One Piece",
       intro: "All available One Piece products: singles, slabs and boxes.",
+      metaTitle: "One Piece TCG Canada | Coffee Break TCG",
+      metaDescription: "Shop selected One Piece TCG singles, slabs and boxes from Coffee Break TCG with real photos and tracked Canadian shipping.",
+      proof: ["Singles and slabs", "Real photos", "Curated stock", "Tracked shipping"],
+      seoText: "One Piece TCG is treated like a real second showcase: clean hits, popular cards and product chosen for collectors who want something beyond Pokemon with the same Coffee Break care.",
     },
   },
 };
@@ -559,7 +625,231 @@ function applyTranslations() {
   updateCategoryHeading();
   renderReviews();
   updateAccountButtons();
+  updatePageMeta();
   if (document.body.classList.contains("account-mode")) renderAccount();
+}
+
+function categoryCopyForPath(pathname = window.location.pathname) {
+  const directCopy = categoryPageCopy[currentLang]?.[pathname] || categoryPageCopy.fr[pathname];
+  if (directCopy) return directCopy;
+  const route = gameRoutes[pathname];
+  if (route?.game !== "One Piece") return null;
+  const base = categoryPageCopy[currentLang]?.["/one-piece"] || categoryPageCopy.fr["/one-piece"];
+  const categoryName = productCategoryLabel({ category: route.category });
+  const title = route.category === "all" ? base.title : `One Piece ${categoryName}`;
+  const categoryNote =
+    route.category === "Singles"
+      ? currentLang === "en"
+        ? "One Piece singles selected for collectors, with clear photos and tracked Canadian shipping."
+        : "Singles One Piece sélectionnés pour les collectionneurs, avec photos claires et expédition suivie au Canada."
+      : route.category === "Graded"
+        ? currentLang === "en"
+          ? "One Piece slabs and graded cards presented with the same Coffee Break care."
+          : "Slabs et cartes gradées One Piece présentées avec le même soin Coffee Break."
+        : currentLang === "en"
+          ? "One Piece sealed boxes and product drops selected for collectors."
+          : "Boîtes et produits One Piece scellés sélectionnés pour les collectionneurs.";
+  return {
+    ...base,
+    title,
+    intro: categoryNote,
+    metaTitle: `${title} Canada | Coffee Break TCG`,
+    metaDescription: categoryNote,
+    seoText: categoryNote,
+  };
+}
+
+function pageMetaForPath(pathname = window.location.pathname) {
+  const routeCopy = categoryCopyForPath(pathname);
+  if (routeCopy) {
+    return {
+      title: routeCopy.metaTitle || `${routeCopy.title} | Coffee Break TCG`,
+      description: routeCopy.metaDescription || routeCopy.intro,
+      url: `https://coffeebreaktcg.com${pathname}`,
+    };
+  }
+  const contentMeta = {
+    "/vendre": {
+      title: currentLang === "en" ? "Sell Your Pokémon Cards | Coffee Break TCG" : "Vendre vos cartes Pokémon | Coffee Break TCG",
+      description:
+        currentLang === "en"
+          ? "Submit a $1,000+ collection to Coffee Break TCG with photos, key cards and an asking price."
+          : "Soumettez une collection de 1 000 $ et plus à Coffee Break TCG avec photos, cartes importantes et prix demandé.",
+    },
+    "/livraison": {
+      title: currentLang === "en" ? "Shipping and Card Protection | Coffee Break TCG" : "Livraison et protection des cartes | Coffee Break TCG",
+      description:
+        currentLang === "en"
+          ? "Tracked Canadian shipping from Laval with protective packaging adapted to singles, slabs and sealed products."
+          : "Livraison suivie au Canada depuis Laval avec emballage protecteur adapté aux singles, slabs et produits sealed.",
+    },
+    "/faq": {
+      title: "FAQ | Coffee Break TCG",
+      description:
+        currentLang === "en"
+          ? "Answers about Coffee Break TCG shipping, card protection, payments, card shows and selling your collection."
+          : "Réponses sur la livraison, la protection des cartes, le paiement, les card shows et la vente de collections Coffee Break TCG.",
+    },
+    "/apropos": {
+      title: currentLang === "en" ? "About Coffee Break TCG | Laval, Quebec" : "À propos de Coffee Break TCG | Laval, Québec",
+      description:
+        currentLang === "en"
+          ? "Coffee Break TCG is a Laval-based TCG shop built by collectors with a coffee shop vision for the future."
+          : "Coffee Break TCG est une boutique TCG basée à Laval, bâtie par des collectionneurs avec une vision de coffee shop pour le futur.",
+    },
+  }[pathname];
+  if (contentMeta) return { ...contentMeta, url: `https://coffeebreaktcg.com${pathname}` };
+  if (pathname.match(/^\/produit\//)) {
+    return {
+      title: "Produit Pokémon | Coffee Break TCG",
+      description: "Fiche produit Coffee Break TCG avec photos, détails, prix et expédition suivie au Canada.",
+      url: `https://coffeebreaktcg.com${pathname}`,
+    };
+  }
+  return {
+    title: "Coffee Break TCG | Pokémon TCG",
+    description: "Powered by coffee and cardboard. Premium Pokémon singles, slabs and sealed product from 2 guys, shipped across Canada.",
+    url: "https://coffeebreaktcg.com/",
+  };
+}
+
+function setMetaContent(selector, value) {
+  const node = document.querySelector(selector);
+  if (node && value) node.setAttribute("content", value);
+}
+
+function absoluteUrl(path) {
+  if (!path) return "https://coffeebreaktcg.com/";
+  if (/^https?:\/\//i.test(path)) return path;
+  return `https://coffeebreaktcg.com${String(path).startsWith("/") ? path : `/${path}`}`;
+}
+
+function setStructuredData(payload) {
+  const node = document.querySelector("#structuredData");
+  if (!node) return;
+  node.textContent = JSON.stringify(payload, null, 2);
+}
+
+function setRobots(indexable = true) {
+  let node = document.querySelector('meta[name="robots"]');
+  if (!node) {
+    node = document.createElement("meta");
+    node.setAttribute("name", "robots");
+    document.head.appendChild(node);
+  }
+  node.setAttribute("content", indexable ? "index,follow" : "noindex,follow");
+}
+
+function trackShopEvent(name, details = {}) {
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({
+    event: name,
+    source: "coffeebreaktcg",
+    ...details,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+function baseStructuredData(meta) {
+  return [
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: "Coffee Break TCG",
+      url: "https://coffeebreaktcg.com/",
+      email: "coffeebreaktcg@gmail.com",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: "Laval",
+        addressRegion: "QC",
+        addressCountry: "CA",
+      },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: "Coffee Break TCG",
+      url: "https://coffeebreaktcg.com/",
+      potentialAction: {
+        "@type": "SearchAction",
+        target: "https://coffeebreaktcg.com/?q={search_term_string}",
+        "query-input": "required name=search_term_string",
+      },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Coffee Break TCG", item: "https://coffeebreaktcg.com/" },
+        { "@type": "ListItem", position: 2, name: meta.title.replace(" | Coffee Break TCG", ""), item: meta.url },
+      ],
+    },
+  ];
+}
+
+function updatePageMeta() {
+  const meta = pageMetaForPath();
+  const noindexPaths = new Set(["/checkout", "/compte", "/creer-compte", "/admin", "/jarvis"]);
+  setRobots(!noindexPaths.has(window.location.pathname));
+  document.title = meta.title;
+  setMetaContent('meta[name="description"]', meta.description);
+  setMetaContent('meta[property="og:title"]', meta.title);
+  setMetaContent('meta[property="og:description"]', meta.description);
+  setMetaContent('meta[property="og:url"]', meta.url);
+  setMetaContent('meta[name="twitter:title"]', meta.title);
+  setMetaContent('meta[name="twitter:description"]', meta.description);
+  const canonical = document.querySelector('link[rel="canonical"]');
+  if (canonical) canonical.setAttribute("href", meta.url);
+  setStructuredData(baseStructuredData(meta));
+}
+
+function updateProductMeta(product) {
+  if (!product) return;
+  const category = productCategoryLabel(product);
+  const descriptionParts = [
+    product.name,
+    product.setName,
+    product.cardNumber ? `#${product.cardNumber}` : "",
+    product.condition,
+    product.gradingCompany && product.grade ? `${product.gradingCompany} ${product.grade}` : "",
+  ].filter(Boolean);
+  const description = `${descriptionParts.join(" - ")}. Produit inspecté, photos réelles quand disponibles et expédition suivie au Canada depuis le Québec.`;
+  document.title = `${product.name} | ${category} | Coffee Break TCG`;
+  setMetaContent('meta[name="description"]', description);
+  setMetaContent('meta[property="og:title"]', `${product.name} | Coffee Break TCG`);
+  setMetaContent('meta[property="og:description"]', description);
+  setMetaContent('meta[property="og:url"]', `https://coffeebreaktcg.com${productDetailPath(product)}`);
+  setMetaContent('meta[name="twitter:title"]', `${product.name} | Coffee Break TCG`);
+  setMetaContent('meta[name="twitter:description"]', description);
+  if (productImageUrl(product)) {
+    setMetaContent('meta[property="og:image"]', productImageUrl(product));
+    setMetaContent('meta[name="twitter:image"]', productImageUrl(product));
+  }
+  const canonical = document.querySelector('link[rel="canonical"]');
+  if (canonical) canonical.setAttribute("href", `https://coffeebreaktcg.com${productDetailPath(product)}`);
+  const isTestProduct = /(^codex-test-|test\s)/i.test(String(product.id || "")) || /(^codex-test-|test\s)/i.test(String(product.name || ""));
+  setRobots(getProductStatus(product) !== "removed" && !isTestProduct);
+  setStructuredData([
+    ...baseStructuredData({ title: `${product.name} | Coffee Break TCG`, url: absoluteUrl(productDetailPath(product)) }),
+    {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: product.name,
+      image: productGalleryImages(product).map(absoluteUrl),
+      description,
+      sku: product.sku || product.id,
+      brand: { "@type": "Brand", name: productGame(product) === "One Piece" ? "One Piece Card Game" : "Pokémon" },
+      category: productCategoryLabel(product),
+      itemCondition: cardConditionCode(product) ? "https://schema.org/UsedCondition" : "https://schema.org/NewCondition",
+      offers: {
+        "@type": "Offer",
+        url: absoluteUrl(productDetailPath(product)),
+        priceCurrency: "CAD",
+        price: roundMoney(product.price || 0).toFixed(2),
+        availability: getProductStatus(product) === "available" || getProductStatus(product) === "preorder" ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      },
+    },
+  ]);
 }
 
 function wait(ms) {
@@ -732,11 +1022,20 @@ function getProducts() {
     const matchesType = state.typeFilter === "all" || product.kind === state.typeFilter || product.visual === state.typeFilter;
     const matchesSet = state.setFilter === "all" || product.setId === state.setFilter || product.setName === state.setFilter;
     const conditionCode = cardConditionCode(product);
+    const matchesCondition =
+      state.conditionFilter === "all" ||
+      conditionCode === state.conditionFilter ||
+      (state.conditionFilter === "sealed" && String(product.condition || product.category || "").toLowerCase().includes("scell"));
+    const matchesAvailability =
+      state.availabilityFilter === "all" ||
+      (state.availabilityFilter === "available" && getProductStatus(product) === "available") ||
+      (state.availabilityFilter === "sale" && isSaleProduct(product)) ||
+      (state.availabilityFilter === "new" && isRecentProduct(product));
     const haystack = `${product.name} ${product.category} ${product.condition} ${conditionCode} ${product.kind || ""} ${product.sku || ""} ${product.setName || ""} ${product.cardNumber || ""} ${product.rarity || ""} ${(product.features || []).join(" ")}`.toLowerCase();
     const query = state.search.toLowerCase().trim();
     const searchableTokens = haystack.split(/[^a-z0-9]+/).filter(Boolean);
     const matchesSearch = ["nm", "lp", "mp"].includes(query) ? searchableTokens.includes(query) : haystack.includes(query);
-    return matchesGame && matchesCategory && matchesType && matchesSet && matchesSearch;
+    return matchesGame && matchesCategory && matchesType && matchesSet && matchesCondition && matchesAvailability && matchesSearch;
   });
 
   products = [...products].sort((a, b) => {
@@ -922,6 +1221,8 @@ function saveShopView(productId = "") {
     game: state.game,
     typeFilter: state.typeFilter,
     setFilter: state.setFilter,
+    conditionFilter: state.conditionFilter,
+    availabilityFilter: state.availabilityFilter,
     search: state.search,
     sort: state.sort,
     scrollY: window.scrollY,
@@ -940,11 +1241,15 @@ function restoreShopView() {
   state.game = view.game || "Pokemon";
   state.typeFilter = view.typeFilter || "all";
   state.setFilter = view.setFilter || "all";
+  state.conditionFilter = view.conditionFilter || "all";
+  state.availabilityFilter = view.availabilityFilter || "available";
   state.search = view.search || "";
   state.sort = view.sort || "featured";
   if (searchInput) searchInput.value = state.search;
   if (sortSelect) sortSelect.value = state.sort;
   if (setFilterSelect) setFilterSelect.value = state.setFilter;
+  if (conditionFilterSelect) conditionFilterSelect.value = state.conditionFilter;
+  if (availabilityFilterSelect) availabilityFilterSelect.value = state.availabilityFilter;
   history.pushState({ category: state.category }, "", categoryPath(state.category));
   applyRoute();
   requestAnimationFrame(() => {
@@ -988,6 +1293,16 @@ function cartTotal() {
   }, 0);
 }
 
+function cartCompareAtTotal() {
+  return cart.reduce((sum, item) => {
+    const product = cartProduct(item.id);
+    const oldPrice = Number(product?.compareAtPrice || 0);
+    const price = Number(product?.price || 0);
+    const referencePrice = oldPrice > price ? oldPrice : price;
+    return sum + referencePrice * Number(item.quantity || 0);
+  }, 0);
+}
+
 function roundMoney(value) {
   return Math.round(Number(value || 0) * 100) / 100;
 }
@@ -1001,15 +1316,38 @@ function priceMarkup(product, className = "price") {
 
 function cartTaxes() {
   const subtotal = roundMoney(cartTotal());
+  const compareAtSubtotal = roundMoney(cartCompareAtTotal());
+  const discount = roundMoney(Math.max(0, compareAtSubtotal - subtotal));
   const tps = roundMoney(subtotal * 0.05);
   const tvq = roundMoney(subtotal * 0.09975);
   return {
     subtotal,
+    compareAtSubtotal,
+    discount,
+    shipping: 0,
     taxableSubtotal: subtotal,
     tps,
     tvq,
     total: roundMoney(subtotal + tps + tvq),
   };
+}
+
+function totalsBreakdownMarkup(totals, compact = false) {
+  const shippingNote = totals.shipping > 0 ? money.format(totals.shipping) : t("deliveryNotCharged");
+  const remainingForFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - totals.subtotal);
+  const progressText =
+    totals.subtotal >= FREE_SHIPPING_THRESHOLD
+      ? t("freeShippingProgress")
+      : t("freeShippingRemaining").replace("{amount}", money.format(remainingForFreeShipping));
+  return `
+    <div><span>${t("subtotal")}</span><strong>${money.format(totals.compareAtSubtotal || totals.subtotal)}</strong></div>
+    ${totals.discount > 0 ? `<div class="discount-total"><span>${t("discount")}</span><strong>-${money.format(totals.discount)}</strong></div>` : ""}
+    <div><span>${t("delivery")}</span><strong>${shippingNote}</strong></div>
+    <div><span>TPS</span><strong>${money.format(totals.tps)}</strong></div>
+    <div><span>TVQ</span><strong>${money.format(totals.tvq)}</strong></div>
+    <div class="grand-total"><span>${t("total")}</span><strong>${money.format(totals.total)}</strong></div>
+    ${compact ? "" : `<p class="cart-progress">${progressText}</p>`}
+  `;
 }
 
 function renderCartLine(item, compact = false) {
@@ -1045,21 +1383,31 @@ function renderCart() {
   document.querySelectorAll("[data-cart-count]").forEach((badge) => {
     badge.textContent = cartQuantity();
   });
+  const isEmpty = cart.length === 0;
+  document.body.classList.toggle("cart-empty", isEmpty);
   const totals = cartTaxes();
-  const drawerTotalMarkup = `
-    <div class="grand-total"><span>${t("total")}</span><strong>${money.format(totals.total)}</strong></div>
-  `;
-  const totalMarkup = `
-    <div class="grand-total"><span>${t("total")}</span><strong>${money.format(totals.total)}</strong></div>
+  const drawerTotalMarkup = totalsBreakdownMarkup(totals);
+  const totalMarkup = totalsBreakdownMarkup(totals);
+  const emptyCheckoutMarkup = `
+    <div class="checkout-empty-state">
+      <p class="eyebrow">${currentLang === "en" ? "Checkout" : "Commande"}</p>
+      <h2>${currentLang === "en" ? "Your cart is taking a break." : "Ton panier prend une pause."}</h2>
+      <p>${currentLang === "en" ? "Add a few cards before heading to checkout." : "Ajoute quelques cartes avant de passer à la caisse."}</p>
+      <div>
+        <a class="button primary" href="/#new-arrivals" data-home-section="new-arrivals">${currentLang === "en" ? "View new arrivals" : "Voir les nouveautés"}</a>
+        <a class="button secondary" href="/" data-home-link>${currentLang === "en" ? "Back to shop" : "Retour boutique"}</a>
+      </div>
+    </div>
   `;
   if (cartItems) {
     cartItems.innerHTML = cart.length ? cart.map((item) => renderCartLine(item)).join("") : `<p>${t("cartEmpty")}</p>`;
   }
-  if (cartTotals) cartTotals.innerHTML = drawerTotalMarkup;
+  if (cartTotals) cartTotals.innerHTML = cart.length ? drawerTotalMarkup : "";
   if (checkoutItems) {
-    checkoutItems.innerHTML = cart.length ? cart.map((item) => renderCartLine(item, true)).join("") : `<p>${t("cartEmpty")}</p>`;
+    checkoutItems.innerHTML = cart.length ? cart.map((item) => renderCartLine(item, true)).join("") : emptyCheckoutMarkup;
   }
-  if (checkoutTotals) checkoutTotals.innerHTML = totalMarkup;
+  if (checkoutTotals) checkoutTotals.innerHTML = cart.length ? totalMarkup : "";
+  if (checkoutForm) checkoutForm.hidden = isEmpty;
 }
 
 function addToCart(id) {
@@ -1073,6 +1421,13 @@ function addToCart(id) {
   if (existing) existing.quantity = Math.min(limit, Number(existing.quantity || 1) + 1);
   else cart.push({ id, quantity: 1 });
   saveCart();
+  trackShopEvent("add_to_cart", {
+    product_id: product.id,
+    category: product.category,
+    game: productGame(product),
+    value: Number(product.price || 0),
+    cart_quantity: cartQuantity(),
+  });
   if (shouldOpenCart) {
     document.body.classList.add("cart-open");
     document.querySelector(".cart-drawer")?.setAttribute("aria-hidden", "false");
@@ -1086,6 +1441,11 @@ function updateCartQuantity(id, delta) {
   item.quantity = Math.min(cartLineLimit(product), Math.max(0, Number(item.quantity || 1) + delta));
   if (item.quantity <= 0) cart = cart.filter((line) => line.id !== id);
   saveCart();
+  trackShopEvent(item.quantity <= 0 ? "remove_from_cart" : "change_cart_quantity", {
+    product_id: id,
+    delta,
+    cart_quantity: cartQuantity(),
+  });
 }
 
 async function loadProducts() {
@@ -1233,23 +1593,23 @@ function trustMarqueeItems() {
     currentLang === "en"
       ? [
           "By collectors",
-          "Clear deals",
-          "Packed like it was ours",
-          "Card shows • coffee • cardboard",
-          "We buy too",
-          "Stock we actually like",
           "Real photos",
-          "Coffee shop tomorrow",
+          "Clear deals",
+          "Carefully packed",
+          "Tracked shipping",
+          "Stock we actually like",
+          "We buy too",
+          "Coffee shop vision",
         ]
       : [
           "Par des collectionneurs",
-          "Deals clairs",
-          "Emballé comme si c’était à nous",
-          "Card shows • café • carton",
-          "On achète aussi",
-          "Du stock qu’on aime pour vrai",
           "Photos réelles",
-          "Coffee shop demain",
+          "Deals clairs",
+          "Emballage soigné",
+          "Expédition suivie",
+          "Stock qu’on aime pour vrai",
+          "On achète aussi",
+          "Vision coffee shop",
         ];
   const signals = trustSignals.map((text) => ({
     text,
@@ -1358,6 +1718,13 @@ function renderCardShows() {
   const nextShow = sortedShows[0];
   const badge = formatShowDateBadge(nextShow);
   const address = showAddress(nextShow);
+  const showMedia = nextShow.imageUrl
+    ? `<img src="${escapeAttribute(nextShow.imageUrl)}" alt="${escapeAttribute(nextShow.name)}" loading="lazy" />`
+    : `<div class="next-show-fallback" aria-hidden="true">
+        <strong>CBTCG</strong>
+        <span>${currentLang === "en" ? "Card show" : "Card show"}</span>
+      </div>
+      <iframe title="${escapeAttribute(nextShow.name)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${escapeAttribute(showMapUrl(nextShow))}"></iframe>`;
   cardShowsGrid.innerHTML = `
     <div class="show-experience">
       <article class="next-show-card">
@@ -1383,8 +1750,8 @@ function renderCardShows() {
             <a class="next-show-map-link" href="${escapeAttribute(showMapsLink(nextShow))}" target="_blank" rel="noopener">${currentLang === "en" ? "Open in Maps" : "Ouvrir dans Maps"}</a>
           </div>
         </div>
-        <div class="next-show-map">
-          <iframe title="${escapeAttribute(nextShow.name)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${escapeAttribute(showMapUrl(nextShow))}"></iframe>
+        <div class="next-show-map ${nextShow.imageUrl ? "has-photo" : "has-map"}">
+          ${showMedia}
         </div>
       </article>
       <div class="show-accordion-list">
@@ -1413,11 +1780,12 @@ async function loadPokemonSets() {
 }
 
 function updateCategoryHeading() {
-  const routeCopy = categoryPageCopy[currentLang]?.[window.location.pathname] || categoryPageCopy.fr[window.location.pathname];
+  const routeCopy = categoryCopyForPath();
   if (routeCopy) {
     if (categoryTitle) categoryTitle.textContent = routeCopy.title;
     if (categoryEyebrow) categoryEyebrow.textContent = routeCopy.eyebrow;
     if (categoryIntro) categoryIntro.textContent = routeCopy.intro;
+    renderCategorySeoPanel(routeCopy);
     return;
   }
   const label = categoryLabels[state.category];
@@ -1426,6 +1794,51 @@ function updateCategoryHeading() {
     categoryEyebrow.textContent = state.category === "all" ? t("inventory") : typeof label === "function" ? label() : productCategoryLabel({ category: state.category });
   }
   if (categoryIntro) categoryIntro.textContent = currentLang === "en" ? "Browse the full category with search, sorting and set filters." : "Parcours la catégorie complète avec recherche, tri et filtre par extension.";
+  renderCategorySeoPanel(null);
+}
+
+function categoryFeaturedProducts() {
+  const route = gameRoutes[window.location.pathname];
+  const category = route?.category || categoryRoutes[window.location.pathname] || state.category;
+  const game = route?.game || state.game || "Pokemon";
+  if (!category || category === "all") return [];
+  return inventory
+    .filter((product) => product.category === category)
+    .filter((product) => productGame(product) === game)
+    .filter((product) => getProductStatus(product) === "available" && Number(product.stock || 0) > 0 && hasValidProductImage(product))
+    .sort((a, b) => {
+      const featuredScore = Number(isHomepageFeatured(b) || isNewArrivalFavorite(b)) - Number(isHomepageFeatured(a) || isNewArrivalFavorite(a));
+      if (featuredScore) return featuredScore;
+      return merchDateValue(b.updatedAt || b.createdAt) - merchDateValue(a.updatedAt || a.createdAt);
+    })
+    .slice(0, 3);
+}
+
+function renderCategorySeoPanel(copy) {
+  if (!categorySeoPanel) return;
+  if (!copy) {
+    categorySeoPanel.innerHTML = "";
+    categorySeoPanel.classList.add("hidden");
+    return;
+  }
+  const featured = categoryFeaturedProducts();
+  categorySeoPanel.classList.remove("hidden");
+  categorySeoPanel.innerHTML = `
+    <div class="category-proof-row">
+      ${(copy.proof || []).map((item) => `<span>${escapeAttribute(item)}</span>`).join("")}
+    </div>
+    <div class="category-seo-copy">
+      <p>${escapeAttribute(copy.seoText || copy.intro || "")}</p>
+      <a href="/livraison" data-content-route="livraison">${currentLang === "en" ? "Shipping and protection details" : "Voir la livraison et la protection"}</a>
+    </div>
+    ${
+      featured.length
+        ? `<div class="category-featured-products" aria-label="${currentLang === "en" ? "Featured products" : "Produits vedettes"}">
+            ${featured.map((product) => homeProductCard(product)).join("")}
+          </div>`
+        : ""
+    }
+  `;
 }
 
 function isMobileShop() {
@@ -1769,6 +2182,22 @@ function automaticNewArrivals(products) {
     .slice(0, 12);
 }
 
+function isNewArrivalFavorite(product) {
+  return String(product?.homepageCollection || "").toLowerCase() === "new";
+}
+
+function manualNewArrivals(products) {
+  return products
+    .filter((product) => isNewArrivalFavorite(product))
+    .sort((a, b) => {
+      const rankA = Number(a.featuredRank || 999);
+      const rankB = Number(b.featuredRank || 999);
+      if (rankA !== rankB) return rankA - rankB;
+      return merchDateValue(b.updatedAt || b.createdAt) - merchDateValue(a.updatedAt || a.createdAt);
+    })
+    .slice(0, 12);
+}
+
 function validatedMerchSection(products, section, options = {}) {
   const validated = products.filter((product) => isMerchValidated(section, product) && !isMerchExcluded(section, product));
   const ranked = rankedMerchProducts(validated, section, { ...options, minScore: options.minScore || 0 });
@@ -1777,8 +2206,9 @@ function validatedMerchSection(products, section, options = {}) {
 
 function buildMerchandisingSelections(products = inventory, { includeSuggestions = false } = {}) {
   const pool = merchandisingPool(products);
+  const starredNewArrivals = manualNewArrivals(pool);
   const selections = {
-    new: automaticNewArrivals(pool).slice(0, 6),
+    new: (starredNewArrivals.length ? starredNewArrivals : automaticNewArrivals(pool)).slice(0, 12),
     vitrine: validatedMerchSection(pool, "vitrine", {
       max: 6,
       minScore: 0,
@@ -1985,7 +2415,11 @@ function renderNewArrivalsCarousel() {
             <a class="new-arrival-slide ${item.type === "product" ? "is-product" : ""} ${item.type === "product-fallback" ? "product-fallback" : ""}" href="${escapeAttribute(href)}" ${item.product ? `data-view-product="${escapeAttribute(item.product.id)}"` : ""}>
               <img src="${escapeAttribute(image)}" alt="${escapeAttribute(title)}" loading="lazy" />
               <span>${escapeAttribute(title)}</span>
-              ${item.product ? `<small>${escapeAttribute(productCategoryLabel(item.product))}</small>` : ""}
+              ${
+                item.product
+                  ? `<small>${escapeAttribute([productCategoryLabel(item.product), item.product.condition, money.format(item.product.price)].filter(Boolean).join(" · "))}</small>`
+                  : ""
+              }
             </a>
           `;
         })
@@ -2183,6 +2617,28 @@ function detailSpec(label, value) {
   return value ? `<div><dt>${label}</dt><dd>${value}</dd></div>` : "";
 }
 
+function similarProducts(product) {
+  if (!product) return [];
+  return inventory
+    .filter((item) => item.id !== product.id)
+    .filter((item) => getProductStatus(item) === "available" && Number(item.stock || 0) > 0)
+    .filter((item) => productGame(item) === productGame(product))
+    .filter(hasValidProductImage)
+    .map((item) => {
+      let score = 0;
+      if (item.category === product.category) score += 40;
+      if (item.setName && product.setName && item.setName === product.setName) score += 28;
+      if (isHomepageFeatured(item)) score += 18;
+      if (isRecentProduct(item)) score += 12;
+      if (isSaleProduct(item)) score += 8;
+      score += Math.min(10, Number(item.price || 0) / 100);
+      return { item, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .map(({ item }) => item)
+    .slice(0, 4);
+}
+
 function renderProductDetail(id) {
   const product = inventory.find((item) => item.id === id);
   if (!product || !productDetailContent) {
@@ -2196,11 +2652,23 @@ function renderProductDetail(id) {
   const conditionDetail = conditionDetailLabel(product);
   const limit = cartLineLimit(product);
   const galleryImages = productGalleryImages(product);
+  const relatedProducts = similarProducts(product);
+  const titleLength = String(product.name || "").length;
+  const titleClass = titleLength > 48 ? "is-long-title" : titleLength > 30 ? "is-medium-title" : "";
+  updateProductMeta(product);
+  trackShopEvent("view_product", {
+    product_id: product.id,
+    category: product.category,
+    game: productGame(product),
+    value: Number(product.price || 0),
+  });
   const publicStock =
     product.category === "Preorder"
       ? `${Number(product.stock || 0)} disponible${Number(product.stock || 0) > 1 ? "s" : ""} en précommande`
       : product.category === "Sealed" || product.category === "Accessories"
         ? `${Number(product.stock || 0)} disponible${Number(product.stock || 0) > 1 ? "s" : ""}`
+        : ["Singles", "Graded"].includes(product.category) && Number(product.stock || 0) === 1 && getProductStatus(product) === "available"
+          ? "1 en stock"
         : "";
   productDetailContent.innerHTML = `
     <a class="back-link" href="${categoryPath(lastShopView?.category || product.category || "all")}" data-back-shop>${t("backShop")}</a>
@@ -2223,9 +2691,10 @@ function renderProductDetail(id) {
             : ""
         }
       </div>
-      <div class="detail-copy">
+      <div class="detail-copy ${titleClass}">
         <p class="eyebrow">${productCategoryLabel(product)}</p>
         <h1>${product.name}</h1>
+        <div class="detail-price">${priceMarkup(product, "detail-price-stack")}</div>
         <p class="condition">${[
           product.gradingCompany && product.grade ? `${product.gradingCompany} ${product.grade}` : "",
           product.setName,
@@ -2235,27 +2704,58 @@ function renderProductDetail(id) {
         ]
           .filter(Boolean)
           .join(" - ") || "Détails à confirmer"}</p>
-        <div class="detail-price">${priceMarkup(product, "detail-price-stack")}</div>
         <div class="detail-pills">
           ${product.gradingCompany && product.grade ? `<span>${product.gradingCompany} ${product.grade}</span>` : ""}
           ${cardCondition ? `<span>${cardCondition}</span>` : ""}
           ${product.maxPerCart ? `<span>Limite ${product.maxPerCart} / demande</span>` : ""}
           ${features.map((feature) => `<span>${feature}</span>`).join("")}
         </div>
-        <button class="button primary" type="button" data-add-cart="${product.id}" ${status === "reserved" || limit <= 0 ? "disabled" : ""}>${status === "reserved" ? t("reserved") : t("addToCartFull")}</button>
+        <button class="button primary product-main-cta" type="button" data-add-cart="${product.id}" ${status === "reserved" || limit <= 0 ? "disabled" : ""}>${status === "reserved" ? t("reserved") : t("addToCartFull")}</button>
         <dl class="detail-specs">
           ${detailSpec("Condition", conditionDetail)}
           ${detailSpec("Numéro", product.cardNumber)}
           ${detailSpec("Extension", product.setName)}
           ${detailSpec("Rareté", product.rarity)}
           ${detailSpec("Slab", product.gradingCompany && product.grade ? `${product.gradingCompany} ${product.grade}` : "")}
+          ${detailSpec("Disponibilité", publicStock)}
           ${features.length ? detailSpec("Spécifications", features.join(" - ")) : ""}
           <div><dt>Prix</dt><dd>${money.format(product.price)}</dd></div>
           <div><dt>Protection</dt><dd>Sleeve, team bag et emballage rigide inclus.</dd></div>
           <div><dt>Expédition</dt><dd>Livraison depuis Laval, suivi inclus.</dd></div>
         </dl>
+        <div class="detail-trust" aria-label="Garanties Coffee Break TCG">
+          <article>
+            <strong>Paiement sécurisé</strong>
+            <span>Transaction Square chiffrée avant la confirmation.</span>
+          </article>
+          <article>
+            <strong>Expédition suivie</strong>
+            <span>Colis préparé au Québec avec suivi au Canada.</span>
+          </article>
+          <article>
+            <strong>Protection cartes</strong>
+            <span>Chaque item est emballé selon sa valeur et son format.</span>
+          </article>
+        </div>
+        <div class="detail-cta-row">
+          <a class="button secondary" href="/livraison" data-content-route="livraison">Livraison & protection</a>
+          <a class="button secondary" href="/faq" data-content-route="faq">FAQ</a>
+        </div>
       </div>
     </div>
+    ${
+      relatedProducts.length
+        ? `<section class="similar-products" aria-label="Produits similaires">
+            <div class="section-heading compact">
+              <div>
+                <p class="eyebrow">À voir aussi</p>
+                <h2>Produits similaires</h2>
+              </div>
+            </div>
+            <div class="similar-products-grid">${relatedProducts.map((item) => homeProductCard(item)).join("")}</div>
+          </section>`
+        : ""
+    }
   `;
 }
 
@@ -2282,6 +2782,102 @@ function fillProvinceSelects(scope = document) {
 function setFormField(form, name, value) {
   const field = form?.elements?.[name];
   if (field && value !== undefined && value !== null) field.value = value;
+}
+
+function syncCoffeeUpload(input) {
+  const wrapper = input?.closest("[data-coffee-upload]");
+  if (!wrapper) return;
+  const meta = wrapper.querySelector("[data-upload-meta]");
+  const preview = wrapper.querySelector("[data-upload-preview]");
+  const files = [...(input.files || [])];
+  const validFiles = [];
+  const errors = [];
+  for (const file of files) {
+    if (!file.type.startsWith("image/")) {
+      errors.push(`${file.name}: ${currentLang === "en" ? "image only" : "image seulement"}`);
+      continue;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      errors.push(`${file.name}: ${currentLang === "en" ? "max 8 MB" : "maximum 8 Mo"}`);
+      continue;
+    }
+    validFiles.push(file);
+  }
+  if (validFiles.length !== files.length) {
+    const transfer = new DataTransfer();
+    validFiles.forEach((file) => transfer.items.add(file));
+    input.files = transfer.files;
+  }
+  if (meta) {
+    const countText =
+      validFiles.length === 0
+        ? currentLang === "en"
+          ? "No photo selected."
+          : "Aucune photo sélectionnée."
+        : currentLang === "en"
+          ? `${validFiles.length} photo${validFiles.length > 1 ? "s" : ""} selected.`
+          : `${validFiles.length} photo${validFiles.length > 1 ? "s" : ""} sélectionnée${validFiles.length > 1 ? "s" : ""}.`;
+    meta.textContent = errors.length ? `${countText} ${errors.join(" · ")}` : countText;
+  }
+  if (preview) {
+    preview.innerHTML = validFiles
+      .map((file, index) => {
+        const url = URL.createObjectURL(file);
+        return `
+          <figure>
+            <img src="${url}" alt="${escapeAttribute(file.name)}" />
+            <figcaption>${escapeAttribute(file.name)}</figcaption>
+            <button type="button" data-remove-upload="${index}" aria-label="${currentLang === "en" ? "Remove photo" : "Retirer la photo"}">×</button>
+          </figure>
+        `;
+      })
+      .join("");
+  }
+}
+
+function removeCoffeeUploadFile(input, index) {
+  const files = [...(input.files || [])];
+  const transfer = new DataTransfer();
+  files.forEach((file, fileIndex) => {
+    if (fileIndex !== index) transfer.items.add(file);
+  });
+  input.files = transfer.files;
+  syncCoffeeUpload(input);
+}
+
+function wireCoffeeUploads(scope = document) {
+  scope.querySelectorAll("[data-coffee-upload]").forEach((wrapper) => {
+    if (wrapper.dataset.uploadReady === "true") return;
+    wrapper.dataset.uploadReady = "true";
+    const input = wrapper.querySelector('input[type="file"]');
+    const zone = wrapper.querySelector("[data-upload-zone]");
+    if (!input || !zone) return;
+    input.addEventListener("change", () => syncCoffeeUpload(input));
+    ["dragenter", "dragover"].forEach((eventName) => {
+      zone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        wrapper.classList.add("is-dragging");
+      });
+    });
+    ["dragleave", "drop"].forEach((eventName) => {
+      zone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        wrapper.classList.remove("is-dragging");
+      });
+    });
+    zone.addEventListener("drop", (event) => {
+      const transfer = new DataTransfer();
+      [...(input.files || []), ...(event.dataTransfer?.files || [])].forEach((file) => transfer.items.add(file));
+      input.files = transfer.files;
+      syncCoffeeUpload(input);
+    });
+    wrapper.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-remove-upload]");
+      if (!button) return;
+      event.preventDefault();
+      removeCoffeeUploadFile(input, Number(button.dataset.removeUpload));
+    });
+  });
 }
 
 function wireAddressAutocomplete(scope = document) {
@@ -2463,13 +3059,23 @@ function renderContentPage(slug) {
             <label>${currentLang === "en" ? "Asking price for the full collection" : "Prix demandé pour la collection complète"} <input name="askingPrice" type="number" min="0" step="0.01" placeholder="Ex. 1200" /></label>
             <label>${currentLang === "en" ? "Collection summary" : "Résumé de la collection"} <textarea name="summary" rows="5" placeholder="${currentLang === "en" ? "Quantity, general condition, important notes..." : "Quantité, état général, notes importantes..."}"></textarea></label>
             <label>${currentLang === "en" ? "Key card names" : "Noms des cartes importantes"} <textarea name="cardNames" rows="4" placeholder="${currentLang === "en" ? "Example: Umbreon VMAX, Charizard ex SIR, PSA 10..." : "Ex. Umbreon VMAX, Charizard ex SIR, PSA 10..."}"></textarea></label>
-            <label>${currentLang === "en" ? "Photos" : "Photos"} <input name="collectionPhotos" type="file" accept="image/*" multiple /></label>
+            <div class="coffee-upload" data-coffee-upload>
+              <input class="sr-only" id="collectionPhotosInput" name="collectionPhotos" type="file" accept="image/*" multiple />
+              <label class="coffee-upload-zone" for="collectionPhotosInput" data-upload-zone>
+                <span>${currentLang === "en" ? "Choose my photos" : "Choisir mes photos"}</span>
+                <strong>${currentLang === "en" ? "Drag photos here or tap to select." : "Glisse tes photos ici ou clique pour choisir."}</strong>
+                <small>${currentLang === "en" ? "JPG, PNG or WebP. Max 8 MB each." : "JPG, PNG ou WebP. Maximum 8 Mo par photo."}</small>
+              </label>
+              <div class="coffee-upload-meta" data-upload-meta>${currentLang === "en" ? "No photo selected." : "Aucune photo sélectionnée."}</div>
+              <div class="coffee-upload-preview" data-upload-preview></div>
+            </div>
             <button class="button primary" type="submit">${currentLang === "en" ? "Send request" : "Envoyer la demande"}</button>
             <p class="form-status" role="status"></p>
           </form>`
         : ""
     }
   `;
+  wireCoffeeUploads(contentPageContent);
 }
 
 function orderStatusLabel(status) {
@@ -2661,6 +3267,7 @@ function goToCategory(category, push = true, game = "Pokemon") {
 }
 
 function applyRoute() {
+  updatePageMeta();
   const isAdmin = window.location.pathname === "/admin";
   const isCheckout = window.location.pathname === "/checkout";
   const isAccount = window.location.pathname === "/compte";
@@ -2705,6 +3312,8 @@ function applyRoute() {
   const category = route?.category || categoryRoutes[window.location.pathname] || "all";
   state.category = category;
   state.game = route?.game || "Pokemon";
+  if (conditionFilterSelect) conditionFilterSelect.value = state.conditionFilter;
+  if (availabilityFilterSelect) availabilityFilterSelect.value = state.availabilityFilter;
   document.querySelectorAll("[data-category]").forEach((tab) => {
     tab.classList.toggle("active", tab.dataset.category === category);
   });
@@ -2922,6 +3531,43 @@ function syncAdminFilterButtons() {
   });
 }
 
+const adminSectionTitles = {
+  inventory: "Inventaire",
+  modifiers: "Modificateurs",
+  sales: "Ventes",
+  shows: "Card Shows",
+};
+
+function setAdminSection(section = "inventory") {
+  activeAdminSection = adminSectionTitles[section] ? section : "inventory";
+  adminContent?.setAttribute("data-admin-section", activeAdminSection);
+  document.querySelectorAll("[data-admin-view]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.adminView === activeAdminSection);
+  });
+  document.querySelectorAll("[data-admin-panel]").forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.adminPanel === activeAdminSection);
+  });
+  if (adminPageTitle) adminPageTitle.textContent = adminSectionTitles[activeAdminSection] || "Inventaire";
+  adminOpenAddButton?.classList.toggle("hidden", activeAdminSection !== "inventory");
+  adminOpenCardShowButton?.classList.toggle("hidden", activeAdminSection !== "shows");
+  adminOpenSessionButton?.classList.toggle("hidden", activeAdminSection !== "inventory");
+  adminInventorySearch?.closest(".admin-command-search")?.classList.toggle("is-secondary", activeAdminSection !== "inventory");
+}
+
+function openAdminSection(section) {
+  setAdminSection(section);
+  closeAdminPanels();
+  if (section === "inventory") adminInventorySearch?.focus({ preventScroll: true });
+}
+
+function focusCardShowForm() {
+  setAdminSection("shows");
+  const cardShowDetails = adminCardShowForm?.closest("details");
+  if (cardShowDetails) cardShowDetails.open = true;
+  adminCardShowForm?.scrollIntoView({ behavior: "smooth", block: "start" });
+  window.requestAnimationFrame(() => adminCardShowForm?.querySelector('input[name="name"]')?.focus({ preventScroll: true }));
+}
+
 function renderAdminSession(draftItems = []) {
   if (draftInventoryCount) draftInventoryCount.textContent = `${draftItems.length}`;
   if (publishDraftProductsButton) publishDraftProductsButton.disabled = draftItems.length === 0;
@@ -2950,12 +3596,185 @@ function renderAdminSession(draftItems = []) {
     : `<div class="admin-empty-state"><strong>Aucune carte en session.</strong><p>Ajoute des cartes avec le drawer d’ajout rapide, puis publie le lot quand tout est prêt.</p></div>`;
 }
 
+function quickBatchMoneyValues(line) {
+  return [...line.matchAll(/(?:^|\s)\$?(\d+(?:[.,]\d{1,2})?)(?=\s*$|\s)/g)]
+    .map((match) => ({ raw: match[0], value: Number(match[1].replace(",", ".")), index: match.index }))
+    .filter((entry) => Number.isFinite(entry.value));
+}
+
+function quickBatchPriceSuggestion(market) {
+  const value = Number(market || 0);
+  if (!value) return 0;
+  return Math.max(1, Math.round(value - 1));
+}
+
+function parseQuickBatchLine(line, game = "Pokemon") {
+  const original = String(line || "").trim();
+  if (!original) return null;
+  let working = original;
+  const moneyValues = quickBatchMoneyValues(original);
+  const market = moneyValues.length ? moneyValues[moneyValues.length - 1].value : 0;
+  const cost = moneyValues.length > 1 ? moneyValues[moneyValues.length - 2].value : 0;
+  moneyValues
+    .slice(-2)
+    .reverse()
+    .forEach((entry) => {
+      working = `${working.slice(0, entry.index)} ${working.slice(entry.index + entry.raw.length)}`;
+    });
+
+  const gradeMatch = working.match(/\b(PSA|BGS|BECKETT|CGC|SGC|TAG)\s*(10|9|8|7|6|5|4|3|2|1)\b/i);
+  const gradingCompany = gradeMatch ? gradeMatch[1].toUpperCase().replace("BGS", "Beckett") : "";
+  const grade = gradeMatch ? gradeMatch[2] : "";
+  if (gradeMatch) working = working.replace(gradeMatch[0], " ");
+
+  const conditionMatch = working.match(/\b(NM|LP|MP|HP|DMG|DAMAGED|SCELL[ÉE]?\s+PARFAIT|SCELL[ÉE]?\s+ENDOMMAG[ÉE]?)\b/i);
+  let condition = conditionMatch ? conditionMatch[0].toUpperCase() : "";
+  if (condition === "HP") condition = "Damaged";
+  if (condition === "DMG") condition = "Damaged";
+  if (/DAMAGED/i.test(condition)) condition = "Damaged";
+  if (/SCELL/i.test(condition)) condition = /ENDOMMAG/i.test(condition) ? "Scellé endommagé" : "Scellé parfait";
+  if (conditionMatch) working = working.replace(conditionMatch[0], " ");
+
+  const cardNumberMatch = working.match(/\b(?:#\s*)?([A-Z]{0,4}\d{1,4}[a-z]?\/?\d{0,4}[a-z]?)\b/i);
+  const cardNumber = cardNumberMatch ? cardNumberMatch[1] : "";
+  if (cardNumberMatch && /\/|^[A-Z]{1,4}\d|\d{2,4}[a-z]?$/i.test(cardNumber)) {
+    working = working.replace(cardNumberMatch[0], " ");
+  }
+
+  const sealedMatch = working.match(/\b(ETB|UTB|BOOSTER\s*BOX|BOOSTER\s*BUNDLE|BUNDLE|PACK|SEALED|TIN|BOX|BO[ÎI]TE)\b/i);
+  const slabCategory = Boolean(gradingCompany);
+  const sealedCategory = Boolean(sealedMatch);
+  const category = slabCategory ? "Graded" : sealedCategory ? "Sealed" : "Singles";
+  const kind = slabCategory
+    ? "slab"
+    : sealedCategory
+    ? /ETB/i.test(sealedMatch[0])
+      ? "etb"
+      : /UTB/i.test(sealedMatch[0])
+      ? "utb"
+      : /BOOSTER\s*BOX/i.test(sealedMatch[0])
+      ? "booster-box"
+      : /BUNDLE/i.test(sealedMatch[0])
+      ? "booster-bundle"
+      : /PACK/i.test(sealedMatch[0])
+      ? "pack"
+      : "box"
+    : "single";
+
+  const name = working
+    .replace(/\b(ETB|UTB|BOOSTER\s*BOX|BOOSTER\s*BUNDLE|BUNDLE|PACK|SEALED|TIN|BOX|BO[ÎI]TE)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const displayName = name || original.replace(/\s+/g, " ").trim();
+
+  return {
+    name: displayName,
+    game,
+    category,
+    kind,
+    status: "draft",
+    cardNumber,
+    condition: condition || (sealedCategory ? "Scellé parfait" : slabCategory ? "" : "NM"),
+    gradingCompany,
+    grade,
+    stock: 1,
+    cost,
+    market,
+    price: market ? quickBatchPriceSuggestion(market) : 0,
+    priceAuto: false,
+    featured: false,
+    heroFeatured: false,
+    homepageCollection: "",
+    badge: "",
+    features: [],
+  };
+}
+
+function quickBatchItems() {
+  const game = quickBatchGame?.value || "Pokemon";
+  return String(quickBatchInput?.value || "")
+    .split(/\r?\n/)
+    .map((line) => parseQuickBatchLine(line, game))
+    .filter(Boolean);
+}
+
+function renderQuickBatchPreview() {
+  if (!quickBatchPreview) return [];
+  const items = quickBatchItems();
+  quickBatchPreview.classList.toggle("hidden", items.length === 0);
+  quickBatchPreview.innerHTML = items.length
+    ? `
+      <div class="quick-batch-preview-head">
+        <strong>${items.length} item${items.length > 1 ? "s" : ""} détecté${items.length > 1 ? "s" : ""}</strong>
+        <span>Ils seront créés en brouillons de session.</span>
+      </div>
+      ${items
+        .map(
+          (item) => `
+            <article class="quick-batch-row">
+              <div>
+                <strong>${escapeAttribute(item.name)}</strong>
+                <span>${escapeAttribute([item.category === "Graded" ? "Slab" : item.category, item.cardNumber ? `#${item.cardNumber}` : "", item.condition, item.gradingCompany && item.grade ? `${item.gradingCompany} ${item.grade}` : ""].filter(Boolean).join(" · "))}</span>
+              </div>
+              <small>Payé ${adminMoney(item.cost)} · Marché ${adminMoney(item.market)} · Affiché ${adminMoney(item.price)}</small>
+            </article>
+          `
+        )
+        .join("")}
+    `
+    : "";
+  if (quickBatchStatus) quickBatchStatus.textContent = items.length ? "Prévisualisation prête. Corrige les lignes si nécessaire, puis crée les brouillons." : "Ajoute au moins une ligne.";
+  return items;
+}
+
+async function createQuickBatchDrafts() {
+  const items = renderQuickBatchPreview();
+  if (!items.length || !quickBatchCreateButton) return;
+  quickBatchCreateButton.disabled = true;
+  quickBatchCreateButton.textContent = "Création...";
+  if (quickBatchStatus) quickBatchStatus.textContent = "Création des brouillons de session...";
+  let created = 0;
+  try {
+    for (const [index, item] of items.entries()) {
+      const slug = String(item.name || "item")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 42);
+      await api("/api/admin/products", {
+        method: "POST",
+        body: JSON.stringify({ ...item, id: `batch-${Date.now()}-${index + 1}-${slug || "item"}` }),
+      });
+      created += 1;
+    }
+    quickBatchInput.value = "";
+    await loadProducts();
+    renderProducts();
+    await renderAdmin();
+    openAdminSessionDrawer();
+    if (quickBatchStatus) quickBatchStatus.textContent = `${created} brouillon${created > 1 ? "s" : ""} créé${created > 1 ? "s" : ""}. Tu peux maintenant valider et publier la session.`;
+  } catch (error) {
+    if (quickBatchStatus) quickBatchStatus.textContent = `Création partielle: ${created} item${created > 1 ? "s" : ""}. ${error.message}`;
+  } finally {
+    quickBatchCreateButton.textContent = "Créer les brouillons";
+    quickBatchCreateButton.disabled = false;
+  }
+}
+
 function renderAdminInventoryRow(item) {
   const profit = lineProfit(item);
+  const newArrivalActive = isNewArrivalFavorite(item);
   return `
     <tr class="admin-inventory-row" data-admin-open-item="${escapeAttribute(item.id)}">
       <td data-label="Item">
         <div class="admin-item">
+          <button
+            class="admin-favorite-button ${newArrivalActive ? "active" : ""}"
+            type="button"
+            data-admin-toggle-new="${escapeAttribute(item.id)}"
+            aria-label="${newArrivalActive ? "Retirer des nouveautés" : "Afficher dans les nouveautés"}"
+            title="${newArrivalActive ? "Retirer de Ce qui vient d’arriver" : "Mettre dans Ce qui vient d’arriver"}"
+          >★</button>
           ${adminProductThumb(item)}
           <div>
             <strong>${escapeAttribute(item.name)}</strong><br />
@@ -3128,6 +3947,7 @@ async function renderAdmin() {
     return;
   }
   showAdminContent();
+  setAdminSection(activeAdminSection);
   const {
     summary,
     inventory: adminInventory,
@@ -3144,15 +3964,13 @@ async function renderAdmin() {
   cardShows = adminCardShows || [];
   reviews = adminReviews || [];
   newArrivalSlides = adminNewArrivalSlides || [];
+  const watchCount = adminInventoryCache.filter((item) => isDormantAdminItem(item) || item.status === "review").length;
   adminMetrics.innerHTML = [
-    ["Ventes", summary.orders],
-    ["Unités vendues", summary.unitsSold],
-    ["Revenu", adminMoney(summary.revenue)],
-    ["Profit", adminMoney(summary.profit)],
-    ["Inventaire payé", adminMoney(summary.inventoryValue)],
-    ["Valeur marché", adminMoney(summary.marketValue)],
+    ["Produits actifs", summary.activeItems || 0],
+    ["Valeur payée", adminMoney(summary.inventoryValue)],
+    ["Valeur affichée", adminMoney(summary.listedValue || summary.marketValue)],
     ["Profit potentiel", adminMoney(summary.potentialProfit)],
-    ["En session", summary.draftItems || 0],
+    ["À surveiller", watchCount],
   ]
     .map(([label, value]) => `<div class="metric-card"><span>${label}</span><strong>${value}</strong></div>`)
     .join("");
@@ -3508,6 +4326,45 @@ async function addAdminItemToSession(id, button) {
     if (adminPriceSync) adminPriceSync.textContent = error.message;
     button.disabled = false;
     button.textContent = originalText || "Ajouter à la session";
+  }
+}
+
+async function toggleAdminNewArrival(id, button) {
+  if (!id || !button) return;
+  const item = adminInventoryCache.find((candidate) => candidate.id === id);
+  if (!item) return;
+  const nextIsActive = !isNewArrivalFavorite(item);
+  button.disabled = true;
+  try {
+    const payload = await api("/api/admin/products", {
+      method: "POST",
+      body: JSON.stringify(
+        productPayloadFromAdminItem(item, {
+          homepageCollection: nextIsActive ? "new" : "",
+          featured: Boolean(item.featured),
+          heroFeatured: Boolean(item.heroFeatured),
+        })
+      ),
+    });
+    const updated = payload.product || { ...item, homepageCollection: nextIsActive ? "new" : "" };
+    adminInventoryCache = adminInventoryCache.map((candidate) => (candidate.id === id ? updated : candidate));
+    inventory = inventory.map((candidate) => (candidate.id === id ? updated : candidate));
+    await loadProducts();
+    renderProducts();
+    await renderAdmin();
+    renderNewArrivalsCarousel();
+    if (adminPriceSync) {
+      adminPriceSync.textContent = nextIsActive
+        ? `${item.name} apparaît maintenant dans Ce qui vient d’arriver.`
+        : `${item.name} a été retiré de Ce qui vient d’arriver.`;
+      adminPriceSync.classList.remove("hidden");
+    }
+  } catch (error) {
+    if (adminPriceSync) {
+      adminPriceSync.textContent = error.message;
+      adminPriceSync.classList.remove("hidden");
+    }
+    button.disabled = false;
   }
 }
 
@@ -4031,6 +4888,8 @@ function editAdminItem(id) {
   setAdminField("badge", item.badge || "");
   setAdminField("featuredRank", item.featuredRank || "");
   setAdminField("homepageCollection", item.homepageCollection || "");
+  const newArrivalFavorite = adminProductForm.querySelector('[name="newArrivalFavorite"]');
+  if (newArrivalFavorite) newArrivalFavorite.checked = isNewArrivalFavorite(item);
   const featured = adminProductForm.querySelector('[name="featured"]');
   if (featured) featured.checked = Boolean(item.featured);
   const heroFeatured = adminProductForm.querySelector('[name="heroFeatured"]');
@@ -4342,6 +5201,7 @@ document.addEventListener("click", (event) => {
   const adminEditButton = event.target.closest("[data-admin-edit]");
   const adminRemoveButton = event.target.closest("[data-admin-remove]");
   const adminAddSessionButton = event.target.closest("[data-admin-add-session]");
+  const adminToggleNewButton = event.target.closest("[data-admin-toggle-new]");
   const adminDeleteButton = event.target.closest("[data-admin-delete]");
   const adminDuplicateButton = event.target.closest("[data-admin-duplicate]");
   const adminViewProductButton = event.target.closest("[data-admin-view-product]");
@@ -4352,6 +5212,7 @@ document.addEventListener("click", (event) => {
   const adminCategoryFilterButton = event.target.closest("[data-admin-category-filter]");
   const adminGameFilterButton = event.target.closest("[data-admin-game-filter]");
   const adminCommandButton = event.target.closest("[data-admin-command]");
+  const adminViewButton = event.target.closest("[data-admin-view]");
   const editShowButton = event.target.closest("[data-edit-show]");
   const deleteShowButton = event.target.closest("[data-delete-show]");
   const editReviewButton = event.target.closest("[data-edit-review]");
@@ -4396,6 +5257,10 @@ document.addEventListener("click", (event) => {
   if (adminClosePanelButton) {
     event.preventDefault();
     closeAdminPanels();
+  }
+  if (adminViewButton) {
+    event.preventDefault();
+    openAdminSection(adminViewButton.dataset.adminView);
   }
   if (adminStatusFilterButton) {
     event.preventDefault();
@@ -4557,6 +5422,12 @@ document.addEventListener("click", (event) => {
   if (adminPriceAdjustButton) openAdminPriceModal(adminPriceAdjustButton.dataset.adminPriceAdjust);
   if (adminRemoveButton) removeAdminItem(adminRemoveButton.dataset.adminRemove, adminRemoveButton);
   if (adminAddSessionButton) addAdminItemToSession(adminAddSessionButton.dataset.adminAddSession, adminAddSessionButton);
+  if (adminToggleNewButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleAdminNewArrival(adminToggleNewButton.dataset.adminToggleNew, adminToggleNewButton);
+    return;
+  }
   if (adminDeleteButton) deleteAdminItem(adminDeleteButton.dataset.adminDelete, adminDeleteButton);
   if (adminDuplicateButton) duplicateAdminItem(adminDuplicateButton.dataset.adminDuplicate);
   if (adminViewProductButton) viewAdminProduct(adminViewProductButton.dataset.adminViewProduct);
@@ -4620,10 +5491,12 @@ document.addEventListener("click", (event) => {
   if (openCartButton) {
     document.body.classList.add("cart-open");
     document.querySelector(".cart-drawer")?.setAttribute("aria-hidden", "false");
+    trackShopEvent("view_cart", { cart_quantity: cartQuantity(), value: roundMoney(cartTotal()) });
   }
   if (checkoutLink) {
     event.preventDefault();
     closeDrawers();
+    trackShopEvent("begin_checkout", { cart_quantity: cartQuantity(), value: roundMoney(cartTaxes().total) });
     showTransitionLoader(currentLang === "en" ? "Checkout" : "Finaliser");
     setTimeout(() => {
       history.pushState({}, "", "/checkout");
@@ -4652,6 +5525,19 @@ sortSelect.addEventListener("change", (event) => {
 
 setFilterSelect?.addEventListener("change", (event) => {
   state.setFilter = event.target.value || "all";
+  renderProducts();
+});
+
+conditionFilterSelect?.addEventListener("change", (event) => {
+  state.conditionFilter = event.target.value || "all";
+  renderProducts();
+});
+
+availabilityFilterSelect?.addEventListener("change", (event) => {
+  state.availabilityFilter = event.target.value || "available";
+  if (state.availabilityFilter === "sale") state.category = "sale";
+  if (state.availabilityFilter === "new") state.category = "new";
+  if (state.availabilityFilter === "available" && ["sale", "new"].includes(state.category)) state.category = "all";
   renderProducts();
 });
 
@@ -4718,6 +5604,8 @@ adminPriceForm?.addEventListener("submit", async (event) => {
 document.querySelectorAll(".newsletter").forEach((form) => {
   form.addEventListener("submit", (event) => {
     event.preventDefault();
+    const email = new FormData(event.currentTarget).get("email") || "";
+    trackShopEvent("newsletter_signup", { source: "preorder_mystery_box", has_email: Boolean(String(email).trim()) });
     event.currentTarget.reset();
   });
 });
@@ -4737,6 +5625,7 @@ document.addEventListener("submit", async (event) => {
     photos: await filesToDataUrls(form.getAll("collectionPhotos"), 12),
   };
   if (submitButton) submitButton.disabled = true;
+  event.target.classList.add("is-uploading");
   if (status) status.textContent = currentLang === "en" ? "Sending request..." : "Envoi de la demande...";
   try {
     const payload = await api("/api/sell-request", { method: "POST", body: JSON.stringify(body) });
@@ -4746,10 +5635,16 @@ document.addEventListener("submit", async (event) => {
           ? payload.message || "Request sent. We will review it and reply by email."
           : payload.message || "Demande envoyée. Nous allons l’évaluer et répondre par courriel.";
     }
+    trackShopEvent("buylist_request_sent", {
+      photo_count: form.getAll("collectionPhotos").filter((file) => file && file.size).length,
+      has_asking_price: Boolean(form.get("askingPrice")),
+    });
     event.target.reset();
+    event.target.querySelectorAll("[data-coffee-upload] input").forEach(syncCoffeeUpload);
   } catch (error) {
     if (status) status.textContent = error.message;
   } finally {
+    event.target.classList.remove("is-uploading");
     if (signupForm) setTimeout(hideTransitionLoader, 220);
     if (submitButton) submitButton.disabled = false;
   }
@@ -4872,6 +5767,7 @@ checkoutForm?.addEventListener("submit", async (event) => {
     checkoutStatus.textContent = currentLang === "en" ? "Preparing Square payment..." : "Préparation du paiement Square...";
   }
   try {
+    trackShopEvent("payment_started", { method: "square", cart_quantity: cartQuantity(), value: roundMoney(cartTaxes().total) });
     const payload = await api("/api/order", { method: "POST", body: JSON.stringify(body) });
     currentUser = payload.user || currentUser;
     cart = [];
@@ -4936,6 +5832,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 adminOpenAddButton?.addEventListener("click", openAdminAddDrawer);
+adminOpenCardShowButton?.addEventListener("click", focusCardShowForm);
 adminOpenSessionButton?.addEventListener("click", openAdminSessionDrawer);
 adminCommandPaletteButton?.addEventListener("click", openAdminCommandPalette);
 adminSavePublishButton?.addEventListener("click", () => {
@@ -4981,6 +5878,11 @@ recalculateMerchandisingButton?.addEventListener("click", () => {
 resetMerchandisingButton?.addEventListener("click", () => resetMerchandisingSuggestions(resetMerchandisingButton));
 adminProductForm?.querySelector('select[name="gradingCompany"]')?.addEventListener("change", applySlabMode);
 publishDraftProductsButton?.addEventListener("click", publishDraftProducts);
+quickBatchPreviewButton?.addEventListener("click", renderQuickBatchPreview);
+quickBatchCreateButton?.addEventListener("click", createQuickBatchDrafts);
+quickBatchInput?.addEventListener("input", () => {
+  if (quickBatchStatus) quickBatchStatus.textContent = "";
+});
 toggleSoldCardsButton?.addEventListener("click", () => {
   const isHidden = soldCardsWrap?.classList.toggle("hidden");
   toggleSoldCardsButton.textContent = isHidden ? "Afficher les ventes" : "Masquer les ventes";
@@ -5012,7 +5914,7 @@ adminLoginForm?.addEventListener("submit", async (event) => {
   }
 });
 
-adminLogoutButton?.addEventListener("click", async () => {
+async function logoutAdmin() {
   try {
     await api("/api/admin/logout", { method: "POST", body: "{}" });
   } catch {
@@ -5022,7 +5924,10 @@ adminLogoutButton?.addEventListener("click", async () => {
   showAdminLogin("");
   history.pushState({}, "", "/");
   applyRoute();
-});
+}
+
+adminLogoutButton?.addEventListener("click", logoutAdmin);
+adminSidebarLogoutButton?.addEventListener("click", logoutAdmin);
 
 adminCardShowForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -5149,7 +6054,7 @@ adminProductForm?.addEventListener("submit", async (event) => {
     featured: Boolean(form.get("featured")),
     heroFeatured: Boolean(form.get("heroFeatured")),
     featuredRank: form.get("featuredRank"),
-    homepageCollection: form.get("homepageCollection"),
+    homepageCollection: form.get("newArrivalFavorite") ? "new" : form.get("homepageCollection"),
     badge: form.get("badge"),
     features: form.getAll("features").slice(0, 2),
     imageUrl: form.get("imageUrl"),

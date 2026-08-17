@@ -5680,11 +5680,12 @@ async function handleApi(req, res) {
     await writeDb(db);
     return json(res, 201, {
       ok: true,
+      requestId: message.id,
       emailStatus: message.status,
       message:
         message.status === "sent"
-          ? "Demande envoyée. Nous allons l’évaluer et répondre par courriel."
-          : "Demande préparée. Vérifie la configuration Resend si l’envoi n’est pas complété.",
+          ? `Demande ${message.id} reçue. Nous allons l’évaluer et répondre par courriel.`
+          : `Demande ${message.id} préparée. Vérifie la configuration Resend si l’envoi n’est pas complété.`,
     });
   }
 
@@ -5834,8 +5835,114 @@ function clearJarvisCookieHeader() {
   };
 }
 
+function siteUrl(pathname = "/") {
+  return `https://coffeebreaktcg.com${pathname.startsWith("/") ? pathname : `/${pathname}`}`;
+}
+
+function xmlEscape(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function publicProductPath(product) {
+  return `/produit/${encodeURIComponent(product.id)}`;
+}
+
+function isIndexableProduct(product) {
+  const testPattern = /(^codex-test-|test\s)/i;
+  return (
+    product &&
+    !testPattern.test(String(product.id || "")) &&
+    !testPattern.test(String(product.name || "")) &&
+    !["draft", "admin_draft", "removed"].includes(product.status) &&
+    Number(product.price || 0) > 0
+  );
+}
+
+function productAvailability(product) {
+  const stock = Number(product.stock || 0);
+  const reservedQuantity = Number(product.reservedQuantity || 0);
+  if (product.category === "Preorder") return "preorder";
+  if (stock <= 0 || product.status === "reserved" || reservedQuantity > 0) return "out_of_stock";
+  return "in_stock";
+}
+
+function sitemapXml(db) {
+  const staticPaths = ["/", "/singles", "/slabs", "/sealed", "/one-piece", "/vendre", "/faq", "/livraison", "/apropos"];
+  const productPaths = (db.inventory || []).filter(isIndexableProduct).map(publicProductPath);
+  const urls = [...staticPaths, ...productPaths];
+  const body = urls
+    .map((pathname) => {
+      const product = (db.inventory || []).find((item) => publicProductPath(item) === pathname);
+      const lastmod = product?.updatedAt || product?.createdAt || new Date().toISOString();
+      return `
+  <url>
+    <loc>${xmlEscape(siteUrl(pathname))}</loc>
+    <lastmod>${xmlEscape(new Date(lastmod).toISOString().slice(0, 10))}</lastmod>
+    <changefreq>${product ? "weekly" : "daily"}</changefreq>
+    <priority>${product ? "0.7" : pathname === "/" ? "1.0" : "0.8"}</priority>
+  </url>`;
+    })
+    .join("");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${body}
+</urlset>`;
+}
+
+function merchantFeed(db) {
+  return {
+    generatedAt: new Date().toISOString(),
+    currency: "CAD",
+    products: (db.inventory || [])
+      .filter(isIndexableProduct)
+      .map(publicProduct)
+      .map((product) => ({
+        id: product.id,
+        title: product.name,
+        description: [product.name, product.setName, product.cardNumber ? `#${product.cardNumber}` : "", product.condition].filter(Boolean).join(" - "),
+        link: siteUrl(`/produit/${product.id}`),
+        image_link: product.imageUrl ? siteUrl(product.imageUrl) : "",
+        price: `${Number(product.price || 0).toFixed(2)} CAD`,
+        availability: productAvailability(product),
+        condition: product.category === "Sealed" || product.category === "Preorder" ? "new" : "used",
+        product_type: [product.game, product.category].filter(Boolean).join(" > "),
+        brand: product.game === "One Piece" ? "One Piece Card Game" : "Pokémon",
+      })),
+  };
+}
+
 async function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  if (url.pathname === "/robots.txt") {
+    res.writeHead(200, { ...securityHeaders, "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" });
+    return res.end(
+      [
+        "User-agent: *",
+        "Allow: /",
+        "Disallow: /admin",
+        "Disallow: /jarvis",
+        "Disallow: /checkout",
+        "Disallow: /compte",
+        "Disallow: /creer-compte",
+        "Sitemap: https://coffeebreaktcg.com/sitemap.xml",
+        "",
+      ].join("\n")
+    );
+  }
+  if (url.pathname === "/sitemap.xml") {
+    const db = await readDb();
+    res.writeHead(200, { ...securityHeaders, "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" });
+    return res.end(sitemapXml(db));
+  }
+  if (url.pathname === "/merchant-feed.json") {
+    const db = await readDb();
+    res.writeHead(200, { ...securityHeaders, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=900" });
+    return res.end(JSON.stringify(merchantFeed(db), null, 2));
+  }
   const appRoutes = new Set([
     "/singles",
     "/slabs",
@@ -5846,6 +5953,7 @@ async function serveStatic(req, res) {
     "/one-piece/slabs",
     "/one-piece/box",
     "/accessoires",
+    "/admin",
     "/checkout",
     "/compte",
     "/creer-compte",

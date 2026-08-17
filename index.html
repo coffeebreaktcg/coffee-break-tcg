@@ -8,6 +8,7 @@
       name="description"
       content="Powered by coffee and cardboard. Premium Pokémon singles, slabs and sealed product from 2 guys, shipped across Canada."
     />
+    <meta name="robots" content="index,follow" />
     <link rel="canonical" href="https://coffeebreaktcg.com/" />
     <meta property="og:title" content="Coffee Break TCG | Pokémon TCG" />
     <meta
@@ -22,16 +23,17 @@
       name="twitter:description"
       content="Powered by coffee and cardboard. Premium Pokémon singles, slabs and sealed product from 2 guys, shipped across Canada."
     />
+    <script type="application/ld+json" id="structuredData"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Chewy&family=Inter:wght@500;600;700;800;900&family=Rubik+One&family=Space+Grotesk:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=cardshows-next-stop-20260812" />
+    <link rel="stylesheet" href="/styles.css?v=final-polish-v1-20260814" />
     <script>
       if (window.location.protocol === "file:") {
-        window.location.href = "http://localhost:4173/?fresh=cardshows-next-stop-20260812";
+        window.location.href = "http://localhost:4173/?fresh=final-polish-v1-20260814";
       }
     </script>
   </head>
@@ -146,6 +148,25 @@
         </div>
       </section>
 
+      <section class="proof-strip reveal-section" aria-label="Preuves de confiance">
+        <article>
+          <strong>Paiement sécurisé</strong>
+          <span>Checkout Square, cartes réservées pendant le paiement.</span>
+        </article>
+        <article>
+          <strong>Expédition suivie</strong>
+          <span>Livraison au Canada depuis Laval, Québec.</span>
+        </article>
+        <article>
+          <strong>Cartes inspectées</strong>
+          <span>Condition vérifiée avant la mise en ligne.</span>
+        </article>
+        <article>
+          <strong>Emballage protecteur</strong>
+          <span>Sleeve, team bag, rigidité et rembourrage selon l’item.</span>
+        </article>
+      </section>
+
       <section class="home-product-section home-new-arrivals" id="new-arrivals">
         <div class="home-section-heading">
           <div>
@@ -158,12 +179,23 @@
         <div class="home-product-grid compact" id="newArrivalsGrid"></div>
       </section>
 
+      <section class="mission-band reveal-section" aria-label="Mission Coffee Break TCG">
+        <div>
+          <p class="eyebrow">Notre vision</p>
+          <h2>Cartes aujourd’hui, coffee shop demain.</h2>
+        </div>
+        <p>
+          CoffeeBreakTCG part d’une idée simple : bâtir une boutique où les collectionneurs se sentent bien conseillés, bien servis et bien protégés. Pour l’instant, on expédie partout au Canada depuis le Québec. À long terme, on veut créer un vrai lieu de rencontre autour du café, des cartes et de la communauté.
+        </p>
+      </section>
+
       <section class="inventory-shell" id="shop">
         <div class="category-page-heading">
           <p class="eyebrow" id="categoryEyebrow">Boutique</p>
           <h1 id="categoryTitle">Produits disponibles</h1>
           <p id="categoryIntro">Parcours la catégorie complète avec recherche, tri et filtre par extension.</p>
         </div>
+        <div class="category-seo-panel" id="categorySeoPanel"></div>
 
         <div class="category-tabs" role="tablist" aria-label="Categories">
           <button class="tab active" type="button" data-category="all" data-i18n="all">Tout</button>
@@ -200,6 +232,26 @@
             <span class="sr-only">Filtrer par extension</span>
             <select id="setFilterSelect" aria-label="Filtrer par extension">
               <option value="all">Toutes les extensions</option>
+            </select>
+          </label>
+          <label class="search-field sort-field">
+            <span class="sr-only">Filtrer par état</span>
+            <select id="conditionFilterSelect" aria-label="Filtrer par état">
+              <option value="all">Tous les états</option>
+              <option value="NM">NM</option>
+              <option value="LP">LP</option>
+              <option value="MP">MP</option>
+              <option value="Damaged">Damaged</option>
+              <option value="sealed">Scellé</option>
+            </select>
+          </label>
+          <label class="search-field sort-field">
+            <span class="sr-only">Filtrer par disponibilité</span>
+            <select id="availabilityFilterSelect" aria-label="Filtrer par disponibilité">
+              <option value="available">Disponible</option>
+              <option value="all">Tout afficher</option>
+              <option value="sale">Rabais</option>
+              <option value="new">Nouveautés</option>
             </select>
           </label>
         </div>
@@ -322,29 +374,50 @@
         </form>
       </div>
 
-      <div class="admin-content hidden" id="adminContent">
+      <div class="admin-content hidden clean-admin" id="adminContent" data-admin-section="inventory">
+        <aside class="admin-sidebar" aria-label="Navigation admin CoffeeBreak">
+          <div class="admin-sidebar-brand">
+            <img src="/assets/coffee-break-cbtcg-logo-web-20260812.jpg" alt="" />
+            <div>
+              <strong>Admin</strong>
+              <span>CoffeeBreakTCG</span>
+            </div>
+          </div>
+          <nav class="admin-sidebar-nav" aria-label="Sections admin">
+            <button class="active" type="button" data-admin-view="inventory">Inventaire</button>
+            <button type="button" data-admin-view="modifiers">Modificateurs</button>
+            <button type="button" data-admin-view="sales">Ventes</button>
+            <button type="button" data-admin-view="shows">Card Shows</button>
+          </nav>
+          <div class="admin-sidebar-footer">
+            <a href="/">Voir la boutique</a>
+            <button type="button" id="adminSidebarLogoutButton">Déconnexion</button>
+          </div>
+        </aside>
+
+        <div class="admin-workspace">
         <header class="admin-command-header">
           <div class="admin-title-block">
             <p class="eyebrow">Back-office</p>
-            <h1>Inventaire</h1>
+            <h1 id="adminPageTitle">Inventaire</h1>
           </div>
           <label class="admin-command-search">
             <span class="sr-only">Rechercher dans l’inventaire</span>
-            <input id="adminInventorySearch" type="search" placeholder="Rechercher une carte, extension, numéro..." autocomplete="off" />
+            <input id="adminInventorySearch" type="search" placeholder="Rechercher une carte, extension, numéro, SKU..." autocomplete="off" />
           </label>
           <div class="admin-command-actions">
-            <button class="button primary" type="button" id="adminOpenAddButton">+ Ajouter une carte</button>
+            <button class="button primary" type="button" id="adminOpenAddButton">+ Ajouter un item</button>
+            <button class="button primary hidden" type="button" id="adminOpenCardShowButton">+ Ajouter un événement</button>
             <button class="button secondary" type="button" id="adminOpenSessionButton">Session <span id="draftInventoryCount">0</span></button>
-            <button class="button secondary icon-only" type="button" id="adminCommandPaletteButton" aria-label="Ouvrir la commande rapide">⌘K</button>
-            <button class="button secondary" type="button" id="adminLogoutButton">Déconnexion</button>
-            <a class="button secondary" href="/">Boutique</a>
+            <button class="button secondary admin-header-shop-link" type="button" id="adminCommandPaletteButton">⌘K</button>
           </div>
         </header>
 
         <div class="admin-metrics" id="adminMetrics"></div>
         <p class="admin-price-sync hidden" id="adminPriceSync"></p>
 
-        <details class="admin-card admin-accordion merchandising-admin" open>
+        <section class="admin-view-panel" data-admin-panel="modifiers" aria-label="Modificateurs">
+        <details class="admin-card admin-accordion merchandising-admin">
           <summary>Merchandising</summary>
           <p class="accordion-help">
             Suggestions automatiques basées sur les vrais produits. Rien n’est forcé sans validation: accepte, verrouille ou exclue les recommandations avant qu’elles deviennent des choix publics.
@@ -356,7 +429,9 @@
           </div>
           <div class="merchandising-sections" id="merchandisingSections"></div>
         </details>
+        </section>
 
+        <section class="admin-view-panel active" data-admin-panel="inventory" aria-label="Inventaire">
         <section class="admin-card admin-inventory-section">
           <div class="admin-inventory-head">
             <div>
@@ -369,15 +444,10 @@
             <button class="active" type="button" data-admin-status-filter="all">Tous</button>
             <button type="button" data-admin-status-filter="available">En ligne</button>
             <button type="button" data-admin-status-filter="draft">En session</button>
-            <button type="button" data-admin-status-filter="admin_draft">Brouillons</button>
-            <button type="button" data-admin-status-filter="sold">Vendus</button>
-            <button type="button" data-admin-status-filter="removed">Retirés</button>
             <button type="button" data-admin-category-filter="Singles">Singles</button>
             <button type="button" data-admin-category-filter="Graded">Slabs</button>
             <button type="button" data-admin-category-filter="Sealed">Sealed</button>
             <button type="button" data-admin-game-filter="One Piece">One Piece</button>
-            <button type="button" data-admin-status-filter="review">À vérifier</button>
-            <button type="button" data-admin-status-filter="dormant">Dormant</button>
           </div>
           <div class="admin-inventory-tools">
             <label>Catégorie
@@ -440,6 +510,7 @@
               <tbody id="adminInventoryRows"></tbody>
             </table>
           </div>
+        </section>
         </section>
 
         <aside class="admin-drawer admin-product-drawer" id="adminProductDrawer" aria-hidden="true" aria-label="Ajouter ou modifier un item">
@@ -597,40 +668,13 @@
                 <label><input type="checkbox" name="features" value="Miscut" data-feature-checkbox /> Miscut</label>
               </fieldset>
               <fieldset class="admin-marketing-options">
-                <legend>Boutique</legend>
-                <label class="save-check">
-                  <input type="checkbox" name="featured" />
-                  Mettre en vedette
-                </label>
-                <label class="save-check">
-                  <input type="checkbox" name="heroFeatured" />
-                  Carte héro de la vitrine
-                </label>
-                <label>
-                  Rang vitrine
-                  <input name="featuredRank" type="number" min="0" step="1" placeholder="1" />
-                </label>
-                <label>
-                  Collection homepage
-                  <select name="homepageCollection">
-                    <option value="">Aucune</option>
-                    <option value="vitrine">Vitrine CoffeeBreak</option>
-                    <option value="new">Nouveautés</option>
-                    <option value="one-piece">One Piece</option>
-                  </select>
-                </label>
-                <label>
-                  Badge
-                  <select name="badge">
-                    <option value="">Aucun badge</option>
-                    <option value="Nouveau">Nouveau</option>
-                    <option value="Deal">Deal</option>
-                    <option value="Dernier exemplaire">Dernier exemplaire</option>
-                    <option value="Hit populaire">Hit populaire</option>
-                    <option value="Sous marché">Sous marché</option>
-                    <option value="Prix ajusté">Prix ajusté</option>
-                    <option value="Promo">Promo</option>
-                  </select>
+                <legend>Ce qui vient d’arriver</legend>
+                <input type="hidden" name="homepageCollection" value="" />
+                <input type="hidden" name="featuredRank" value="" />
+                <input type="hidden" name="badge" value="" />
+                <label class="save-check admin-new-arrival-check">
+                  <input type="checkbox" name="newArrivalFavorite" />
+                  ★ Afficher dans les nouveautés de la boutique
                 </label>
               </fieldset>
             </details>
@@ -657,6 +701,34 @@
             </div>
             <button class="button secondary" type="button" data-admin-close-panel>Fermer</button>
           </div>
+          <section class="quick-batch-panel">
+            <div>
+              <p class="eyebrow">Mode batch express</p>
+              <h3>Colle une pile, on prépare les brouillons.</h3>
+              <p>
+                Une ligne par item. Exemple:
+                <strong>Pikachu ex 219/191 NM 12 45</strong>
+                ou <strong>PSA 10 Gengar 48 Expedition 220 299</strong>.
+              </p>
+            </div>
+            <label class="quick-batch-textarea">
+              <span>Items à préparer</span>
+              <textarea id="quickBatchInput" rows="6" placeholder="Pikachu ex 219/191 NM 12 45&#10;PSA 10 Gengar 48 Expedition 220 299&#10;Crown Zenith ETB sealed 40 69.99"></textarea>
+            </label>
+            <div class="quick-batch-controls">
+              <label>
+                Univers
+                <select id="quickBatchGame">
+                  <option value="Pokemon">Pokémon</option>
+                  <option value="One Piece">One Piece</option>
+                </select>
+              </label>
+              <button class="button secondary" type="button" id="quickBatchPreviewButton">Prévisualiser</button>
+              <button class="button primary" type="button" id="quickBatchCreateButton">Créer les brouillons</button>
+            </div>
+            <div class="quick-batch-preview hidden" id="quickBatchPreview"></div>
+            <p class="admin-status" id="quickBatchStatus" role="status"></p>
+          </section>
           <div class="admin-session-list" id="adminSessionList"></div>
           <div class="admin-session-footer">
             <p id="adminSessionValue">Valeur approximative: 0 $</p>
@@ -760,7 +832,8 @@
           </div>
         </div>
 
-      <details class="admin-card admin-accordion">
+      <section class="admin-view-panel" data-admin-panel="sales" aria-label="Ventes">
+      <details class="admin-card admin-accordion" open>
         <summary>Cartes vendues</summary>
         <div class="admin-table-wrap sold-cards-wrap" id="soldCardsWrap">
           <table class="admin-table">
@@ -808,7 +881,9 @@
         </div>
         <p class="admin-status" id="reportStatus" role="status"></p>
         </details>
+        </section>
 
+        <section class="admin-view-panel" data-admin-panel="modifiers" aria-label="Modificateurs avancés">
         <details class="admin-card admin-accordion">
           <summary>Carrousel nouveautés</summary>
           <p class="accordion-help">Importe des images de drops, annonces ou nouveautés. Elles bougent automatiquement en haut de la section Nouveautés.</p>
@@ -896,8 +971,10 @@
           </table>
         </div>
       </details>
+      </section>
 
-      <details class="admin-card admin-accordion card-show-admin">
+      <section class="admin-view-panel" data-admin-panel="shows" aria-label="Card Shows">
+      <details class="admin-card admin-accordion card-show-admin" open>
         <summary>Prochains card shows</summary>
         <form class="admin-show-form" id="adminCardShowForm">
           <input type="hidden" name="id" />
@@ -945,6 +1022,8 @@
           </table>
         </div>
       </details>
+      </section>
+      </div>
       </div>
     </section>
 
@@ -963,13 +1042,14 @@
         <a href="/apropos" data-content-route="apropos" data-i18n="navAbout">À propos</a>
         <a href="mailto:coffeebreaktcg@gmail.com">Contact</a>
       </nav>
-      <form class="newsletter">
-        <label for="newsletterEmail" data-i18n="stayTuned">Les drops qui valent la peine, avant tout le monde.</label>
+      <div class="footer-contact">
+        <strong data-i18n="stayTuned">Les drops qui valent la peine, avant tout le monde.</strong>
+        <p>Réseaux sociaux et contact direct pour les drops, card shows et collections.</p>
         <div>
-          <input id="newsletterEmail" type="email" placeholder="Votre courriel" data-i18n-placeholder="emailPlaceholder" />
-          <button type="submit" aria-label="S'inscrire">-&gt;</button>
+          <a href="https://www.instagram.com/coffeebreaktcg" target="_blank" rel="noopener">Instagram</a>
+          <a href="mailto:coffeebreaktcg@gmail.com">coffeebreaktcg@gmail.com</a>
         </div>
-      </form>
+      </div>
     </footer>
 
     <div class="drawer-backdrop" data-close-drawers></div>
@@ -1096,6 +1176,6 @@
       </nav>
     </aside>
 
-    <script src="/app.js?v=cardshows-next-stop-20260812"></script>
+    <script src="/app.js?v=final-polish-v1-20260814"></script>
   </body>
 </html>
