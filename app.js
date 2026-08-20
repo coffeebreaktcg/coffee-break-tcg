@@ -29,6 +29,7 @@ const checkoutStatus = document.querySelector("#checkoutStatus");
 const searchInput = document.querySelector("#searchInput");
 const searchOverlay = document.querySelector("#searchOverlay");
 const searchOverlayInput = document.querySelector("#searchOverlayInput");
+const inventoryTools = document.querySelector("#inventoryTools");
 const sortSelect = document.querySelector("#sortSelect");
 const setFilterSelect = document.querySelector("#setFilterSelect");
 const categoryTitle = document.querySelector("#categoryTitle");
@@ -5388,6 +5389,19 @@ function closeSearchOverlay({ scroll = false } = {}) {
   if (scroll) scrollToShopItems("smooth");
 }
 
+function openMobileFilters() {
+  if (!inventoryTools) return;
+  document.body.classList.add("filters-open");
+  inventoryTools.setAttribute("aria-modal", "true");
+  requestAnimationFrame(() => searchInput?.focus({ preventScroll: true }));
+}
+
+function closeMobileFilters({ scroll = false } = {}) {
+  document.body.classList.remove("filters-open");
+  inventoryTools?.removeAttribute("aria-modal");
+  if (scroll) scrollToShopItems("smooth");
+}
+
 function openMenu() {
   document.body.classList.add("menu-open");
   const drawer = document.querySelector(".menu-drawer");
@@ -5483,7 +5497,17 @@ document.addEventListener("click", (event) => {
   const passwordToggle = event.target.closest("[data-toggle-password]");
   const editProfileButton = event.target.closest("[data-edit-profile]");
   const resetFiltersButton = event.target.closest("[data-reset-filters]");
+  const openFiltersButton = event.target.closest("[data-open-filters]");
+  const closeFiltersButton = event.target.closest("[data-close-filters]");
 
+  if (openFiltersButton) {
+    event.preventDefault();
+    openMobileFilters();
+  }
+  if (closeFiltersButton) {
+    event.preventDefault();
+    closeMobileFilters({ scroll: Boolean(event.target.closest(".mobile-filter-apply")) });
+  }
   if (resetFiltersButton) {
     event.preventDefault();
     resetShopFiltersForRoute();
@@ -5810,16 +5834,19 @@ document.querySelector("[data-search-submit]")?.addEventListener("click", () => 
 sortSelect.addEventListener("change", (event) => {
   state.sort = event.target.value;
   renderProducts();
+  if (mobileShopQuery.matches) closeMobileFilters({ scroll: true });
 });
 
 setFilterSelect?.addEventListener("change", (event) => {
   state.setFilter = event.target.value || "all";
   renderProducts();
+  if (mobileShopQuery.matches) closeMobileFilters({ scroll: true });
 });
 
 conditionFilterSelect?.addEventListener("change", (event) => {
   state.conditionFilter = event.target.value || "all";
   renderProducts();
+  if (mobileShopQuery.matches) closeMobileFilters({ scroll: true });
 });
 
 availabilityFilterSelect?.addEventListener("change", (event) => {
@@ -5828,6 +5855,7 @@ availabilityFilterSelect?.addEventListener("change", (event) => {
   if (state.availabilityFilter === "new") state.category = "new";
   if (state.availabilityFilter === "available" && ["sale", "new"].includes(state.category)) state.category = "all";
   renderProducts();
+  if (mobileShopQuery.matches) closeMobileFilters({ scroll: true });
 });
 
 document.querySelectorAll("[data-feature-checkbox]").forEach((input) => {
@@ -6085,6 +6113,10 @@ document.addEventListener("keydown", (event) => {
   const isAdminVisible = adminPage && !adminPage.classList.contains("hidden") && adminContent && !adminContent.classList.contains("hidden");
 
   if (event.key === "Escape") {
+    if (document.body.classList.contains("filters-open")) {
+      closeMobileFilters();
+      return;
+    }
     if (searchOverlay?.getAttribute("aria-hidden") === "false") {
       closeSearchOverlay();
       return;

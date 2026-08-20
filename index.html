@@ -216,7 +216,15 @@
           <button class="tab" type="button" data-game-category="One Piece">One Piece</button>
         </div>
 
-        <div class="inventory-tools">
+        <button class="mobile-filter-toggle" type="button" data-open-filters aria-controls="inventoryTools">
+          Filtres, tri et recherche
+        </button>
+        <div class="mobile-filter-backdrop" data-close-filters aria-hidden="true"></div>
+        <div class="inventory-tools" id="inventoryTools" aria-label="Filtres boutique">
+          <div class="mobile-filter-head">
+            <strong>Affiner la vitrine</strong>
+            <button type="button" data-close-filters aria-label="Fermer les filtres">Fermer</button>
+          </div>
           <label class="search-field">
             <span class="sr-only" data-i18n="searchCard">Rechercher une carte</span>
             <input id="searchInput" type="search" placeholder="Rechercher" autocomplete="off" data-i18n-placeholder="search" />
@@ -263,6 +271,9 @@
               <option value="new">Nouveautés</option>
             </select>
           </label>
+          <button class="button primary mobile-filter-apply" type="button" data-close-filters>
+            Voir les produits
+          </button>
         </div>
 
         <div class="product-grid" id="productGrid" aria-live="polite"></div>

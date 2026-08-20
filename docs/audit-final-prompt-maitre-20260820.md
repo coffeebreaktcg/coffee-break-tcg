@@ -18,6 +18,7 @@ Ce qui empêche de dire “100% terminé et testé”: les tests Safari iOS / An
 - Recherche admin: distinction backend entre `EX` et `ex`.
 - Recherche admin: previews d’images en version légère avec `loading="lazy"` et `decoding="async"`.
 - Recherche admin: métadonnées visibles sur les candidats: année, langue, note provider.
+- Filtres mobile transformés en vrai bottom sheet: bouton `Filtres, tri et recherche`, backdrop, fermeture, `Escape`, et application après sélection.
 
 ## Matrice d’audit
 
@@ -39,7 +40,7 @@ Ce qui empêche de dire “100% terminé et testé”: les tests Safari iOS / An
 | Recherche globale | ✅ TERMINÉ | Overlay présent, `Escape` corrigé. |
 | Recherche vide avec action | ✅ TERMINÉ | Bouton `Réinitialiser les filtres` ajouté. |
 | Filtres publics | ✅ TERMINÉ | Recherche, tri, extension, condition, disponibilité. |
-| Bottom sheet filtres mobile | 🟡 PARTIEL | Filtres mobiles existent surtout via contrôles responsive; pas validé comme bottom sheet dédié. |
+| Bottom sheet filtres mobile | ✅ TERMINÉ | Bouton mobile, backdrop, panneau fixe en bas d’écran, fermeture et `Escape` ajoutés. |
 | Largeurs 320/360/375/390/393/414/430/768 | 🟡 PARTIEL | CSS contient garde-fous responsive et overflow; test visuel natif non exécuté. |
 | Pas d’overflow horizontal | 🟡 PARTIEL | `overflow-x: hidden/clip` présent; non confirmé visuellement sur chaque device. |
 | Fiche produit mobile | 🟡 PARTIEL | Galerie, CTA, produits similaires en place; non validé sur devices natifs. |
@@ -105,7 +106,7 @@ Ce qui empêche de dire “100% terminé et testé”: les tests Safari iOS / An
 ## Réponses finales obligatoires
 
 - Prompt maître terminé: **NON, partiel solide**.
-- Mobile testé: **PARTIEL**.
+- Mobile testé: **PARTIEL** — code responsive renforcé, mais pas Safari iOS / Android natif.
 - Japonais: **PARTIEL / BLOQUÉ PROVIDER**.
 - Chinois: **PARTIEL / BLOQUÉ PROVIDER**.
 - EX/ex: **OUI**.
@@ -115,4 +116,3 @@ Ce qui empêche de dire “100% terminé et testé”: les tests Safari iOS / An
 - Square non-régression: **PARTIEL**.
 - Desktop non-régression: **PARTIEL**.
 - Codex bleu intact: **OUI**.
-
