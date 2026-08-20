@@ -48,11 +48,11 @@
         <img class="brand-logo-img" src="/assets/coffee-break-cbtcg-logo-web-20260812.jpg" alt="Coffee Break TCG" />
       </a>
       <nav class="main-nav" aria-label="Navigation principale">
-        <a href="/#new-arrivals" data-home-section="new-arrivals">Nouveautés</a>
-        <a href="/singles" data-route-category="Singles">Singles</a>
-        <a href="/slabs" data-route-category="Graded">Slabs</a>
-        <a href="/sealed" data-route-category="Sealed">Sealed</a>
-        <a href="/vendre" data-content-route="vendre">On achète aussi</a>
+        <a href="/#new-arrivals" data-home-section="new-arrivals">Vitrine</a>
+        <a href="/#cardshows" data-show-anchor>Événements</a>
+        <a href="/#mission" data-home-section="mission">Notre histoire</a>
+        <a href="mailto:coffeebreaktcg@gmail.com">Contact</a>
+        <a href="/vendre" data-content-route="vendre">Vendre une collection</a>
       </nav>
       <div class="header-actions">
         <a class="icon-button" href="/compte" data-account-link aria-label="Compte client" data-i18n-aria="account">
@@ -179,7 +179,7 @@
         <div class="home-product-grid compact" id="newArrivalsGrid"></div>
       </section>
 
-      <section class="mission-band reveal-section" aria-label="Mission Coffee Break TCG">
+      <section class="mission-band reveal-section" id="mission" aria-label="Mission Coffee Break TCG">
         <div>
           <p class="eyebrow">Notre vision</p>
           <h2>Cartes aujourd’hui, coffee shop demain.</h2>
@@ -514,15 +514,13 @@
         </section>
 
         <aside class="admin-drawer admin-product-drawer" id="adminProductDrawer" aria-hidden="true" aria-label="Ajouter ou modifier un item">
-          <div class="admin-drawer-head">
+          <div class="admin-drawer-head admin-editor-head">
             <div>
               <p class="eyebrow" id="adminProductDrawerMode">Ajout rapide</p>
-              <h2 id="adminProductDrawerTitle">Ajouter une carte</h2>
+              <h2 id="adminProductDrawerTitle">Ajouter un item</h2>
             </div>
             <div class="admin-drawer-actions">
-              <button class="button secondary" type="button" id="adminPrevItemButton" hidden>←</button>
-              <button class="button secondary" type="button" id="adminNextItemButton" hidden>→</button>
-              <button class="button secondary" type="button" data-admin-close-panel>Fermer</button>
+              <button class="admin-editor-close" type="button" data-admin-close-panel aria-label="Fermer le mode édition">×</button>
             </div>
           </div>
           <form class="admin-form modern-admin-form" id="adminProductForm">
@@ -533,8 +531,8 @@
 
             <div class="admin-drawer-product-summary hidden" id="adminDrawerProductSummary"></div>
 
-            <section class="admin-form-panel admin-form-panel-primary">
-              <div class="admin-step-label">1 · Recherche</div>
+            <section class="admin-form-panel admin-form-panel-primary admin-editor-section">
+              <div class="admin-step-label">Produit</div>
               <div class="form-row two">
                 <label>
                   Univers
@@ -561,20 +559,28 @@
               </div>
               <div class="form-row two">
                 <label>Nom <input name="name" required placeholder="Nom de la carte, set ou numéro..." autocomplete="off" /></label>
-                <label>Numéro <input name="cardNumber" placeholder="Ex. SM82, 215/203" /></label>
+                <label>
+                  Langue
+                  <select name="language" id="cardLanguageSelect">
+                    <option value="en">Anglais</option>
+                    <option value="fr">Français</option>
+                    <option value="jp">Japonais</option>
+                    <option value="cn">Chinois</option>
+                    <option value="kr">Coréen</option>
+                  </select>
+                </label>
               </div>
               <div class="form-row two">
-                <label>
-                  Extension
-                  <select name="setId" id="pokemonSetSelect">
-                    <option value="">Chargement des extensions...</option>
-                  </select>
+                <label>Numéro <input name="cardNumber" placeholder="Ex. SM82, 215/203, MEP 070" /></label>
+                <label class="admin-search-intent">
+                  Lecture de recherche
+                  <span id="adminSearchIntentChips">Nom + numéro + extension</span>
                 </label>
               </div>
               <div class="admin-image-search">
                 <div>
-                  <strong>Recherche photo automatique</strong>
-                  <p>Choisis le bon visuel. Les détails et le prix marché se remplissent automatiquement.</p>
+                  <strong>Photo principale</strong>
+                  <p>Recherche le visuel, puis clique sur la bonne image pour remplir l’item.</p>
                 </div>
                 <div class="image-search-actions">
                   <button class="button secondary" type="button" id="searchCardImageButton">Rechercher la photo</button>
@@ -584,8 +590,8 @@
               </div>
             </section>
 
-            <section class="admin-form-panel">
-              <div class="admin-step-label">2 · Validation rapide</div>
+            <section class="admin-form-panel admin-editor-section">
+              <div class="admin-step-label">État</div>
               <div class="form-row three">
                 <label>
                   Catégorie
@@ -597,7 +603,7 @@
                     <option value="Accessories">Accessoires</option>
                   </select>
                 </label>
-                <label>
+                <label data-slab-field>
                   Compagnie slab
                   <select name="gradingCompany">
                     <option value="">Non gradé</option>
@@ -608,7 +614,7 @@
                     <option value="SGC">SGC</option>
                   </select>
                 </label>
-                <label>
+                <label data-slab-field>
                   Note slab
                   <select name="grade">
                     <option value="">Aucune</option>
@@ -625,29 +631,41 @@
                   </select>
                 </label>
               </div>
-              <fieldset class="choice-strip compact-choice-strip">
+              <fieldset class="choice-strip compact-choice-strip" data-condition-group>
                 <legend>Condition</legend>
-                <label><input type="radio" name="condition" value="NM" checked /> NM</label>
-                <label><input type="radio" name="condition" value="LP" /> LP</label>
-                <label><input type="radio" name="condition" value="MP" /> MP</label>
-                <label><input type="radio" name="condition" value="Damaged" /> Damaged</label>
-                <label><input type="radio" name="condition" value="Scellé parfait" /> Scellé parfait</label>
-                <label><input type="radio" name="condition" value="Scellé endommagé" /> Scellé endommagé</label>
+                <label data-condition-kind="card"><input type="radio" name="condition" value="NM" checked /> NM</label>
+                <label data-condition-kind="card"><input type="radio" name="condition" value="LP" /> LP</label>
+                <label data-condition-kind="card"><input type="radio" name="condition" value="MP" /> MP</label>
+                <label data-condition-kind="card"><input type="radio" name="condition" value="Damaged" /> Damaged</label>
+                <label data-condition-kind="sealed"><input type="radio" name="condition" value="Scellé parfait" /> Scellé parfait</label>
+                <label data-condition-kind="sealed"><input type="radio" name="condition" value="Scellé endommagé" /> Scellé endommagé</label>
               </fieldset>
-              <div class="market-suggest-actions">
-                <button class="button secondary" type="button" id="suggestMarketButton">Suggérer prix marché</button>
-                <p class="market-suggest-status" id="marketSuggestStatus" role="status"></p>
-              </div>
               <div class="form-row four">
                 <label>Prix payé <input name="cost" type="number" min="0" step="0.01" /></label>
                 <label>Prix marché <input name="market" type="number" min="0" step="0.01" /></label>
                 <label>Prix affiché <input name="price" type="number" min="0" step="0.01" required /></label>
                 <label>Stock <input name="stock" type="number" min="0" value="1" /></label>
               </div>
+              <div class="market-suggest-actions">
+                <button class="button secondary" type="button" id="suggestMarketButton">Suggérer prix marché</button>
+                <p class="market-suggest-status" id="marketSuggestStatus" role="status"></p>
+              </div>
+              <label class="admin-online-toggle">
+                <input type="checkbox" id="adminOnlineToggle" />
+                <span>Afficher en ligne</span>
+              </label>
             </section>
 
             <details class="admin-form-section advanced-form-section">
-              <summary>Ajouter plus de détails</summary>
+              <summary>Plus de détails</summary>
+              <div class="form-row two">
+                <label>
+                  Extension
+                  <select name="setId" id="pokemonSetSelect">
+                    <option value="">Chargement des extensions...</option>
+                  </select>
+                </label>
+              </div>
               <div class="form-row two">
                 <label>
                   Rareté
@@ -679,19 +697,37 @@
               </fieldset>
             </details>
 
-            <div class="admin-form-footer">
-              <button class="button primary" type="submit" id="adminSaveProductButton">Ajouter à la session</button>
-              <button class="button secondary" type="button" id="adminSavePublishButton">Ajouter et mettre en ligne</button>
-              <button class="button secondary" type="button" id="adminSaveDraftButton">Brouillon</button>
-            </div>
-            <div class="admin-edit-actions hidden" id="adminEditActions">
-              <button class="button secondary" type="button" id="adminDrawerPriceButton">Ajuster le prix</button>
-              <button class="button secondary" type="button" id="adminDrawerSaleButton">Marquer vendue</button>
-              <button class="button secondary" type="button" id="adminDrawerRemoveButton">Retirer</button>
+            <div class="admin-form-footer admin-editor-footer">
+              <details class="admin-more-actions" id="adminEditActions">
+                <summary aria-label="Actions secondaires">•••</summary>
+                <div>
+                  <button class="button secondary" type="button" id="adminSavePublishButton">Mettre en ligne</button>
+                  <button class="button secondary" type="button" id="adminSaveDraftButton">Brouillon</button>
+                  <button class="button secondary" type="button" id="adminPrevItemButton" hidden>Item précédent</button>
+                  <button class="button secondary" type="button" id="adminNextItemButton" hidden>Item suivant</button>
+                  <button class="button secondary" type="button" id="adminDrawerSaleButton">Marquer vendu</button>
+                  <button class="button secondary" type="button" id="adminDrawerRemoveButton">Retirer</button>
+                  <button class="button secondary hidden" type="button" id="adminDrawerPriceButton">Ajuster le prix</button>
+                </div>
+              </details>
+              <button class="button secondary" type="button" data-admin-cancel-edit>Annuler</button>
+              <button class="button primary" type="submit" id="adminSaveProductButton">Enregistrer</button>
             </div>
             <p class="admin-status" role="status"></p>
           </form>
         </aside>
+
+        <div class="admin-modal admin-discard-modal" id="adminDiscardModal" aria-hidden="true">
+          <div class="admin-modal-card admin-discard-card" role="dialog" aria-modal="true" aria-labelledby="adminDiscardTitle">
+            <p class="eyebrow">Changements non sauvegardés</p>
+            <h2 id="adminDiscardTitle">Abandonner les modifications ?</h2>
+            <p>Tes changements ne seront pas enregistrés.</p>
+            <div class="admin-discard-actions">
+              <button class="button secondary" type="button" data-admin-discard-cancel>Continuer l’édition</button>
+              <button class="button primary" type="button" data-admin-discard-confirm>Abandonner</button>
+            </div>
+          </div>
+        </div>
 
         <aside class="admin-drawer admin-session-drawer" id="adminSessionDrawer" aria-hidden="true" aria-label="Session de mise en ligne">
           <div class="admin-drawer-head">
@@ -1174,6 +1210,29 @@
           </div>
         </details>
       </nav>
+    </aside>
+
+    <aside class="search-overlay" id="searchOverlay" aria-label="Recherche boutique" aria-hidden="true">
+      <div class="search-overlay-card">
+        <div class="search-overlay-head">
+          <div>
+            <p class="eyebrow">Recherche</p>
+            <h2>Trouver un item rapidement.</h2>
+          </div>
+          <button class="modal-close" type="button" data-close-search aria-label="Fermer la recherche">x</button>
+        </div>
+        <label class="search-overlay-field">
+          <span class="sr-only">Rechercher une carte, un slab ou un produit sealed</span>
+          <input id="searchOverlayInput" type="search" placeholder="Ex. Pikachu, PSA 10, 151, Luffy..." autocomplete="off" />
+        </label>
+        <div class="search-overlay-shortcuts">
+          <button type="button" data-search-chip="Pikachu">Pikachu</button>
+          <button type="button" data-search-chip="PSA 10">PSA 10</button>
+          <button type="button" data-search-chip="151">151</button>
+          <button type="button" data-search-chip="One Piece">One Piece</button>
+        </div>
+        <button class="button primary wide" type="button" data-search-submit>Voir les résultats</button>
+      </div>
     </aside>
 
     <script src="/app.js?v=final-polish-v1-20260814"></script>

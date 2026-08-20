@@ -27,6 +27,8 @@ const checkoutTotals = document.querySelector("#checkoutTotals");
 const checkoutForm = document.querySelector("#checkoutForm");
 const checkoutStatus = document.querySelector("#checkoutStatus");
 const searchInput = document.querySelector("#searchInput");
+const searchOverlay = document.querySelector("#searchOverlay");
+const searchOverlayInput = document.querySelector("#searchOverlayInput");
 const sortSelect = document.querySelector("#sortSelect");
 const setFilterSelect = document.querySelector("#setFilterSelect");
 const categoryTitle = document.querySelector("#categoryTitle");
@@ -64,6 +66,8 @@ const accountingDashboard = document.querySelector("#accountingDashboard");
 const reportStatus = document.querySelector("#reportStatus");
 const adminProductForm = document.querySelector("#adminProductForm");
 const pokemonSetSelect = document.querySelector("#pokemonSetSelect");
+const cardLanguageSelect = document.querySelector("#cardLanguageSelect");
+const adminSearchIntentChips = document.querySelector("#adminSearchIntentChips");
 const productGameSelect = document.querySelector("#productGameSelect");
 const toggleSoldCardsButton = document.querySelector("#toggleSoldCardsButton");
 const soldCardsWrap = document.querySelector("#soldCardsWrap");
@@ -107,6 +111,10 @@ const adminEditActions = document.querySelector("#adminEditActions");
 const adminDrawerPriceButton = document.querySelector("#adminDrawerPriceButton");
 const adminDrawerSaleButton = document.querySelector("#adminDrawerSaleButton");
 const adminDrawerRemoveButton = document.querySelector("#adminDrawerRemoveButton");
+const adminOnlineToggle = document.querySelector("#adminOnlineToggle");
+const adminDiscardModal = document.querySelector("#adminDiscardModal");
+const adminDiscardCancelButton = document.querySelector("[data-admin-discard-cancel]");
+const adminDiscardConfirmButton = document.querySelector("[data-admin-discard-confirm]");
 const imageSearchPreview = document.querySelector("#imageSearchPreview");
 const imageSearchStatus = document.querySelector("#imageSearchStatus");
 const suggestMarketButton = document.querySelector("#suggestMarketButton");
@@ -137,6 +145,8 @@ let adminInventoryCache = [];
 let adminInventoryView = { search: "", category: "all", game: "all", status: "all", sort: "recent" };
 let activeAdminSection = "inventory";
 let adminSubmitMode = "session";
+let adminProductFormPristine = "";
+let pendingAdminDiscardAction = null;
 let merchandisingState = { decisions: {}, history: [], updatedAt: "" };
 let merchandisingAlternativeSection = "";
 const merchandisingScoreCache = new Map();
@@ -1213,6 +1223,27 @@ function categoryPath(category, game = state.game) {
   }
   if (category === "Graded") return "/slabs";
   return Object.entries(categoryRoutes).find(([, value]) => value === category)?.[0] || "/";
+}
+
+function resetShopFiltersForRoute({ keepSearch = false } = {}) {
+  state.typeFilter = "all";
+  state.setFilter = "all";
+  state.conditionFilter = "all";
+  state.availabilityFilter = "available";
+  if (!keepSearch) state.search = "";
+  if (searchInput) searchInput.value = state.search;
+  if (searchOverlayInput) searchOverlayInput.value = state.search;
+  if (setFilterSelect) setFilterSelect.value = "all";
+  if (conditionFilterSelect) conditionFilterSelect.value = "all";
+  if (availabilityFilterSelect) availabilityFilterSelect.value = "available";
+}
+
+function setShopSearch(value, { scroll = false } = {}) {
+  state.search = String(value || "").trim();
+  if (searchInput) searchInput.value = state.search;
+  if (searchOverlayInput) searchOverlayInput.value = state.search;
+  renderProducts();
+  if (scroll) scrollToShopItems("smooth");
 }
 
 function saveShopView(productId = "") {
@@ -3227,6 +3258,7 @@ function renderCreateAccountPage() {
 
 function selectCategory(category, shouldScroll = false) {
   const previousScrollY = window.scrollY;
+  resetShopFiltersForRoute();
   state.category = category;
   document.querySelectorAll("[data-category]").forEach((tab) => {
     tab.classList.toggle("active", tab.dataset.category === category);
@@ -3254,6 +3286,7 @@ function scrollToProductDetailTop(behavior = "auto") {
 
 function goToCategory(category, push = true, game = "Pokemon") {
   const path = categoryPath(category, game);
+  resetShopFiltersForRoute();
   state.category = category;
   state.game = game || "Pokemon";
   if (push) history.pushState({ category }, "", path);
@@ -4697,10 +4730,11 @@ function setEditingPreview(item) {
 }
 
 function closeAdminPanels() {
-  [adminProductDrawer, adminSessionDrawer, adminSaleModal, adminPriceModal, adminCommandPalette].forEach((panel) => {
+  [adminProductDrawer, adminSessionDrawer, adminSaleModal, adminPriceModal, adminCommandPalette, adminDiscardModal].forEach((panel) => {
     panel?.setAttribute("aria-hidden", "true");
   });
   document.body.classList.remove("admin-panel-open");
+  pendingAdminDiscardAction = null;
 }
 
 function openAdminPanel(panel) {
@@ -4731,6 +4765,100 @@ function setAdminDrawerSummary(item = null) {
       <strong class="${profit >= 0 ? "admin-profit-positive" : "admin-profit-negative"}">${adminMoney(profit)}</strong>
     </div>
   `;
+}
+
+function adminProductFormSnapshot() {
+  if (!adminProductForm) return "";
+  const values = [];
+  const form = new FormData(adminProductForm);
+  form.forEach((value, key) => {
+    if (value instanceof File) return;
+    values.push([key, String(value)]);
+  });
+  adminProductForm.querySelectorAll("input[type='checkbox'], input[type='radio']").forEach((input) => {
+    values.push([`checked:${input.name || input.id || input.value}`, input.checked ? "1" : "0"]);
+  });
+  return JSON.stringify(values.sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function markAdminProductFormPristine() {
+  adminProductFormPristine = adminProductFormSnapshot();
+}
+
+function hasUnsavedAdminProductChanges() {
+  return (
+    adminProductDrawer?.getAttribute("aria-hidden") === "false" &&
+    Boolean(adminProductFormPristine) &&
+    adminProductFormSnapshot() !== adminProductFormPristine
+  );
+}
+
+function openAdminDiscardModal(action) {
+  if (!hasUnsavedAdminProductChanges()) {
+    action?.();
+    return;
+  }
+  pendingAdminDiscardAction = action;
+  adminDiscardModal?.setAttribute("aria-hidden", "false");
+  document.body.classList.add("admin-panel-open");
+  window.requestAnimationFrame(() => adminDiscardCancelButton?.focus());
+}
+
+function closeAdminDiscardModal() {
+  adminDiscardModal?.setAttribute("aria-hidden", "true");
+  pendingAdminDiscardAction = null;
+  if (
+    adminProductDrawer?.getAttribute("aria-hidden") !== "false" &&
+    adminSessionDrawer?.getAttribute("aria-hidden") !== "false" &&
+    adminSaleModal?.getAttribute("aria-hidden") !== "false" &&
+    adminPriceModal?.getAttribute("aria-hidden") !== "false" &&
+    adminCommandPalette?.getAttribute("aria-hidden") !== "false"
+  ) {
+    document.body.classList.remove("admin-panel-open");
+  }
+}
+
+function requestCloseAdminPanels() {
+  openAdminDiscardModal(() => {
+    markAdminProductFormPristine();
+    closeAdminPanels();
+  });
+}
+
+function syncAdminOnlineToggle() {
+  if (!adminOnlineToggle || !editingProductStatus) return;
+  const status = editingProductStatus.value || "";
+  adminOnlineToggle.checked = !["draft", "admin_draft", "sold", "removed"].includes(status);
+}
+
+function syncAdminStatusFromOnlineToggle() {
+  if (!adminOnlineToggle || !editingProductStatus) return;
+  const currentStatus = editingProductStatus.value || "";
+  if (["sold", "removed"].includes(currentStatus) && !adminOnlineToggle.checked) return;
+  editingProductStatus.value = adminOnlineToggle.checked ? "available" : "admin_draft";
+}
+
+function syncAdminProductEditorFields() {
+  if (!adminProductForm) return;
+  const category = adminProductForm.querySelector('[name="category"]')?.value || "Singles";
+  const kind = adminProductForm.querySelector('[name="kind"]')?.value || "single";
+  const isSlab = category === "Graded" || kind === "slab";
+  const isSealed = category === "Sealed" || ["etb", "utb", "pack", "booster-bundle", "booster-box", "box", "japanese"].includes(kind);
+  adminProductForm.querySelectorAll("[data-slab-field]").forEach((field) => {
+    field.hidden = !isSlab;
+  });
+  const conditionGroup = adminProductForm.querySelector("[data-condition-group]");
+  if (conditionGroup) conditionGroup.hidden = isSlab;
+  adminProductForm.querySelectorAll("[data-condition-kind]").forEach((label) => {
+    const kindType = label.dataset.conditionKind;
+    label.hidden = isSealed ? kindType !== "sealed" : kindType !== "card";
+  });
+  const selectedCondition = adminProductForm.querySelector('[name="condition"]:checked');
+  if (!isSlab && selectedCondition?.closest("[hidden]")) {
+    const fallback = adminProductForm.querySelector(`[name="condition"][value="${isSealed ? "Scellé parfait" : "NM"}"]`);
+    if (fallback) fallback.checked = true;
+  }
+  syncAdminOnlineToggle();
 }
 
 function syncAdminDrawerNavigation(id) {
@@ -4768,19 +4896,26 @@ function resetAdminProductForm() {
   setAdminDrawerSummary(null);
   if (adminPrevItemButton) adminPrevItemButton.hidden = true;
   if (adminNextItemButton) adminNextItemButton.hidden = true;
-  adminEditActions?.classList.add("hidden");
+  adminEditActions?.classList.remove("hidden");
   [adminDrawerPriceButton, adminDrawerSaleButton, adminDrawerRemoveButton].forEach((button) => {
     if (button) button.dataset.adminDrawerItem = "";
   });
+  [adminDrawerSaleButton, adminDrawerRemoveButton].forEach((button) => {
+    if (button) button.hidden = true;
+  });
+  if (editingProductStatus) editingProductStatus.value = "draft";
+  syncAdminProductEditorFields();
+  markAdminProductFormPristine();
 }
 
 function openAdminAddDrawer() {
   adminSubmitMode = "session";
   resetAdminProductForm();
   if (adminProductDrawerMode) adminProductDrawerMode.textContent = "Ajout rapide";
-  if (adminProductDrawerTitle) adminProductDrawerTitle.textContent = "Ajouter une carte";
-  if (adminSaveProductButton) adminSaveProductButton.textContent = "Ajouter à la session";
+  if (adminProductDrawerTitle) adminProductDrawerTitle.textContent = "Ajouter un item";
+  if (adminSaveProductButton) adminSaveProductButton.textContent = "Enregistrer";
   openAdminPanel(adminProductDrawer);
+  markAdminProductFormPristine();
   window.requestAnimationFrame(() => adminProductForm?.querySelector('input[name="name"]')?.focus());
 }
 
@@ -4855,6 +4990,8 @@ function duplicateAdminItem(id) {
   if (adminProductDrawerTitle) adminProductDrawerTitle.textContent = "Dupliquer l’item";
   const status = adminProductForm?.querySelector(".admin-status");
   if (status) status.textContent = "Copie prête. Ajuste le prix ou la condition, puis ajoute à la session.";
+  syncAdminProductEditorFields();
+  markAdminProductFormPristine();
 }
 
 function viewAdminProduct(id) {
@@ -4883,6 +5020,7 @@ function editAdminItem(id) {
   setAdminField("stock", item.stock);
   setAdminField("category", item.category || "Singles");
   setAdminField("game", productGame(item));
+  setAdminField("language", item.language || "en");
   setAdminField("kind", item.kind || "single");
   setAdminField("rarity", item.rarity);
   setAdminField("badge", item.badge || "");
@@ -4909,19 +5047,25 @@ function editAdminItem(id) {
   });
   updateFeatureLimitState();
   setEditingPreview(item);
+  renderAdminSearchIntent();
   setAdminDrawerSummary(item);
   syncAdminDrawerNavigation(item.id);
   adminEditActions?.classList.remove("hidden");
   if (adminDrawerPriceButton) adminDrawerPriceButton.dataset.adminDrawerItem = item.id;
   if (adminDrawerSaleButton) adminDrawerSaleButton.dataset.adminDrawerItem = item.id;
   if (adminDrawerRemoveButton) adminDrawerRemoveButton.dataset.adminDrawerItem = item.id;
+  [adminDrawerSaleButton, adminDrawerRemoveButton].forEach((button) => {
+    if (button) button.hidden = false;
+  });
   const status = adminProductForm.querySelector(".admin-status");
   if (status) status.textContent = `Modification de ${item.name}. Sauvegarde pour mettre l'item a jour.`;
   adminSubmitMode = "keep";
   if (adminProductDrawerMode) adminProductDrawerMode.textContent = "Modification";
-  if (adminProductDrawerTitle) adminProductDrawerTitle.textContent = item.name || "Modifier l’item";
+  if (adminProductDrawerTitle) adminProductDrawerTitle.textContent = "Modifier le produit";
   if (adminSaveProductButton) adminSaveProductButton.textContent = "Enregistrer";
+  syncAdminProductEditorFields();
   openAdminPanel(adminProductDrawer);
+  markAdminProductFormPristine();
 }
 
 function resetImageSearch() {
@@ -5025,6 +5169,43 @@ function renderImageCandidates(candidates) {
   selectImageCandidate(imageSearchPreview.querySelector("[data-image-choice]"));
 }
 
+function parseAdminSearchIntent(query = "") {
+  const raw = String(query || "").trim();
+  const normalized = raw.toLowerCase();
+  const numberMatch = raw.match(/\b(?:[a-z]{1,4}\s*)?\d{1,3}[a-z]?\/?\d{0,3}\b/i);
+  const mechanics = ["VMAX", "VSTAR", "GX", "LV.X", "LV X", "EX", "ex", "Mega", "M "].filter((token) => raw.includes(token));
+  const chips = [];
+  if (/\bpromo|black\s*star|mcdonald|mcdonalds|mcd\b/i.test(raw)) chips.push("Promo");
+  if (/\b(japanese|japonais|jp|jpn)\b/i.test(raw)) chips.push("Japonais");
+  if (/\b(chinese|chinois|cn)\b/i.test(raw)) chips.push("Chinois");
+  if (/\b(korean|cor[eé]en|kr)\b/i.test(raw)) chips.push("Coréen");
+  if (/\b(mep|svp|swsh|sm|xy|bw|dp|pop|hgss)\b/i.test(raw)) chips.push("Code promo/set détecté");
+  mechanics.forEach((token) => chips.push(token.trim()));
+  if (numberMatch) chips.push(`#${numberMatch[0].replace(/\s+/g, "")}`);
+  if (normalized.includes("alt art") || normalized.includes("alternate art")) chips.push("Alternate Art");
+  if (normalized.includes("sir")) chips.push("SIR");
+  if (normalized.includes("ir")) chips.push("IR");
+  return {
+    raw,
+    number: numberMatch?.[0]?.replace(/\s+/g, "") || "",
+    promo: chips.includes("Promo"),
+    language:
+      chips.includes("Japonais") ? "jp" :
+      chips.includes("Chinois") ? "cn" :
+      chips.includes("Coréen") ? "kr" :
+      cardLanguageSelect?.value || "en",
+    mechanics: mechanics.map((token) => token.trim()).filter(Boolean),
+    chips: chips.length ? chips : ["Recherche large"],
+  };
+}
+
+function renderAdminSearchIntent() {
+  if (!adminSearchIntentChips || !adminProductForm) return;
+  const name = adminProductForm.querySelector('input[name="name"]')?.value || "";
+  const intent = parseAdminSearchIntent(name);
+  adminSearchIntentChips.innerHTML = intent.chips.map((chip) => `<em>${escapeAttribute(chip)}</em>`).join("");
+}
+
 function rarityOptionFromApi(value) {
   const rarity = String(value || "").toLowerCase();
   if (rarity.includes("illustration") && rarity.includes("special")) return "SIR";
@@ -5059,6 +5240,7 @@ function autofillCardFieldsFromPreview(finalize) {
       pokemonSetSelect.value = setId;
     }
   }
+  syncAdminProductEditorFields();
   suggestMarketPrice({ silent: true });
 }
 
@@ -5071,6 +5253,7 @@ function applySlabMode() {
     if (categorySelect) categorySelect.value = "Graded";
     if (kindSelect) kindSelect.value = "slab";
   }
+  syncAdminProductEditorFields();
   suggestMarketPrice({ silent: true });
 }
 
@@ -5119,6 +5302,7 @@ async function searchCardImage() {
   const setId = pokemonSetSelect?.value || "";
   const productType = adminProductForm.querySelector('select[name="kind"]')?.value || "";
   const game = adminProductForm.querySelector('select[name="game"]')?.value || "Pokemon";
+  const intent = parseAdminSearchIntent(name);
   if (!name && !setId) {
     if (imageSearchStatus) imageSearchStatus.textContent = "Entre le nom ou choisis une extension.";
     return;
@@ -5128,10 +5312,17 @@ async function searchCardImage() {
   searchCardImageButton.textContent = "Recherche...";
   if (imageSearchStatus) imageSearchStatus.textContent = "";
   try {
-    const payload = await api(
-      `/api/admin/card-images?q=${encodeURIComponent(name)}&number=${encodeURIComponent(cardNumber || "")}&setId=${encodeURIComponent(setId)}&productType=${encodeURIComponent(productType)}`
-        + `&game=${encodeURIComponent(game)}`
-    );
+    const params = new URLSearchParams({
+      q: name || "",
+      number: cardNumber || intent.number || "",
+      setId,
+      productType,
+      game,
+      language: intent.language,
+      promo: intent.promo ? "1" : "",
+      mechanics: intent.mechanics.join(","),
+    });
+    const payload = await api(`/api/admin/card-images?${params.toString()}`);
     const candidates = payload.candidates || [];
     if (!candidates.length) {
       if (imageSearchStatus) imageSearchStatus.textContent = "Aucune image trouvée. Essaie avec le nom exact de la carte.";
@@ -5147,6 +5338,26 @@ async function searchCardImage() {
     searchCardImageButton.disabled = false;
     searchCardImageButton.textContent = "Rechercher la photo";
   }
+}
+
+function openSearchOverlay() {
+  if (!searchOverlay) {
+    document.querySelector("#shop")?.scrollIntoView({ behavior: "smooth" });
+    searchInput?.focus();
+    return;
+  }
+  searchOverlay.setAttribute("aria-hidden", "false");
+  document.body.classList.add("search-open");
+  if (searchOverlayInput) {
+    searchOverlayInput.value = state.search || "";
+    requestAnimationFrame(() => searchOverlayInput.focus());
+  }
+}
+
+function closeSearchOverlay({ scroll = false } = {}) {
+  searchOverlay?.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("search-open");
+  if (scroll) scrollToShopItems("smooth");
 }
 
 function openMenu() {
@@ -5208,6 +5419,9 @@ document.addEventListener("click", (event) => {
   const adminAdjacentButton = event.target.closest("[data-admin-adjacent]");
   const adminOpenItemRow = event.target.closest("[data-admin-open-item]");
   const adminClosePanelButton = event.target.closest("[data-admin-close-panel]");
+  const adminCancelEditButton = event.target.closest("[data-admin-cancel-edit]");
+  const adminDiscardCancel = event.target.closest("[data-admin-discard-cancel]");
+  const adminDiscardConfirm = event.target.closest("[data-admin-discard-confirm]");
   const adminStatusFilterButton = event.target.closest("[data-admin-status-filter]");
   const adminCategoryFilterButton = event.target.closest("[data-admin-category-filter]");
   const adminGameFilterButton = event.target.closest("[data-admin-game-filter]");
@@ -5256,7 +5470,22 @@ document.addEventListener("click", (event) => {
   }
   if (adminClosePanelButton) {
     event.preventDefault();
-    closeAdminPanels();
+    requestCloseAdminPanels();
+  }
+  if (adminCancelEditButton) {
+    event.preventDefault();
+    requestCloseAdminPanels();
+  }
+  if (adminDiscardCancel) {
+    event.preventDefault();
+    closeAdminDiscardModal();
+  }
+  if (adminDiscardConfirm) {
+    event.preventDefault();
+    const action = pendingAdminDiscardAction;
+    markAdminProductFormPristine();
+    closeAdminDiscardModal();
+    action?.();
   }
   if (adminViewButton) {
     event.preventDefault();
@@ -5286,8 +5515,8 @@ document.addEventListener("click", (event) => {
   if (adminCommandButton) {
     event.preventDefault();
     const command = adminCommandButton.dataset.adminCommand;
-    if (command === "add") openAdminAddDrawer();
-    if (command === "session") openAdminSessionDrawer();
+    if (command === "add") openAdminDiscardModal(openAdminAddDrawer);
+    if (command === "session") openAdminDiscardModal(openAdminSessionDrawer);
     if (command === "search") adminInventorySearch?.focus();
     if (command === "session-filter") {
       adminInventoryView.status = "draft";
@@ -5416,8 +5645,12 @@ document.addEventListener("click", (event) => {
     cart = cart.filter((item) => item.id !== cartRemoveButton.dataset.cartRemove);
     saveCart();
   }
-  if (adminAdjacentButton?.dataset.adminAdjacent) editAdminItem(adminAdjacentButton.dataset.adminAdjacent);
-  if (adminEditButton) editAdminItem(adminEditButton.dataset.adminEdit);
+  if (adminAdjacentButton?.dataset.adminAdjacent) {
+    openAdminDiscardModal(() => editAdminItem(adminAdjacentButton.dataset.adminAdjacent));
+  }
+  if (adminEditButton) {
+    openAdminDiscardModal(() => editAdminItem(adminEditButton.dataset.adminEdit));
+  }
   if (adminDiscountButton) applyAdminDiscount(adminDiscountButton.dataset.adminDiscount, adminDiscountButton);
   if (adminPriceAdjustButton) openAdminPriceModal(adminPriceAdjustButton.dataset.adminPriceAdjust);
   if (adminRemoveButton) removeAdminItem(adminRemoveButton.dataset.adminRemove, adminRemoveButton);
@@ -5429,7 +5662,9 @@ document.addEventListener("click", (event) => {
     return;
   }
   if (adminDeleteButton) deleteAdminItem(adminDeleteButton.dataset.adminDelete, adminDeleteButton);
-  if (adminDuplicateButton) duplicateAdminItem(adminDuplicateButton.dataset.adminDuplicate);
+  if (adminDuplicateButton) {
+    openAdminDiscardModal(() => duplicateAdminItem(adminDuplicateButton.dataset.adminDuplicate));
+  }
   if (adminViewProductButton) viewAdminProduct(adminViewProductButton.dataset.adminViewProduct);
   if (editShowButton) editCardShow(editShowButton.dataset.editShow);
   if (deleteShowButton) deleteCardShow(deleteShowButton.dataset.deleteShow);
@@ -5440,7 +5675,7 @@ document.addEventListener("click", (event) => {
     adminOpenItemRow &&
     !event.target.closest("button, a, input, select, textarea, summary, details, label")
   ) {
-    editAdminItem(adminOpenItemRow.dataset.adminOpenItem);
+    openAdminDiscardModal(() => editAdminItem(adminOpenItemRow.dataset.adminOpenItem));
   }
   if (tabButton) {
     state.game = "Pokemon";
@@ -5509,13 +5744,28 @@ document.addEventListener("click", (event) => {
 });
 
 searchInput.addEventListener("input", (event) => {
-  state.search = event.target.value;
-  renderProducts();
+  setShopSearch(event.target.value);
 });
 
-document.querySelector("[data-open-search]").addEventListener("click", () => {
-  document.querySelector("#shop").scrollIntoView({ behavior: "smooth" });
-  searchInput.focus();
+document.querySelector("[data-open-search]")?.addEventListener("click", openSearchOverlay);
+
+searchOverlayInput?.addEventListener("input", (event) => {
+  setShopSearch(event.target.value);
+});
+
+document.querySelectorAll("[data-close-search]").forEach((button) => {
+  button.addEventListener("click", () => closeSearchOverlay());
+});
+
+document.querySelectorAll("[data-search-chip]").forEach((button) => {
+  button.addEventListener("click", () => {
+    setShopSearch(button.dataset.searchChip || "");
+    closeSearchOverlay({ scroll: true });
+  });
+});
+
+document.querySelector("[data-search-submit]")?.addEventListener("click", () => {
+  closeSearchOverlay({ scroll: true });
 });
 
 sortSelect.addEventListener("change", (event) => {
@@ -5796,7 +6046,11 @@ document.addEventListener("keydown", (event) => {
   const isAdminVisible = adminPage && !adminPage.classList.contains("hidden") && adminContent && !adminContent.classList.contains("hidden");
 
   if (event.key === "Escape") {
-    closeAdminPanels();
+    if (adminDiscardModal?.getAttribute("aria-hidden") === "false") {
+      closeAdminDiscardModal();
+      return;
+    }
+    requestCloseAdminPanels();
     closeDrawers();
     closeAccountModal();
     return;
@@ -5822,7 +6076,7 @@ document.addEventListener("keydown", (event) => {
 
   if (event.key.toLowerCase() === "n") {
     event.preventDefault();
-    openAdminAddDrawer();
+    openAdminDiscardModal(openAdminAddDrawer);
   }
 
   if (event.key === "/") {
@@ -5831,7 +6085,7 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-adminOpenAddButton?.addEventListener("click", openAdminAddDrawer);
+adminOpenAddButton?.addEventListener("click", () => openAdminDiscardModal(openAdminAddDrawer));
 adminOpenCardShowButton?.addEventListener("click", focusCardShowForm);
 adminOpenSessionButton?.addEventListener("click", openAdminSessionDrawer);
 adminCommandPaletteButton?.addEventListener("click", openAdminCommandPalette);
@@ -5844,27 +6098,37 @@ adminSaveDraftButton?.addEventListener("click", () => {
   adminProductForm?.requestSubmit();
 });
 adminDrawerPriceButton?.addEventListener("click", () => {
-  if (adminDrawerPriceButton.dataset.adminDrawerItem) openAdminPriceModal(adminDrawerPriceButton.dataset.adminDrawerItem);
+  if (adminDrawerPriceButton.dataset.adminDrawerItem) openAdminDiscardModal(() => openAdminPriceModal(adminDrawerPriceButton.dataset.adminDrawerItem));
 });
 adminDrawerSaleButton?.addEventListener("click", () => {
-  if (adminDrawerSaleButton.dataset.adminDrawerItem) openAdminSaleModal(adminDrawerSaleButton.dataset.adminDrawerItem);
+  if (adminDrawerSaleButton.dataset.adminDrawerItem) openAdminDiscardModal(() => openAdminSaleModal(adminDrawerSaleButton.dataset.adminDrawerItem));
 });
 adminDrawerRemoveButton?.addEventListener("click", () => {
-  if (adminDrawerRemoveButton.dataset.adminDrawerItem) removeAdminItem(adminDrawerRemoveButton.dataset.adminDrawerItem, adminDrawerRemoveButton);
+  if (adminDrawerRemoveButton.dataset.adminDrawerItem) openAdminDiscardModal(() => removeAdminItem(adminDrawerRemoveButton.dataset.adminDrawerItem, adminDrawerRemoveButton));
 });
 searchCardImageButton?.addEventListener("click", searchCardImage);
 productGameSelect?.addEventListener("change", () => {
   resetCardLookupDetails();
   loadPokemonSets();
+  syncAdminProductEditorFields();
 });
+adminOnlineToggle?.addEventListener("change", () => {
+  syncAdminStatusFromOnlineToggle();
+  syncAdminOnlineToggle();
+});
+adminProductForm?.querySelector('select[name="category"]')?.addEventListener("change", syncAdminProductEditorFields);
+adminProductForm?.querySelector('select[name="kind"]')?.addEventListener("change", syncAdminProductEditorFields);
 adminProductForm?.querySelector('input[name="name"]')?.addEventListener("input", () => {
+  renderAdminSearchIntent();
   if (editingProductId?.value) {
     resetImageSearch();
     if (imageSearchStatus) imageSearchStatus.textContent = "";
     return;
   }
   resetCardLookupDetails();
+  renderAdminSearchIntent();
 });
+cardLanguageSelect?.addEventListener("change", renderAdminSearchIntent);
 imageSearchPreview?.addEventListener("click", (event) => {
   const roleButton = event.target.closest("[data-image-role]");
   const choice = event.target.closest("[data-image-choice]");
@@ -5877,6 +6141,13 @@ recalculateMerchandisingButton?.addEventListener("click", () => {
 });
 resetMerchandisingButton?.addEventListener("click", () => resetMerchandisingSuggestions(resetMerchandisingButton));
 adminProductForm?.querySelector('select[name="gradingCompany"]')?.addEventListener("change", applySlabMode);
+adminProductForm?.querySelector('select[name="gradingCompany"]')?.addEventListener("change", syncAdminProductEditorFields);
+
+window.addEventListener("beforeunload", (event) => {
+  if (!hasUnsavedAdminProductChanges()) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
 publishDraftProductsButton?.addEventListener("click", publishDraftProducts);
 quickBatchPreviewButton?.addEventListener("click", renderQuickBatchPreview);
 quickBatchCreateButton?.addEventListener("click", createQuickBatchDrafts);
@@ -6029,13 +6300,14 @@ adminProductForm?.addEventListener("submit", async (event) => {
         : "available"
       : adminSubmitMode === "admin_draft"
       ? "admin_draft"
-      : !id && adminSubmitMode === "session"
-      ? "draft"
+    : !id && adminSubmitMode === "session"
+      ? form.get("status") || "draft"
       : form.get("status") || "";
   const body = {
     id,
     name: form.get("name"),
     game: form.get("game") || "Pokemon",
+    language: form.get("language") || "en",
     setId: form.get("setId"),
     setName: selectedSetOption?.dataset.name || selectedSetOption?.textContent?.replace(/\s+-\s+\d{4}\/\d{2}\/\d{2}$/, "") || "",
     category,
@@ -6075,6 +6347,8 @@ adminProductForm?.addEventListener("submit", async (event) => {
     await renderAdmin();
     if (body.id) {
       if (body.status && editingProductStatus) editingProductStatus.value = body.status;
+      syncAdminProductEditorFields();
+      markAdminProductFormPristine();
       if (status) status.textContent = message;
       adminSubmitMode = "keep";
     } else {

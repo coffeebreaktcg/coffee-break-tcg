@@ -1768,6 +1768,7 @@ function publicProduct(product) {
     id: product.id,
     name: product.name,
     game: product.game || product.franchise || "Pokemon",
+    language: product.language || "en",
     category: product.category,
     kind: product.kind || product.visual || "single",
     status: baseStatus === "draft" ? "draft" : stock <= 0 && reservedQuantity > 0 ? "reserved" : baseStatus,
@@ -1789,7 +1790,7 @@ function publicProduct(product) {
     stock,
     reservedQuantity,
     maxPerCart: Number(product.maxPerCart || 0),
-    accent: product.accent || "#c9652f",
+    accent: product.accent || "#d5742d",
     visual: product.visual || "single",
     imageUrl: product.imageUrl || "",
     galleryImages: Array.isArray(product.galleryImages) ? product.galleryImages.slice(0, 4) : [],
@@ -3929,7 +3930,7 @@ function pokemonCardImageCandidates(payload, numberHint = "", tokens = []) {
     .sort((a, b) => {
       return cardSearchScore(b, tokens, numberHint) - cardSearchScore(a, tokens, numberHint);
     })
-    .slice(0, 18)
+    .slice(0, 48)
     .map((card) => ({
       id: card.id,
       name: card.name || "",
@@ -3948,8 +3949,22 @@ function candidateMatchesSearchTokens(candidate, tokens) {
   return tokens.some((token) => haystack.includes(token.toLowerCase()));
 }
 
-async function searchPokemonCardImages(query, numberHint = "", setId = "") {
-  const key = cacheKey(["card", query, numberHint, setId]);
+function candidateMatchesAdminIntent(candidate, intent = {}) {
+  const haystack = `${candidate.name || ""} ${candidate.set || ""} ${candidate.setId || ""} ${candidate.number || ""}`.toLowerCase();
+  if (intent.promo && !/(promo|black star|mcdonald|svp|swsh|sm|xy|bw|dp|pop|mep)/i.test(haystack)) return false;
+  const mechanics = String(intent.mechanics || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  for (const mechanic of mechanics) {
+    const safe = mechanic.replace(/\./g, "\\.").replace(/\s+/g, "\\s*");
+    if (!new RegExp(`(^|[^a-z0-9])${safe}($|[^a-z0-9])`, "i").test(candidate.name || "")) return false;
+  }
+  return true;
+}
+
+async function searchPokemonCardImages(query, numberHint = "", setId = "", intent = {}) {
+  const key = cacheKey(["card", query, numberHint, setId, intent.language || "", intent.promo ? "promo" : "", intent.mechanics || ""]);
   const cached = getCachedSearch(key);
   if (cached) return cached;
   const term = cleanCardSearchTerm(query);
@@ -3972,11 +3987,11 @@ async function searchPokemonCardImages(query, numberHint = "", setId = "") {
     tokens[0] ? `name:${tokens[0]}*${setQuery}` : "",
   ].filter(Boolean);
 
-  const uniqueAttempts = [...new Set(attempts)].slice(0, 4);
+  const uniqueAttempts = [...new Set(attempts)].slice(0, 7);
   const searches = uniqueAttempts.map(async (searchQuery, index) => {
     const url = new URL("https://api.pokemontcg.io/v2/cards");
     url.searchParams.set("q", searchQuery);
-    url.searchParams.set("pageSize", "18");
+    url.searchParams.set("pageSize", "48");
     url.searchParams.set("orderBy", "-set.releaseDate");
     url.searchParams.set("select", "id,name,set,number,rarity,images");
     try {
@@ -3993,8 +4008,9 @@ async function searchPokemonCardImages(query, numberHint = "", setId = "") {
   const candidates = results
     .sort((a, b) => a.index - b.index)
     .flatMap((result) => result.candidates)
+    .filter((candidate) => candidateMatchesAdminIntent(candidate, intent))
     .filter((candidate, index, all) => all.findIndex((item) => item.id === candidate.id) === index)
-    .slice(0, 18);
+    .slice(0, 48);
   return setCachedSearch(key, candidates);
 }
 
@@ -4041,7 +4057,7 @@ async function searchSealedProductImages(query, setId = "") {
       : null,
     ]
       .filter(Boolean)
-      .slice(0, 18)
+      .slice(0, 48)
   );
 }
 
@@ -4087,7 +4103,7 @@ function onePieceNumberCandidates(query = "", numberHint = "", setId = "") {
     if (/^(OP|ST|EB)\d{2}$/.test(prefix)) normalized.push(`${prefix}-${number}`);
     if (prefix === "P") normalized.push(`P-${number}`);
   }
-  return [...new Set(normalized)].slice(0, 18);
+  return [...new Set(normalized)].slice(0, 48);
 }
 
 async function onePieceImageExists(url) {
@@ -4127,7 +4143,7 @@ async function searchOnePieceCardImages(query, numberHint = "", setId = "") {
       smallImageUrl: imageUrl,
     });
   }
-  return setCachedSearch(key, candidates.slice(0, 18));
+  return setCachedSearch(key, candidates.slice(0, 48));
 }
 
 function inferVisual(category, kind) {
@@ -5349,6 +5365,11 @@ async function handleApi(req, res) {
     const setId = url.searchParams.get("setId") || "";
     const productType = url.searchParams.get("productType") || "";
     const game = url.searchParams.get("game") || "Pokemon";
+    const intent = {
+      language: url.searchParams.get("language") || "en",
+      promo: url.searchParams.get("promo") === "1",
+      mechanics: url.searchParams.get("mechanics") || "",
+    };
     if (query.trim().length < 2 && !setId && !number.trim()) return json(res, 200, { candidates: [] });
     try {
       if (/one\s*piece/i.test(game)) {
@@ -5357,7 +5378,7 @@ async function handleApi(req, res) {
       if (["etb", "utb", "pack", "booster-bundle", "booster-box", "japanese", "accessory"].includes(productType)) {
         return json(res, 200, { candidates: await searchSealedProductImages(query, setId) });
       }
-      return json(res, 200, { candidates: await searchPokemonCardImages(query, number, setId) });
+      return json(res, 200, { candidates: await searchPokemonCardImages(query, number, setId, intent) });
     } catch (error) {
       return json(res, 502, { error: `Recherche image indisponible: ${error.message}` });
     }
@@ -5407,6 +5428,7 @@ async function handleApi(req, res) {
       id,
       name: String(body.name || "").trim(),
       game: /one\s*piece/i.test(String(body.game || "")) ? "One Piece" : "Pokemon",
+      language: String(body.language || "en").trim(),
       category,
       kind: body.kind || "single",
       status: productStatus,
@@ -5429,7 +5451,7 @@ async function handleApi(req, res) {
       stock: Number(body.stock || 0),
       reservedQuantity: existingProduct?.reservedQuantity || 0,
       maxPerCart: 0,
-      accent: body.accent || "#c9652f",
+      accent: body.accent || "#d5742d",
       visual: inferVisual(body.category || "Singles", body.kind || "single"),
       imageUrl,
       galleryImages: galleryImages.length ? galleryImages : Array.isArray(existingProduct?.galleryImages) ? existingProduct.galleryImages.slice(0, 4) : [],
