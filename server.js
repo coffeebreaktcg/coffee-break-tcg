@@ -3936,6 +3936,7 @@ function pokemonCardImageCandidates(payload, numberHint = "", tokens = []) {
       name: card.name || "",
       setId: card.set?.id || "",
       set: card.set?.name || "",
+      releaseDate: card.set?.releaseDate || "",
       number: card.number || "",
       rarity: card.rarity || "",
       imageUrl: card.images.large || card.images.small,
@@ -3958,9 +3959,17 @@ function candidateMatchesAdminIntent(candidate, intent = {}) {
     .filter(Boolean);
   for (const mechanic of mechanics) {
     const safe = mechanic.replace(/\./g, "\\.").replace(/\s+/g, "\\s*");
-    if (!new RegExp(`(^|[^a-z0-9])${safe}($|[^a-z0-9])`, "i").test(candidate.name || "")) return false;
+    const flags = ["EX", "ex"].includes(mechanic) ? "" : "i";
+    if (!new RegExp(`(^|[^a-z0-9])${safe}($|[^a-z0-9])`, flags).test(candidate.name || "")) return false;
   }
   return true;
+}
+
+function languageLabel(language = "en") {
+  if (language === "jp") return "Japonais";
+  if (language === "cn") return "Chinois";
+  if (language === "kr") return "Coréen";
+  return "Anglais";
 }
 
 async function searchPokemonCardImages(query, numberHint = "", setId = "", intent = {}) {
@@ -4010,7 +4019,17 @@ async function searchPokemonCardImages(query, numberHint = "", setId = "", inten
     .flatMap((result) => result.candidates)
     .filter((candidate) => candidateMatchesAdminIntent(candidate, intent))
     .filter((candidate, index, all) => all.findIndex((item) => item.id === candidate.id) === index)
-    .slice(0, 48);
+    .slice(0, 48)
+    .map((candidate) => ({
+      ...candidate,
+      year: candidate.releaseDate ? String(candidate.releaseDate).slice(0, 4) : "",
+      language: intent.language || "en",
+      languageLabel: languageLabel(intent.language || "en"),
+      providerNote:
+        intent.language && intent.language !== "en"
+          ? "Provider Pokémon TCG anglais; image à valider pour la langue."
+          : "",
+    }));
   return setCachedSearch(key, candidates);
 }
 

@@ -2524,7 +2524,14 @@ function renderProducts() {
     .join("");
 
   if (!products.length) {
-    productGrid.innerHTML = `<p>${t("shopEmpty")}</p>`;
+    productGrid.innerHTML = `
+      <div class="shop-empty-state">
+        <p>${t("shopEmpty")}</p>
+        <button class="button secondary" type="button" data-reset-filters>
+          ${currentLang === "en" ? "Reset filters" : "Réinitialiser les filtres"}
+        </button>
+      </div>
+    `;
   }
   renderMobileMore(products.length > 0 && !homePreview && isMobileShop());
   renderHomeSections();
@@ -5140,30 +5147,42 @@ function renderImageCandidates(candidates) {
   imageSearchPreview.classList.remove("hidden");
   imageSearchPreview.innerHTML = candidates
     .map(
-      (candidate) => `
+      (candidate) => {
+        const previewUrl = candidate.smallImageUrl || candidate.imageUrl;
+        const metadata = [
+          candidate.year ? `${candidate.year}` : "",
+          candidate.languageLabel || candidate.language ? `Langue: ${candidate.languageLabel || candidate.language}` : "",
+        ].filter(Boolean).join(" · ");
+        return `
         <article
           class="image-choice"
           data-image-choice
           data-image-url="${escapeAttribute(candidate.imageUrl)}"
+          data-preview-url="${escapeAttribute(previewUrl)}"
           data-name="${escapeAttribute(candidate.name || "")}"
           data-set-id="${escapeAttribute(candidate.setId || "")}"
           data-set-name="${escapeAttribute(candidate.set || "")}"
           data-number="${escapeAttribute(candidate.number || "")}"
           data-rarity="${escapeAttribute(candidate.rarity || "")}"
+          data-language="${escapeAttribute(candidate.language || "")}"
+          data-year="${escapeAttribute(candidate.year || "")}"
           data-image-type="${escapeAttribute(candidate.imageType || "card")}"
         >
-          <img class="${candidate.imageType === "sealed" ? "sealed-choice-img" : ""}" src="${escapeAttribute(candidate.imageUrl)}" alt="${escapeAttribute(candidate.name)}" />
+          <img class="${candidate.imageType === "sealed" ? "sealed-choice-img" : ""}" src="${escapeAttribute(previewUrl)}" alt="${escapeAttribute(candidate.name)}" loading="lazy" decoding="async" />
           <span>
             <strong>${escapeAttribute(candidate.name)}</strong>
             <small>${escapeAttribute(candidate.set || "Set à confirmer")}${candidate.number ? ` - #${escapeAttribute(candidate.number)}` : ""}</small>
             <small>${escapeAttribute(candidate.rarity || "Rareté à confirmer")}</small>
+            ${metadata ? `<small>${escapeAttribute(metadata)}</small>` : ""}
+            ${candidate.providerNote ? `<small>${escapeAttribute(candidate.providerNote)}</small>` : ""}
           </span>
           <div class="image-choice-actions">
             <button type="button" data-image-role="front">Avant</button>
             <button type="button" data-image-role="back">Arrière</button>
           </div>
         </article>
-      `
+      `;
+      }
     )
     .join("");
   selectImageCandidate(imageSearchPreview.querySelector("[data-image-choice]"));
@@ -5174,7 +5193,15 @@ function parseAdminSearchIntent(query = "") {
   const normalized = raw.toLowerCase();
   const numberMatch = raw.match(/\b(?:[a-z]{1,4}\s*)?\d{1,3}[a-z]?\/?\d{0,3}\b/i);
   const mechanics = ["VMAX", "VSTAR", "GX", "LV.X", "LV X", "EX", "ex", "Mega", "M "].filter((token) => raw.includes(token));
+  const cleanName = raw
+    .replace(/\b(?:promo|black\s*star|mcdonalds?|mcd|japanese|japonais|jp|jpn|chinese|chinois|cn|korean|cor[eé]en|kr|alt art|alternate art|sir|ir)\b/gi, " ")
+    .replace(/\b(?:mep|svp|swsh|sm|xy|bw|dp|pop|hgss)\b/gi, " ")
+    .replace(/\b(?:VMAX|VSTAR|GX|LV\.X|LV X|EX|ex|Mega)\b/g, " ")
+    .replace(numberMatch?.[0] || "", " ")
+    .replace(/\s+/g, " ")
+    .trim();
   const chips = [];
+  if (cleanName) chips.push(`Nom: ${cleanName}`);
   if (/\bpromo|black\s*star|mcdonald|mcdonalds|mcd\b/i.test(raw)) chips.push("Promo");
   if (/\b(japanese|japonais|jp|jpn)\b/i.test(raw)) chips.push("Japonais");
   if (/\b(chinese|chinois|cn)\b/i.test(raw)) chips.push("Chinois");
@@ -5187,6 +5214,7 @@ function parseAdminSearchIntent(query = "") {
   if (normalized.includes("ir")) chips.push("IR");
   return {
     raw,
+    cleanName,
     number: numberMatch?.[0]?.replace(/\s+/g, "") || "",
     promo: chips.includes("Promo"),
     language:
@@ -5454,7 +5482,18 @@ document.addEventListener("click", (event) => {
   const accountLogout = event.target.closest("[data-account-logout]");
   const passwordToggle = event.target.closest("[data-toggle-password]");
   const editProfileButton = event.target.closest("[data-edit-profile]");
+  const resetFiltersButton = event.target.closest("[data-reset-filters]");
 
+  if (resetFiltersButton) {
+    event.preventDefault();
+    resetShopFiltersForRoute();
+    state.category = "all";
+    state.game = "Pokemon";
+    state.search = "";
+    history.pushState({}, "", "/");
+    applyRoute();
+    requestAnimationFrame(() => scrollToShopItems("smooth"));
+  }
   if (passwordToggle) {
     event.preventDefault();
     const input = passwordToggle.parentElement?.querySelector("input");
@@ -6046,6 +6085,10 @@ document.addEventListener("keydown", (event) => {
   const isAdminVisible = adminPage && !adminPage.classList.contains("hidden") && adminContent && !adminContent.classList.contains("hidden");
 
   if (event.key === "Escape") {
+    if (searchOverlay?.getAttribute("aria-hidden") === "false") {
+      closeSearchOverlay();
+      return;
+    }
     if (adminDiscardModal?.getAttribute("aria-hidden") === "false") {
       closeAdminDiscardModal();
       return;

@@ -1149,10 +1149,50 @@ body.is-scrolled .site-header {
 .main-nav {
   display: flex;
   justify-content: center;
+  align-items: center;
   gap: clamp(18px, 3vw, 44px);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.nav-dropdown {
+  position: relative;
+}
+
+.nav-dropdown-panel {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 12px);
+  z-index: 60;
+  display: grid;
+  min-width: 190px;
+  padding: 10px;
+  border-radius: 18px;
+  background: rgba(251, 234, 216, 0.98);
+  box-shadow: 0 18px 42px rgba(61, 42, 29, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 8px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.nav-dropdown:hover .nav-dropdown-panel,
+.nav-dropdown:focus-within .nav-dropdown-panel {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+
+.nav-dropdown-panel a {
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: var(--coffee);
+}
+
+.nav-dropdown-panel a:hover,
+.nav-dropdown-panel a:focus-visible {
+  background: rgba(213, 116, 45, 0.12);
 }
 
 .main-nav button,
