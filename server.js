@@ -3923,6 +3923,29 @@ function cardSearchScore(card, tokens, numberHint) {
   return score;
 }
 
+function yearSearchBounds(value) {
+  const years = String(value || "")
+    .match(/\b(?:19|20)\d{2}\b/g)
+    ?.map((year) => Number(year))
+    .filter((year) => year >= 1996 && year <= 2100) || [];
+  if (!years.length) return null;
+  return { min: Math.min(...years), max: Math.max(...years) };
+}
+
+function candidateYearMatches(candidate, yearHint = "") {
+  const bounds = yearSearchBounds(yearHint);
+  if (!bounds) return true;
+  const year = Number(String(candidate.releaseDate || candidate.year || "").slice(0, 4));
+  if (!year) return false;
+  return year >= bounds.min && year <= bounds.max;
+}
+
+function isBlackStarPromoCandidate(candidate) {
+  const haystack = `${candidate.name || ""} ${candidate.set || ""} ${candidate.setId || ""}`.toLowerCase();
+  return /black\s*star\s*promos?|wizards\s*black\s*star|scarlet\s*&?\s*violet\s*black\s*star|sword\s*&?\s*shield\s*black\s*star|sun\s*&?\s*moon\s*black\s*star|xy\s*black\s*star|bw\s*black\s*star|dp\s*black\s*star|hgss\s*black\s*star/.test(haystack)
+    || /^(basep|np|swshp|smp|xyp|bwp|dpp|hsp|svp)$/i.test(String(candidate.setId || ""));
+}
+
 function pokemonCardImageCandidates(payload, numberHint = "", tokens = []) {
   const rows = Array.isArray(payload?.data) ? payload.data : [];
   return rows
@@ -3952,6 +3975,8 @@ function candidateMatchesSearchTokens(candidate, tokens) {
 
 function candidateMatchesAdminIntent(candidate, intent = {}) {
   const haystack = `${candidate.name || ""} ${candidate.set || ""} ${candidate.setId || ""} ${candidate.number || ""}`.toLowerCase();
+  if (intent.blackStarOnly && !isBlackStarPromoCandidate(candidate)) return false;
+  if (!candidateYearMatches(candidate, intent.year)) return false;
   if (intent.promo && !/(promo|black star|mcdonald|svp|swsh|sm|xy|bw|dp|pop|mep)/i.test(haystack)) return false;
   const mechanics = String(intent.mechanics || "")
     .split(",")
@@ -3973,7 +3998,7 @@ function languageLabel(language = "en") {
 }
 
 async function searchPokemonCardImages(query, numberHint = "", setId = "", intent = {}) {
-  const key = cacheKey(["card", query, numberHint, setId, intent.language || "", intent.promo ? "promo" : "", intent.mechanics || ""]);
+  const key = cacheKey(["card", query, numberHint, setId, intent.language || "", intent.promo ? "promo" : "", intent.blackStarOnly ? "black-star" : "", intent.year || "", intent.mechanics || ""]);
   const cached = getCachedSearch(key);
   if (cached) return cached;
   const term = cleanCardSearchTerm(query);
@@ -5387,6 +5412,8 @@ async function handleApi(req, res) {
     const intent = {
       language: url.searchParams.get("language") || "en",
       promo: url.searchParams.get("promo") === "1",
+      blackStarOnly: url.searchParams.get("blackStarOnly") === "1",
+      year: url.searchParams.get("year") || "",
       mechanics: url.searchParams.get("mechanics") || "",
     };
     if (query.trim().length < 2 && !setId && !number.trim()) return json(res, 200, { candidates: [] });

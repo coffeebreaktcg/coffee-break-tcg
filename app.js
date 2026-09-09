@@ -5231,7 +5231,11 @@ function parseAdminSearchIntent(query = "") {
 function renderAdminSearchIntent() {
   if (!adminSearchIntentChips || !adminProductForm) return;
   const name = adminProductForm.querySelector('input[name="name"]')?.value || "";
+  const year = adminProductForm.querySelector('input[name="releaseYear"]')?.value.trim();
+  const blackStarOnly = adminProductForm.querySelector('input[name="blackStarOnly"]')?.checked;
   const intent = parseAdminSearchIntent(name);
+  if (year) intent.chips.push(`Année: ${year}`);
+  if (blackStarOnly && !intent.chips.includes("Black Star Promo")) intent.chips.push("Black Star Promo");
   adminSearchIntentChips.innerHTML = intent.chips.map((chip) => `<em>${escapeAttribute(chip)}</em>`).join("");
 }
 
@@ -5328,6 +5332,8 @@ async function searchCardImage() {
   if (!adminProductForm || !searchCardImageButton) return;
   const name = adminProductForm.querySelector('input[name="name"]')?.value.trim();
   const cardNumber = adminProductForm.querySelector('input[name="cardNumber"]')?.value.trim();
+  const releaseYear = adminProductForm.querySelector('input[name="releaseYear"]')?.value.trim();
+  const blackStarOnly = adminProductForm.querySelector('input[name="blackStarOnly"]')?.checked;
   const setId = pokemonSetSelect?.value || "";
   const productType = adminProductForm.querySelector('select[name="kind"]')?.value || "";
   const game = adminProductForm.querySelector('select[name="game"]')?.value || "Pokemon";
@@ -5348,7 +5354,9 @@ async function searchCardImage() {
       productType,
       game,
       language: intent.language,
-      promo: intent.promo ? "1" : "",
+      promo: intent.promo || blackStarOnly ? "1" : "",
+      blackStarOnly: blackStarOnly ? "1" : "",
+      year: releaseYear || "",
       mechanics: intent.mechanics.join(","),
     });
     const payload = await api(`/api/admin/card-images?${params.toString()}`);
@@ -6204,6 +6212,14 @@ adminProductForm?.querySelector('input[name="name"]')?.addEventListener("input",
   renderAdminSearchIntent();
 });
 cardLanguageSelect?.addEventListener("change", renderAdminSearchIntent);
+adminProductForm?.querySelector('input[name="releaseYear"]')?.addEventListener("input", () => {
+  renderAdminSearchIntent();
+  resetImageSearch();
+});
+adminProductForm?.querySelector('input[name="blackStarOnly"]')?.addEventListener("change", () => {
+  renderAdminSearchIntent();
+  resetImageSearch();
+});
 imageSearchPreview?.addEventListener("click", (event) => {
   const roleButton = event.target.closest("[data-image-role]");
   const choice = event.target.closest("[data-image-choice]");
