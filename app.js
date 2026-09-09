@@ -2023,6 +2023,26 @@ function productPokemonKey(product) {
     .split(" ")[0] || product.id;
 }
 
+function productStyleKey(product) {
+  if (isSlabProduct(product)) return "slab";
+  if (product.category === "Sealed" || ["etb", "utb", "pack", "booster-bundle", "booster-box", "box", "japanese"].includes(product.kind)) return "sealed";
+  if (product.category === "Accessories" || product.kind === "accessory") return "accessory";
+  return "single";
+}
+
+function priceRangeScore(candidatePrice, referencePrice) {
+  const candidate = Number(candidatePrice || 0);
+  const reference = Number(referencePrice || 0);
+  if (!candidate || !reference) return 0;
+  const gap = Math.abs(candidate - reference);
+  const ratio = gap / Math.max(reference, 1);
+  if (ratio <= 0.15) return 100;
+  if (ratio <= 0.3) return 72;
+  if (ratio <= 0.5) return 44;
+  if (ratio <= 0.8) return 18;
+  return 0;
+}
+
 function clampScore(value) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
@@ -2677,22 +2697,37 @@ function detailSpec(label, value) {
 
 function similarProducts(product) {
   if (!product) return [];
+  const pokemon = productPokemonKey(product);
+  const style = productStyleKey(product);
+  const referencePrice = Number(product.price || 0);
   return inventory
     .filter((item) => item.id !== product.id)
     .filter((item) => getProductStatus(item) === "available" && Number(item.stock || 0) > 0)
     .filter((item) => productGame(item) === productGame(product))
     .filter(hasValidProductImage)
     .map((item) => {
+      const samePokemon = productPokemonKey(item) === pokemon;
+      const priceScore = priceRangeScore(item.price, referencePrice);
+      const sameStyle = productStyleKey(item) === style;
       let score = 0;
-      if (item.category === product.category) score += 40;
-      if (item.setName && product.setName && item.setName === product.setName) score += 28;
-      if (isHomepageFeatured(item)) score += 18;
-      if (isRecentProduct(item)) score += 12;
-      if (isSaleProduct(item)) score += 8;
-      score += Math.min(10, Number(item.price || 0) / 100);
-      return { item, score };
+      if (samePokemon) score += 10000;
+      score += priceScore * 30;
+      if (sameStyle) score += 1000;
+      if (item.category === product.category) score += 420;
+      if (item.setName && product.setName && item.setName === product.setName) score += 260;
+      if (isHomepageFeatured(item) || isNewArrivalFavorite(item)) score += 80;
+      if (isRecentProduct(item)) score += 50;
+      if (isSaleProduct(item)) score += 30;
+      return { item, score, samePokemon, priceScore, sameStyle };
     })
-    .sort((a, b) => b.score - a.score)
+    .sort(
+      (a, b) =>
+        Number(b.samePokemon) - Number(a.samePokemon) ||
+        b.priceScore - a.priceScore ||
+        Number(b.sameStyle) - Number(a.sameStyle) ||
+        b.score - a.score ||
+        merchDateValue(b.item.updatedAt || b.item.createdAt) - merchDateValue(a.item.updatedAt || a.item.createdAt)
+    )
     .map(({ item }) => item)
     .slice(0, 4);
 }
