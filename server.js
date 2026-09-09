@@ -3997,8 +3997,137 @@ function languageLabel(language = "en") {
   return "Anglais";
 }
 
+function tcgdexLanguageCode(language = "en") {
+  if (language === "jp") return "ja";
+  if (language === "cn") return "zh-cn";
+  if (language === "kr") return "ko";
+  if (language === "fr") return "fr";
+  return "en";
+}
+
+function tcgdexImageUrl(image, quality = "high") {
+  if (!image) return "";
+  return `${String(image).replace(/\/(?:high|low)\.png$/i, "")}/${quality}.png`;
+}
+
+function pokemonAliasSearchTerms(query = "") {
+  const normalized = normalizeSealedSearch(query);
+  const aliases = [
+    { keys: ["umbreon", "blacky", "brackie"], ja: ["Umbreon", "ブラッキー"], cn: ["月亮伊布", "Umbreon"] },
+    { keys: ["cubone"], ja: ["Cubone", "カラカラ"], cn: ["卡拉卡拉", "Cubone"] },
+    { keys: ["pikachu"], ja: ["Pikachu", "ピカチュウ"], cn: ["皮卡丘", "Pikachu"] },
+    { keys: ["eevee", "eeveelution"], ja: ["Eevee", "イーブイ"], cn: ["伊布", "Eevee"] },
+    { keys: ["vaporeon"], ja: ["Vaporeon", "シャワーズ"], cn: ["水伊布", "Vaporeon"] },
+    { keys: ["jolteon"], ja: ["Jolteon", "サンダース"], cn: ["雷伊布", "Jolteon"] },
+    { keys: ["flareon"], ja: ["Flareon", "ブースター"], cn: ["火伊布", "Flareon"] },
+    { keys: ["espeon"], ja: ["Espeon", "エーフィ"], cn: ["太阳伊布", "Espeon"] },
+    { keys: ["leafeon"], ja: ["Leafeon", "リーフィア"], cn: ["叶伊布", "Leafeon"] },
+    { keys: ["glaceon"], ja: ["Glaceon", "グレイシア"], cn: ["冰伊布", "Glaceon"] },
+    { keys: ["sylveon"], ja: ["Sylveon", "ニンフィア"], cn: ["仙子伊布", "Sylveon"] },
+    { keys: ["ponyta"], ja: ["Ponyta", "ポニータ"], cn: ["小火马", "Ponyta"] },
+    { keys: ["gengar", "ectoplasma"], ja: ["Gengar", "ゲンガー"], cn: ["耿鬼", "Gengar"] },
+    { keys: ["gyarados"], ja: ["Gyarados", "ギャラドス"], cn: ["暴鲤龙", "Gyarados"] },
+    { keys: ["misty", "ondine"], ja: ["Misty", "カスミ"], cn: ["小霞", "Misty"] },
+    { keys: ["charizard"], ja: ["Charizard", "リザードン"], cn: ["喷火龙", "Charizard"] },
+  ];
+  const matches = aliases.filter((alias) => alias.keys.some((key) => normalized.includes(key)));
+  return {
+    ja: matches.flatMap((alias) => alias.ja),
+    cn: matches.flatMap((alias) => alias.cn),
+    en: matches.flatMap((alias) => alias.ja.filter((term) => /^[a-z0-9' .-]+$/i.test(term))),
+  };
+}
+
+function tcgdexSearchTerms(query = "", language = "en") {
+  const clean = cleanCardSearchTerm(query);
+  const normalized = normalizeSealedSearch(clean);
+  const tokens = cardSearchTokens(clean).filter((token) => !/^(ex|v|gx|vmax|vstar)$/i.test(token));
+  const aliases = pokemonAliasSearchTerms(query);
+  const languageAliases = language === "jp" ? aliases.ja : language === "cn" ? aliases.cn : aliases.en;
+  const terms = [
+    normalized,
+    tokens.slice(0, 2).join(" "),
+    tokens[0] || "",
+    ...languageAliases,
+  ]
+    .map((term) => String(term || "").trim())
+    .filter((term) => term.length >= 2);
+  return [...new Set(terms)].slice(0, 10);
+}
+
+function tcgdexCandidateSetName(row = {}) {
+  const setId = String(row.set?.id || row.set?.name || row.set || row.id || "").split("-").slice(0, -1).join("-");
+  return row.set?.name || setId || "Set international";
+}
+
+function tcgdexCardNumber(row = {}) {
+  return String(row.localId || row.number || row.id?.split("-").pop() || "").trim();
+}
+
+function tcgdexCandidateMatchesNumber(row = {}, numberHint = "") {
+  const variants = cardNumberVariants(numberHint).map((value) => String(value).toLowerCase());
+  if (!variants.length) return true;
+  const localId = tcgdexCardNumber(row).toLowerCase();
+  const id = String(row.id || "").toLowerCase();
+  return variants.some((number) => localId === number || localId.replace(/^0+(?=\d)/, "") === number.replace(/^0+(?=\d)/, "") || id.endsWith(`-${number}`));
+}
+
+function isTcgdexPromoCandidate(row = {}) {
+  const haystack = `${row.id || ""} ${row.name || ""} ${row.set?.name || ""}`.toLowerCase();
+  return /\b(?:p|sv-p|s-p|sm-p|xy-p|bw-p|dp-p|promo|promos?)\b/i.test(haystack);
+}
+
+function tcgdexCardCandidates(rows = [], language = "en", numberHint = "", intent = {}) {
+  const directMatches = rows.filter((row) => tcgdexCandidateMatchesNumber(row, numberHint));
+  const filteredRows = directMatches.length ? directMatches : rows;
+  return filteredRows
+    .filter((row) => row?.image)
+    .filter((row) => !intent.blackStarOnly || isTcgdexPromoCandidate(row))
+    .slice(0, 36)
+    .map((row) => {
+      const number = tcgdexCardNumber(row);
+      return {
+        id: `tcgdex-${tcgdexLanguageCode(language)}-${row.id || number}`,
+        name: row.name || "",
+        setId: String(row.set?.id || row.id || "").split("-").slice(0, -1).join("-"),
+        set: tcgdexCandidateSetName(row),
+        releaseDate: row.set?.releaseDate || "",
+        number,
+        rarity: row.rarity || "Carte internationale",
+        imageUrl: tcgdexImageUrl(row.image, "high"),
+        smallImageUrl: tcgdexImageUrl(row.image, "low"),
+        year: row.set?.releaseDate ? String(row.set.releaseDate).slice(0, 4) : "",
+        language,
+        languageLabel: languageLabel(language),
+        providerNote: "Source internationale TCGdex; valide l'image avant de sauvegarder.",
+      };
+    });
+}
+
+async function searchTcgdexPokemonCards(query, numberHint = "", intent = {}) {
+  const language = intent.language || "en";
+  const tcgdexLanguage = tcgdexLanguageCode(language);
+  const terms = tcgdexSearchTerms(query, language);
+  if (!terms.length) return [];
+  const results = [];
+  for (const term of terms) {
+    const url = new URL(`https://api.tcgdex.net/v2/${tcgdexLanguage}/cards`);
+    url.searchParams.set("name", term);
+    try {
+      const rows = await httpsJsonWithHeaders(url, {});
+      if (!Array.isArray(rows)) continue;
+      results.push(...tcgdexCardCandidates(rows, language, numberHint, intent));
+    } catch {
+      // Keep the admin search usable even if the international source is down.
+    }
+  }
+  return results
+    .filter((candidate, index, all) => all.findIndex((item) => item.id === candidate.id) === index)
+    .slice(0, 36);
+}
+
 async function searchPokemonCardImages(query, numberHint = "", setId = "", intent = {}) {
-  const key = cacheKey(["card", query, numberHint, setId, intent.language || "", intent.promo ? "promo" : "", intent.blackStarOnly ? "black-star" : "", intent.year || "", intent.mechanics || ""]);
+  const key = cacheKey(["card", query, numberHint, setId, intent.language || "", intent.promo ? "promo" : "", intent.blackStarOnly ? "black-star" : "", intent.year || "", intent.mechanics || "", "tcgdex-v1"]);
   const cached = getCachedSearch(key);
   if (cached) return cached;
   const term = cleanCardSearchTerm(query);
@@ -4039,7 +4168,7 @@ async function searchPokemonCardImages(query, numberHint = "", setId = "", inten
   });
 
   const results = await Promise.all(searches);
-  const candidates = results
+  const officialCandidates = results
     .sort((a, b) => a.index - b.index)
     .flatMap((result) => result.candidates)
     .filter((candidate) => candidateMatchesAdminIntent(candidate, intent))
@@ -4055,6 +4184,10 @@ async function searchPokemonCardImages(query, numberHint = "", setId = "", inten
           ? "Provider Pokémon TCG anglais; image à valider pour la langue."
           : "",
     }));
+  const internationalCandidates = await searchTcgdexPokemonCards(query, detectedNumber, intent);
+  const candidates = [...internationalCandidates, ...officialCandidates]
+    .filter((candidate, index, all) => all.findIndex((item) => item.id === candidate.id || item.imageUrl === candidate.imageUrl) === index)
+    .slice(0, 48);
   return setCachedSearch(key, candidates);
 }
 
@@ -5940,7 +6073,7 @@ function productAvailability(product) {
 }
 
 function sitemapXml(db) {
-  const staticPaths = ["/", "/singles", "/slabs", "/sealed", "/one-piece", "/vendre", "/faq", "/livraison", "/apropos"];
+  const staticPaths = ["/", "/nouveautes", "/singles", "/slabs", "/sealed", "/one-piece", "/vendre", "/faq", "/livraison", "/apropos"];
   const productPaths = (db.inventory || []).filter(isIndexableProduct).map(publicProductPath);
   const urls = [...staticPaths, ...productPaths];
   const body = urls
@@ -6012,6 +6145,7 @@ async function serveStatic(req, res) {
     return res.end(JSON.stringify(merchantFeed(db), null, 2));
   }
   const appRoutes = new Set([
+    "/nouveautes",
     "/singles",
     "/slabs",
     "/graded",

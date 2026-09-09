@@ -495,6 +495,7 @@ function isSaleProduct(product) {
 
 const categoryRoutes = {
   "/": "all",
+  "/nouveautes": "new",
   "/singles": "Singles",
   "/sealed": "Sealed",
   "/slabs": "Graded",
@@ -531,6 +532,15 @@ const categoryPageCopy = {
       metaDescription: "Magasine des singles Pokémon inspectés, photographiés et expédiés avec suivi depuis le Québec. Cartes modernes, hits, promos et ajouts de collection.",
       proof: ["Photos réelles", "Condition NM / LP / MP indiquée", "Emballage rigide", "Expédition suivie au Canada"],
       seoText: "Les singles sont pensés pour les collectionneurs qui veulent compléter un binder, ajouter un coup de cœur moderne ou trouver une carte propre sans deviner l’état. Chaque carte publiée est sélectionnée, photographiée et préparée pour arriver protégée.",
+    },
+    "/nouveautes": {
+      eyebrow: "Coffee Break",
+      title: "Nouveautés",
+      intro: "Tous les nouveaux produits ajoutés à la boutique : slabs, singles et items sélectionnés pour la vitrine.",
+      metaTitle: "Nouveautés Pokémon & TCG Canada | Coffee Break TCG",
+      metaDescription: "Découvre les derniers ajouts Coffee Break TCG : cartes Pokémon, slabs, singles et produits fraîchement ajoutés à la boutique.",
+      proof: ["Derniers ajouts", "Photos réelles", "Items en stock", "Expédition suivie"],
+      seoText: "La page nouveautés rassemble les produits qui viennent d’arriver dans l’inventaire Coffee Break. C’est l’endroit à vérifier pour les nouveaux slabs, belles singles et pièces qui méritent d’être vues rapidement.",
     },
     "/slabs": {
       eyebrow: "Pokémon",
@@ -578,6 +588,15 @@ const categoryPageCopy = {
       metaDescription: "Shop inspected Pokemon singles with real photos, clear condition notes and tracked Canadian shipping from Coffee Break TCG.",
       proof: ["Real photos", "NM / LP / MP condition", "Rigid protection", "Tracked Canadian shipping"],
       seoText: "Singles are for collectors who want to complete a binder, grab a modern hit or buy a clean card without guessing condition. Every listed card is selected, photographed and packed with care.",
+    },
+    "/nouveautes": {
+      eyebrow: "Coffee Break",
+      title: "New arrivals",
+      intro: "All freshly added products: slabs, singles and selected showcase items.",
+      metaTitle: "New Pokemon & TCG Arrivals Canada | Coffee Break TCG",
+      metaDescription: "Browse the latest Coffee Break TCG arrivals: Pokemon cards, slabs, singles and freshly added products.",
+      proof: ["Latest additions", "Real photos", "In-stock items", "Tracked shipping"],
+      seoText: "The new arrivals page brings together what just entered the Coffee Break inventory. It is the place to check for fresh slabs, clean singles and cards worth seeing early.",
     },
     "/slabs": {
       eyebrow: "Pokemon",
@@ -1027,7 +1046,7 @@ function getProducts() {
     const matchesCategory =
       state.category === "all" ||
       product.category === state.category ||
-      (state.category === "new" && isRecentProduct(product)) ||
+      (state.category === "new" && (isNewArrivalFavorite(product) || isRecentProduct(product))) ||
       (state.category === "sale" && isSaleProduct(product)) ||
       (state.category === "featured" && isHomepageFeatured(product));
     const matchesType = state.typeFilter === "all" || product.kind === state.typeFilter || product.visual === state.typeFilter;
@@ -4900,6 +4919,8 @@ function resetAdminProductForm() {
   if (imageSearchStatus) imageSearchStatus.textContent = "";
   if (marketSuggestStatus) marketSuggestStatus.textContent = "";
   if (productGameSelect) productGameSelect.value = "Pokemon";
+  if (cardLanguageSelect) cardLanguageSelect.value = "en";
+  syncAdminLanguageQuickFilter("en");
   loadPokemonSets();
   setAdminDrawerSummary(null);
   if (adminPrevItemButton) adminPrevItemButton.hidden = true;
@@ -5029,6 +5050,7 @@ function editAdminItem(id) {
   setAdminField("category", item.category || "Singles");
   setAdminField("game", productGame(item));
   setAdminField("language", item.language || "en");
+  syncAdminLanguageQuickFilter(item.language || "en");
   setAdminField("kind", item.kind || "single");
   setAdminField("rarity", item.rarity);
   setAdminField("badge", item.badge || "");
@@ -5228,14 +5250,39 @@ function parseAdminSearchIntent(query = "") {
   };
 }
 
+function adminLanguageQuickFilters() {
+  return {
+    jp: Boolean(adminProductForm?.querySelector('input[name="searchLanguageJp"]')?.checked),
+    cn: Boolean(adminProductForm?.querySelector('input[name="searchLanguageCn"]')?.checked),
+  };
+}
+
+function selectedAdminSearchLanguage(intentLanguage = "") {
+  const quick = adminLanguageQuickFilters();
+  if (quick.jp) return "jp";
+  if (quick.cn) return "cn";
+  return intentLanguage || cardLanguageSelect?.value || "en";
+}
+
+function syncAdminLanguageQuickFilter(language) {
+  const jpCheckbox = adminProductForm?.querySelector('input[name="searchLanguageJp"]');
+  const cnCheckbox = adminProductForm?.querySelector('input[name="searchLanguageCn"]');
+  if (!jpCheckbox || !cnCheckbox) return;
+  jpCheckbox.checked = language === "jp";
+  cnCheckbox.checked = language === "cn";
+}
+
 function renderAdminSearchIntent() {
   if (!adminSearchIntentChips || !adminProductForm) return;
   const name = adminProductForm.querySelector('input[name="name"]')?.value || "";
   const year = adminProductForm.querySelector('input[name="releaseYear"]')?.value.trim();
   const blackStarOnly = adminProductForm.querySelector('input[name="blackStarOnly"]')?.checked;
   const intent = parseAdminSearchIntent(name);
+  intent.language = selectedAdminSearchLanguage(intent.language);
   if (year) intent.chips.push(`Année: ${year}`);
   if (blackStarOnly && !intent.chips.includes("Black Star Promo")) intent.chips.push("Black Star Promo");
+  if (intent.language === "jp" && !intent.chips.includes("Japonais")) intent.chips.push("JP");
+  if (intent.language === "cn" && !intent.chips.includes("Chinois")) intent.chips.push("CH");
   adminSearchIntentChips.innerHTML = intent.chips.map((chip) => `<em>${escapeAttribute(chip)}</em>`).join("");
 }
 
@@ -5334,10 +5381,12 @@ async function searchCardImage() {
   const cardNumber = adminProductForm.querySelector('input[name="cardNumber"]')?.value.trim();
   const releaseYear = adminProductForm.querySelector('input[name="releaseYear"]')?.value.trim();
   const blackStarOnly = adminProductForm.querySelector('input[name="blackStarOnly"]')?.checked;
+  const language = selectedAdminSearchLanguage();
   const setId = pokemonSetSelect?.value || "";
   const productType = adminProductForm.querySelector('select[name="kind"]')?.value || "";
   const game = adminProductForm.querySelector('select[name="game"]')?.value || "Pokemon";
   const intent = parseAdminSearchIntent(name);
+  intent.language = selectedAdminSearchLanguage(intent.language || language);
   if (!name && !setId) {
     if (imageSearchStatus) imageSearchStatus.textContent = "Entre le nom ou choisis une extension.";
     return;
@@ -6211,12 +6260,38 @@ adminProductForm?.querySelector('input[name="name"]')?.addEventListener("input",
   resetCardLookupDetails();
   renderAdminSearchIntent();
 });
-cardLanguageSelect?.addEventListener("change", renderAdminSearchIntent);
+cardLanguageSelect?.addEventListener("change", () => {
+  syncAdminLanguageQuickFilter(cardLanguageSelect.value);
+  renderAdminSearchIntent();
+  resetImageSearch();
+});
 adminProductForm?.querySelector('input[name="releaseYear"]')?.addEventListener("input", () => {
   renderAdminSearchIntent();
   resetImageSearch();
 });
 adminProductForm?.querySelector('input[name="blackStarOnly"]')?.addEventListener("change", () => {
+  renderAdminSearchIntent();
+  resetImageSearch();
+});
+adminProductForm?.querySelector('input[name="searchLanguageJp"]')?.addEventListener("change", (event) => {
+  if (event.currentTarget.checked) {
+    const cnCheckbox = adminProductForm.querySelector('input[name="searchLanguageCn"]');
+    if (cnCheckbox) cnCheckbox.checked = false;
+    if (cardLanguageSelect) cardLanguageSelect.value = "jp";
+  } else if (cardLanguageSelect?.value === "jp") {
+    cardLanguageSelect.value = "en";
+  }
+  renderAdminSearchIntent();
+  resetImageSearch();
+});
+adminProductForm?.querySelector('input[name="searchLanguageCn"]')?.addEventListener("change", (event) => {
+  if (event.currentTarget.checked) {
+    const jpCheckbox = adminProductForm.querySelector('input[name="searchLanguageJp"]');
+    if (jpCheckbox) jpCheckbox.checked = false;
+    if (cardLanguageSelect) cardLanguageSelect.value = "cn";
+  } else if (cardLanguageSelect?.value === "cn") {
+    cardLanguageSelect.value = "en";
+  }
   renderAdminSearchIntent();
   resetImageSearch();
 });

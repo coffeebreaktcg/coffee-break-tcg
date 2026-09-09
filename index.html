@@ -182,7 +182,7 @@
             <p class="eyebrow" data-i18n="newTitle">Nouveautés</p>
             <h2 data-i18n="newText">Ce qui vient d’atterrir sur la table.</h2>
           </div>
-          <a href="#new-arrivals" data-i18n="viewAllNew">Voir tout ce qui vient d’arriver →</a>
+          <a href="/nouveautes" data-route-category="new" data-i18n="viewAllNew">Voir tout ce qui vient d’arriver →</a>
         </div>
         <div class="new-arrivals-carousel hidden" id="newArrivalsCarousel" aria-label="Slides nouveautés"></div>
         <div class="home-product-grid compact" id="newArrivalsGrid"></div>
@@ -595,10 +595,20 @@
                 <label>Année <input name="releaseYear" inputmode="numeric" placeholder="Ex. 2000 ou 1999-2000" /></label>
               </div>
               <div class="form-row two">
-                <label class="admin-checkbox-row">
-                  <input name="blackStarOnly" type="checkbox" />
-                  <span>Rechercher seulement les Black Star Promo</span>
-                </label>
+                <div class="admin-search-toggle-row" aria-label="Filtres rapides de recherche">
+                  <label class="admin-checkbox-row">
+                    <input name="blackStarOnly" type="checkbox" />
+                    <span>Black Star Promo</span>
+                  </label>
+                  <label class="admin-checkbox-row compact">
+                    <input name="searchLanguageJp" type="checkbox" />
+                    <span>JP</span>
+                  </label>
+                  <label class="admin-checkbox-row compact">
+                    <input name="searchLanguageCn" type="checkbox" />
+                    <span>CH</span>
+                  </label>
+                </div>
                 <label class="admin-search-intent">
                   Lecture de recherche
                   <span id="adminSearchIntentChips">Nom + numéro + extension</span>
