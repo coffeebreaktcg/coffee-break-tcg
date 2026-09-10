@@ -946,6 +946,10 @@ function productBadge(product) {
 
 function cardConditionCode(product) {
   const condition = String(product.condition || "").toLowerCase();
+  if (/^(nm|near mint)$/.test(condition.trim())) return "NM";
+  if (/^(lp|lightly played|light play)$/.test(condition.trim())) return "LP";
+  if (/^(mp|moderately played|moderate play)$/.test(condition.trim())) return "MP";
+  if (/^(hp|dmg|damaged|damage)$/.test(condition.trim())) return "Damaged";
   if (condition.includes("damaged") || condition.includes("damage")) return "Damaged";
   if (condition.includes("moderately") || condition.includes(" mp") || condition.includes("- mp")) return "MP";
   if (condition.includes("lightly") || condition.includes("light play") || condition.includes(" lp") || condition.includes("- lp")) return "LP";

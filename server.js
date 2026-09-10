@@ -4005,6 +4005,14 @@ function tcgdexLanguageCode(language = "en") {
   return "en";
 }
 
+function tcgdexLanguageFallbacks(language = "en") {
+  if (language === "jp") return ["ja", "en"];
+  if (language === "cn") return ["zh-cn", "zh-tw", "en"];
+  if (language === "kr") return ["ko", "en"];
+  if (language === "fr") return ["fr", "en"];
+  return ["en", "ja", "zh-cn"];
+}
+
 function tcgdexImageUrl(image, quality = "high") {
   if (!image) return "";
   return `${String(image).replace(/\/(?:high|low)\.png$/i, "")}/${quality}.png`;
@@ -4015,6 +4023,9 @@ function pokemonAliasSearchTerms(query = "") {
   const aliases = [
     { keys: ["umbreon", "blacky", "brackie"], ja: ["Umbreon", "ブラッキー"], cn: ["月亮伊布", "Umbreon"] },
     { keys: ["cubone"], ja: ["Cubone", "カラカラ"], cn: ["卡拉卡拉", "Cubone"] },
+    { keys: ["magneton"], ja: ["Magneton", "レアコイル"], cn: ["三合一磁怪", "Magneton"] },
+    { keys: ["magnemite"], ja: ["Magnemite", "コイル"], cn: ["小磁怪", "Magnemite"] },
+    { keys: ["magnezone"], ja: ["Magnezone", "ジバコイル"], cn: ["自爆磁怪", "Magnezone"] },
     { keys: ["pikachu"], ja: ["Pikachu", "ピカチュウ"], cn: ["皮卡丘", "Pikachu"] },
     { keys: ["eevee", "eeveelution"], ja: ["Eevee", "イーブイ"], cn: ["伊布", "Eevee"] },
     { keys: ["vaporeon"], ja: ["Vaporeon", "シャワーズ"], cn: ["水伊布", "Vaporeon"] },
@@ -4034,18 +4045,20 @@ function pokemonAliasSearchTerms(query = "") {
   return {
     ja: matches.flatMap((alias) => alias.ja),
     cn: matches.flatMap((alias) => alias.cn),
-    en: matches.flatMap((alias) => alias.ja.filter((term) => /^[a-z0-9' .-]+$/i.test(term))),
+    en: matches.flatMap((alias) => [...alias.ja, ...alias.cn].filter((term) => /^[a-z0-9' .-]+$/i.test(term))),
   };
 }
 
 function tcgdexSearchTerms(query = "", language = "en") {
   const clean = cleanCardSearchTerm(query);
   const normalized = normalizeSealedSearch(clean);
-  const tokens = cardSearchTokens(clean).filter((token) => !/^(ex|v|gx|vmax|vstar)$/i.test(token));
+  const rawNormalized = normalizeSealedSearch(query);
+  const tokens = cardSearchTokens(clean).filter((token) => !/^(ex|v|gx|vmax|vstar|stamp|stamped|exclusive|holo|cosmo|games|game)$/i.test(token));
   const aliases = pokemonAliasSearchTerms(query);
   const languageAliases = language === "jp" ? aliases.ja : language === "cn" ? aliases.cn : aliases.en;
   const terms = [
     normalized,
+    rawNormalized.replace(/\b(?:stamp|stamped|exclusive|holo|cosmo|eb|games?|black|star|promo|promos?|prismatic|gem|pack|chinese|chinois|japanese|japonais|chine|jp|jpn|cn|ch)\b/g, " ").replace(/\s+/g, " ").trim(),
     tokens.slice(0, 2).join(" "),
     tokens[0] || "",
     ...languageAliases,
@@ -4069,7 +4082,19 @@ function tcgdexCandidateMatchesNumber(row = {}, numberHint = "") {
   if (!variants.length) return true;
   const localId = tcgdexCardNumber(row).toLowerCase();
   const id = String(row.id || "").toLowerCase();
-  return variants.some((number) => localId === number || localId.replace(/^0+(?=\d)/, "") === number.replace(/^0+(?=\d)/, "") || id.endsWith(`-${number}`));
+  return variants.some((number) => {
+    const cleanNumber = number.replace(/[^a-z0-9/]/gi, "");
+    const shortNumber = cleanNumber.split("/")[0];
+    const shortNoZero = shortNumber.replace(/^0+(?=\d)/, "");
+    const localNoZero = localId.replace(/^0+(?=\d)/, "");
+    return (
+      localId === cleanNumber ||
+      localNoZero === shortNoZero ||
+      id.endsWith(`-${cleanNumber}`) ||
+      id.endsWith(`-${shortNumber}`) ||
+      id.endsWith(`-${shortNoZero}`)
+    );
+  });
 }
 
 function isTcgdexPromoCandidate(row = {}) {
@@ -4106,19 +4131,22 @@ function tcgdexCardCandidates(rows = [], language = "en", numberHint = "", inten
 
 async function searchTcgdexPokemonCards(query, numberHint = "", intent = {}) {
   const language = intent.language || "en";
-  const tcgdexLanguage = tcgdexLanguageCode(language);
-  const terms = tcgdexSearchTerms(query, language);
+  const languages = tcgdexLanguageFallbacks(language);
+  const terms = [...new Set(languages.flatMap((tcgdexLanguage) => tcgdexSearchTerms(query, tcgdexLanguage === "ja" ? "jp" : tcgdexLanguage === "zh-cn" || tcgdexLanguage === "zh-tw" ? "cn" : tcgdexLanguage)))];
   if (!terms.length) return [];
   const results = [];
-  for (const term of terms) {
-    const url = new URL(`https://api.tcgdex.net/v2/${tcgdexLanguage}/cards`);
-    url.searchParams.set("name", term);
-    try {
-      const rows = await httpsJsonWithHeaders(url, {});
-      if (!Array.isArray(rows)) continue;
-      results.push(...tcgdexCardCandidates(rows, language, numberHint, intent));
-    } catch {
-      // Keep the admin search usable even if the international source is down.
+  for (const tcgdexLanguage of languages) {
+    const candidateLanguage = tcgdexLanguage === "ja" ? "jp" : tcgdexLanguage === "zh-cn" || tcgdexLanguage === "zh-tw" ? "cn" : tcgdexLanguage;
+    for (const term of terms) {
+      const url = new URL(`https://api.tcgdex.net/v2/${tcgdexLanguage}/cards`);
+      url.searchParams.set("name", term);
+      try {
+        const rows = await httpsJsonWithHeaders(url, {});
+        if (!Array.isArray(rows)) continue;
+        results.push(...tcgdexCardCandidates(rows, candidateLanguage, numberHint, intent));
+      } catch {
+        // Keep the admin search usable even if the international source is down.
+      }
     }
   }
   return results
