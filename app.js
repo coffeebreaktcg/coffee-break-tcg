@@ -483,7 +483,7 @@ function passwordInput(name, label, autocomplete = "new-password") {
   return `
     <label class="password-field">
       ${label}
-      <input name="${name}" type="password" autocomplete="${autocomplete}" minlength="6" required />
+      <input name="${name}" type="password" autocomplete="${autocomplete}" minlength="${autocomplete === "new-password" ? 12 : 1}" maxlength="256" required />
       <button type="button" data-toggle-password aria-label="Afficher le mot de passe">👁</button>
     </label>
   `;
@@ -1015,6 +1015,11 @@ function statusLabel(status) {
       pending_payment: "En attente",
       expired: "Expirée",
       paid: "Payée",
+      fulfilled: "Expédiée",
+      manual_review: "Vérification manuelle",
+      payment_received_after_expiry: "Paiement tardif",
+      checkout_failed: "Checkout échoué",
+      refunded: "Remboursée",
       cancelled: "Annulée",
       admin_sale: "Vente admin",
     }[status] || "Disponible"
@@ -3181,6 +3186,11 @@ function orderStatusLabel(status) {
       pending_payment: currentLang === "en" ? "Pending payment" : "Paiement en attente",
       expired: currentLang === "en" ? "Expired" : "Expirée",
       paid: currentLang === "en" ? "Paid" : "Payée",
+      fulfilled: currentLang === "en" ? "Fulfilled" : "Expédiée",
+      manual_review: currentLang === "en" ? "Manual review" : "Vérification manuelle",
+      payment_received_after_expiry: currentLang === "en" ? "Late payment" : "Paiement tardif",
+      checkout_failed: currentLang === "en" ? "Checkout failed" : "Checkout échoué",
+      refunded: currentLang === "en" ? "Refunded" : "Remboursée",
       admin_sale: currentLang === "en" ? "Manual sale" : "Vente manuelle",
       cancelled: currentLang === "en" ? "Cancelled" : "Annulée",
     }[status] || status || "-"

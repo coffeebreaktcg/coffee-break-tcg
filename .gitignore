@@ -5,3 +5,12 @@ data/db.json
 data/backups/
 reports/
 assets/uploads/expense-*
+.env.*
+!.env.example
+*.log
+*.dump
+*.tmp
+*.pem
+*.key
+credentials*.json
+service-account*.json

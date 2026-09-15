@@ -7,6 +7,8 @@ const path = require("node:path");
 const zlib = require("node:zlib");
 
 const root = __dirname;
+const security = require("./security");
+const { redact, validateConfig } = require("./config");
 
 function loadLocalEnv() {
   const envPath = path.join(root, ".env");
@@ -18,7 +20,19 @@ function loadLocalEnv() {
   }
 }
 
-loadLocalEnv();
+if (process.env.NODE_ENV !== "test") loadLocalEnv();
+const validatedConfig = validateConfig(process.env);
+
+function log(level, event, details = {}) {
+  const record = redact({ timestamp: new Date().toISOString(), level, event, ...details });
+  const output = JSON.stringify(record);
+  (level === "error" ? console.error : level === "warn" ? console.warn : console.log)(output);
+}
+
+function requestId(req) {
+  if (!req.requestId) req.requestId = crypto.randomUUID();
+  return req.requestId;
+}
 
 function envPath(name, fallback) {
   const value = process.env[name];
@@ -30,7 +44,7 @@ const dataDir = envPath("DATA_DIR", path.join(root, "data"));
 const dbPath = path.join(dataDir, "db.json");
 const backupDir = path.join(dataDir, "backups");
 const uploadDir = envPath("UPLOAD_DIR", path.join(root, "assets", "uploads"));
-const port = Number(process.env.PORT || 4173);
+const port = Number(process.env.PORT ?? 4173);
 const canadaPostKey = process.env.CANADA_POST_ADDRESS_KEY || "";
 const marketPriceProvider = process.env.MARKET_PRICE_PROVIDER || "local";
 const tcgApiKey = process.env.TCG_API_KEY || "";
@@ -76,7 +90,7 @@ const cardImageSearchCacheTtlMs = 1000 * 60 * 30;
 const reservationHoldMs = 10 * 60 * 1000;
 const adminLoginAttempts = new Map();
 const jarvisLoginAttempts = new Map();
-const maxJsonBodyBytes = Number(process.env.MAX_JSON_BODY_BYTES || 8 * 1024 * 1024);
+const maxJsonBodyBytes = Math.max(1024, Math.min(8 * 1024 * 1024, Number(process.env.MAX_JSON_BODY_BYTES) || 8 * 1024 * 1024));
 const clearInventoryMigrationId = "clear-all-inventory-2026-06-02";
 const starterInventoryIds = new Set([
   "pikachu-ar",
@@ -124,6 +138,12 @@ const mimeTypes = {
   ".svg": "image/svg+xml",
   ".pdf": "application/pdf",
   ".zip": "application/zip",
+  ".webmanifest": "application/manifest+json",
+  ".woff2": "font/woff2",
+  ".woff": "font/woff",
+  ".gif": "image/gif",
+  ".avif": "image/avif",
+  ".ico": "image/x-icon",
 };
 
 const securityHeaders = {
@@ -170,6 +190,8 @@ async function readDb() {
     if (!db.jarvisDiagnostics) db.jarvisDiagnostics = { errors: [] };
     if (!Array.isArray(db.jarvisDiagnostics.errors)) db.jarvisDiagnostics.errors = [];
     if (!Array.isArray(db.migrations)) db.migrations = [];
+    if (!Array.isArray(db.auditLog)) db.auditLog = [];
+    if (!Array.isArray(db.paymentReconciliation)) db.paymentReconciliation = [];
     if (!db.migrations.includes(clearInventoryMigrationId)) {
       db.inventory = [];
       db.migrations.push(clearInventoryMigrationId);
@@ -180,7 +202,8 @@ async function readDb() {
       if (db.inventory.length !== inventoryCountBeforeStarterCleanup) await writeDb(db);
     }
     return db;
-  } catch {
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
     const seedPath = path.join(root, "data", "seed.json");
     let empty = {
       users: [],
@@ -204,6 +227,8 @@ async function readDb() {
       newArrivalSlides: [],
       inventory: defaultInventory(),
       merchandising: { decisions: {}, history: [], performance: [], updatedAt: "" },
+      auditLog: [],
+      paymentReconciliation: [],
     };
     try {
       const seed = JSON.parse(await fs.readFile(seedPath, "utf8"));
@@ -224,21 +249,94 @@ async function readDb() {
 
 async function writeDb(db) {
   await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(dbPath, JSON.stringify(db, null, 2));
+  validateDbShape(db);
   await writeDbBackup(db);
+  const temporary = `${dbPath}.${crypto.randomBytes(8).toString("hex")}.tmp`;
+  try {
+    await fs.writeFile(temporary, JSON.stringify(db, null, 2), { mode: 0o600, flag: "wx" });
+    await fs.rename(temporary, dbPath);
+  } catch (error) {
+    await fs.unlink(temporary).catch(() => {});
+    throw error;
+  }
   scheduleGoogleDriveBackup(db, "database-change");
 }
 
-async function writeDbBackup(db, { force = false } = {}) {
+function audit(db, entry) {
+  if (!Array.isArray(db.auditLog)) db.auditLog = [];
+  db.auditLog.push({
+    timestamp: new Date().toISOString(),
+    action: String(entry.action || "unknown").slice(0, 100),
+    actor: String(entry.actor || "system").slice(0, 200),
+    resource: String(entry.resource || "").slice(0, 100),
+    resourceId: String(entry.resourceId || "").slice(0, 200),
+    result: String(entry.result || "success").slice(0, 100),
+    requestId: String(entry.requestId || "").slice(0, 100),
+  });
+  db.auditLog = db.auditLog.slice(-2000);
+}
+
+function validateDbShape(db) {
+  if (!db || typeof db !== "object" || Array.isArray(db)) security.fail("Base de données invalide");
+  for (const key of ["inventory", "orders", "users"]) if (!Array.isArray(db[key])) security.fail(`Structure invalide: ${key}`);
+  return db;
+}
+
+function backupEnvelope(db, reason = "database-change") {
+  validateDbShape(db);
+  const serialized = JSON.stringify(db);
+  return {
+    format: "coffeebreak-backup-v2",
+    createdAt: new Date().toISOString(),
+    reason,
+    checksum: crypto.createHash("sha256").update(serialized).digest("hex"),
+    db,
+  };
+}
+
+function validateBackup(payload) {
+  const envelope = payload?.format === "coffeebreak-backup-v2" ? payload : { db: payload?.db && typeof payload.db === "object" ? payload.db : payload };
+  validateDbShape(envelope.db);
+  if (payload?.format === "coffeebreak-backup-v2") {
+    const checksum = crypto.createHash("sha256").update(JSON.stringify(envelope.db)).digest("hex");
+    if (!/^[a-f0-9]{64}$/.test(payload.checksum || "") || checksum !== payload.checksum) security.fail("Checksum de sauvegarde invalide");
+  }
+  return envelope.db;
+}
+
+async function writeDbBackup(db, { force = false, reason = "database-change" } = {}) {
   const now = Date.now();
   if (!force && now - lastDbBackupAt < dbBackupIntervalMs) return;
-  lastDbBackupAt = now;
   await fs.mkdir(backupDir, { recursive: true });
   const stamp = new Date(now).toISOString().replace(/[:.]/g, "-");
-  await fs.writeFile(path.join(backupDir, `db-${stamp}.json`), JSON.stringify(db, null, 2));
+  const target = path.join(backupDir, `db-${stamp}-${crypto.randomBytes(4).toString("hex")}.json`);
+  const temporary = `${target}.${crypto.randomBytes(6).toString("hex")}.tmp`;
+  try {
+    await fs.writeFile(temporary, JSON.stringify(backupEnvelope(db, reason), null, 2), { mode: 0o600, flag: "wx" });
+    await fs.rename(temporary, target);
+  } catch (error) {
+    await fs.unlink(temporary).catch(() => {});
+    throw error;
+  }
+  lastDbBackupAt = now;
   const files = (await fs.readdir(backupDir)).filter((file) => /^db-.*\.json$/.test(file)).sort();
   const extra = files.slice(0, Math.max(0, files.length - 40));
-  await Promise.all(extra.map((file) => fs.unlink(path.join(backupDir, file)).catch(() => {})));
+  for (const file of extra) await fs.unlink(path.join(backupDir, file));
+  log("info", "backup.created", { file: path.basename(target), reason, retained: Math.min(files.length, 40) });
+  return target;
+}
+
+async function restoreBackup(fileName) {
+  if (!/^db-[a-zA-Z0-9_.-]+\.json$/.test(fileName)) security.fail("Nom de sauvegarde invalide");
+  const source = path.join(backupDir, fileName);
+  const payload = JSON.parse(await fs.readFile(source, "utf8"));
+  const restored = validateBackup(payload);
+  const current = await readDb();
+  await writeDbBackup(current, { force: true, reason: "pre-restore" });
+  audit(restored, { action: "backup.restored", resource: "database", resourceId: fileName, result: "success" });
+  await writeDb(restored);
+  log("warn", "backup.restored", { file: fileName });
+  return restored;
 }
 
 async function uploadManifest() {
@@ -306,14 +404,16 @@ function httpsRequestJson(url, options = {}, body = "") {
       response.on("data", (chunk) => chunks.push(chunk));
       response.on("end", () => {
         const text = Buffer.concat(chunks).toString("utf8");
-        const payload = text ? JSON.parse(text) : {};
+        let payload;
+        try { payload = text ? JSON.parse(text) : {}; } catch { reject(new Error("Réponse externe invalide")); return; }
         if (response.statusCode >= 400) {
-          reject(new Error(payload.error_description || payload.error?.message || payload.error || `Erreur HTTP ${response.statusCode}`));
+          reject(new Error(`Service externe HTTP ${response.statusCode}`));
           return;
         }
         resolve(payload);
       });
     });
+    request.setTimeout(15000, () => request.destroy(new Error("Service externe indisponible")));
     request.on("error", reject);
     if (body) request.write(body);
     request.end();
@@ -393,11 +493,14 @@ function multipartDriveBody(metadata, fileBuffer, fileContentType = "application
 }
 
 async function buildBackupPayload(db, reason = "manual") {
+  const envelope = backupEnvelope(db, reason);
   return {
-    generatedAt: new Date().toISOString(),
+    format: envelope.format,
+    generatedAt: envelope.createdAt,
     reason,
+    checksum: envelope.checksum,
     note: "Sauvegarde des données Coffee Break TCG. Les fichiers uploadés sont listés dans uploadedFiles et restent dans assets/uploads.",
-    db,
+    db: envelope.db,
     uploadedFiles: await uploadManifest(),
   };
 }
@@ -638,6 +741,7 @@ function json(res, status, payload, extraHeaders = {}) {
   res.writeHead(status, {
     ...securityHeaders,
     "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
     ...extraHeaders,
   });
   res.end(JSON.stringify(payload));
@@ -667,35 +771,33 @@ function csvCell(value) {
 }
 
 function parseCookies(req) {
-  return Object.fromEntries(
-    (req.headers.cookie || "")
-      .split(";")
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .map((item) => {
-        const index = item.indexOf("=");
-        return [item.slice(0, index), decodeURIComponent(item.slice(index + 1))];
-      })
-  );
+  const cookies = Object.create(null);
+  for (const item of String(req.headers.cookie || "").split(";")) {
+    const index = item.indexOf("=");
+    if (index < 1) continue;
+    try { cookies[item.slice(0, index).trim()] = decodeURIComponent(item.slice(index + 1).trim()); } catch {}
+  }
+  return cookies;
 }
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
-  const hash = crypto.pbkdf2Sync(password, salt, 120000, 32, "sha256").toString("hex");
-  return `${salt}:${hash}`;
+  const hash = crypto.scryptSync(password, salt, 32, { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 }).toString("hex");
+  return `scrypt:${salt}:${hash}`;
 }
 
 function verifyPassword(password, stored) {
-  if (!stored || !stored.includes(":")) return false;
-  const [salt] = stored.split(":");
-  const expected = Buffer.from(hashPassword(password, salt));
-  const actual = Buffer.from(stored);
-  if (expected.length !== actual.length) return false;
-  return crypto.timingSafeEqual(expected, actual);
+  if (typeof stored !== "string" || typeof password !== "string" || password.length > 256) return false;
+  const modern = /^scrypt:([a-f0-9]{32}):([a-f0-9]{64})$/.exec(stored);
+  const legacy = /^([a-f0-9]{32}):([a-f0-9]{64})$/.exec(stored);
+  if (!modern && !legacy) return false;
+  const [, salt, expected] = modern || legacy;
+  const actual = modern ? crypto.scryptSync(password, salt, 32, { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 }) : crypto.pbkdf2Sync(password, salt, 120000, 32, "sha256");
+  return crypto.timingSafeEqual(actual, Buffer.from(expected, "hex"));
 }
 
 function adminPasswordMatches(password) {
   if (adminPasswordHash) return verifyPassword(password, adminPasswordHash);
-  if (!adminPassword || password.length !== adminPassword.length) return false;
+  if (process.env.NODE_ENV === "production" || !adminPassword || Buffer.byteLength(password) !== Buffer.byteLength(adminPassword)) return false;
   return crypto.timingSafeEqual(Buffer.from(password), Buffer.from(adminPassword));
 }
 
@@ -709,14 +811,14 @@ if (process.argv[2] === "hash-admin-password") {
   process.exit(0);
 }
 
-function requestIp(req) {
-  return String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "local").split(",")[0].trim();
-}
+function requestIp(req) { return security.requestIp(req); }
 
 function adminAttemptState(req) {
   const key = requestIp(req);
   const now = Date.now();
+  for (const [ip, entry] of adminLoginAttempts) if ((entry.touchedAt || 0) < now - 900000) adminLoginAttempts.delete(ip);
   const state = adminLoginAttempts.get(key) || { count: 0, lockedUntil: 0 };
+  state.touchedAt = now;
   if (state.lockedUntil && state.lockedUntil < now) {
     state.count = 0;
     state.lockedUntil = 0;
@@ -767,7 +869,7 @@ function getAdminSession(req, db) {
   const sessionId = parseCookies(req).cb_admin;
   const session = sessionId ? db.adminSessions?.[sessionId] : null;
   if (!session) return null;
-  if (session.expiresAt && new Date(session.expiresAt).getTime() < Date.now()) {
+  if (!Number.isFinite(Date.parse(session.expiresAt)) || Date.parse(session.expiresAt) <= Date.now()) {
     delete db.adminSessions[sessionId];
     return null;
   }
@@ -780,14 +882,16 @@ function publicAdmin(session) {
 
 function jarvisPasswordMatches(password) {
   if (jarvisPasswordHash) return verifyPassword(password, jarvisPasswordHash);
-  if (!jarvisPassword || password.length !== jarvisPassword.length) return false;
+  if (process.env.NODE_ENV === "production" || !jarvisPassword || Buffer.byteLength(password) !== Buffer.byteLength(jarvisPassword)) return false;
   return crypto.timingSafeEqual(Buffer.from(password), Buffer.from(jarvisPassword));
 }
 
 function jarvisAttemptState(req) {
   const key = requestIp(req);
   const now = Date.now();
+  for (const [ip, entry] of jarvisLoginAttempts) if ((entry.touchedAt || 0) < now - 900000) jarvisLoginAttempts.delete(ip);
   const state = jarvisLoginAttempts.get(key) || { count: 0, lockedUntil: 0 };
+  state.touchedAt = now;
   if (state.lockedUntil && state.lockedUntil < now) {
     state.count = 0;
     state.lockedUntil = 0;
@@ -822,7 +926,7 @@ function getJarvisSession(req, db) {
   const sessionId = parseCookies(req).cb_jarvis;
   const session = sessionId ? db.jarvisSessions?.[sessionId] : null;
   if (!session) return null;
-  if (session.expiresAt && new Date(session.expiresAt).getTime() < Date.now()) {
+  if (!Number.isFinite(Date.parse(session.expiresAt)) || Date.parse(session.expiresAt) <= Date.now()) {
     delete db.jarvisSessions[sessionId];
     return null;
   }
@@ -1859,6 +1963,71 @@ function taxBreakdown(subtotal) {
   };
 }
 
+const allowedOrderTransitions = {
+  pending_payment: new Set(["paid", "expired", "cancelled", "manual_review"]),
+  expired: new Set(["payment_received_after_expiry", "manual_review", "checkout_failed"]),
+  payment_received_after_expiry: new Set(["paid", "manual_review"]),
+  paid: new Set(["fulfilled", "refunded", "manual_review"]),
+  manual_review: new Set(["paid", "fulfilled", "refunded", "cancelled"]),
+  fulfilled: new Set(["refunded"]),
+  cancelled: new Set(["manual_review", "refunded"]),
+  refunded: new Set(),
+  admin_sale: new Set(["fulfilled", "refunded"]),
+  checkout_failed: new Set(),
+};
+
+function transitionOrder(order, nextStatus, context = {}) {
+  const current = order.status || "pending_payment";
+  if (current === nextStatus) return false;
+  if (!allowedOrderTransitions[current]?.has(nextStatus)) security.fail(`Transition de commande invalide: ${current} -> ${nextStatus}`, 409);
+  order.status = nextStatus;
+  order.statusUpdatedAt = new Date().toISOString();
+  order.statusReason = String(context.reason || "").slice(0, 300);
+  order.statusHistory = Array.isArray(order.statusHistory) ? order.statusHistory : [];
+  order.statusHistory.push({ from: current, to: nextStatus, at: order.statusUpdatedAt, reason: order.statusReason, requestId: context.requestId || "" });
+  order.statusHistory = order.statusHistory.slice(-100);
+  return true;
+}
+
+function canReserveLatePayment(db, order) {
+  return (order.items || []).every(item => {
+    const product = db.inventory.find(candidate => candidate.id === item.id);
+    return product && ["available", "preorder"].includes(product.status || "available") && Number.isSafeInteger(Number(item.quantity)) && Number(item.quantity) > 0 && Number(product.stock || 0) >= Number(item.quantity);
+  });
+}
+
+function reserveLatePayment(db, order) {
+  for (const item of order.items || []) {
+    const product = db.inventory.find(candidate => candidate.id === item.id);
+    const quantity = Number(item.quantity);
+    product.stock -= quantity;
+    product.reservedQuantity = Number(product.reservedQuantity || 0) + quantity;
+    if (product.stock <= 0) product.status = "reserved";
+  }
+}
+
+function recordReconciliation(db, issue) {
+  if (!Array.isArray(db.paymentReconciliation)) db.paymentReconciliation = [];
+  const key = `${issue.eventId || ""}:${issue.paymentId || ""}:${issue.reason || ""}`;
+  if (db.paymentReconciliation.some(entry => entry.key === key)) return;
+  db.paymentReconciliation.push({ key, createdAt: new Date().toISOString(), resolvedAt: "", ...issue });
+  db.paymentReconciliation = db.paymentReconciliation.slice(-1000);
+}
+
+function reconciliationReport(db) {
+  const now = Date.now();
+  const orders = db.orders || [];
+  return {
+    generatedAt: new Date(now).toISOString(),
+    pendingTooLong: orders.filter(order => order.status === "pending_payment" && now - Date.parse(order.createdAt || 0) > reservationHoldMs),
+    paidNotFulfilled: orders.filter(order => order.status === "paid" && !order.shippedAt && order.shippingStatus !== "shipped"),
+    manualReview: orders.filter(order => ["manual_review", "payment_received_after_expiry"].includes(order.status)),
+    expired: orders.filter(order => order.status === "expired"),
+    unmatchedPayments: (db.paymentReconciliation || []).filter(entry => !entry.resolvedAt),
+    stockIssues: orders.filter(order => ["pending_payment", "paid"].includes(order.status) && (order.items || []).some(item => !db.inventory.some(product => product.id === item.id))),
+  };
+}
+
 function releaseOrderReservation(db, order, reason = "Réservation expirée") {
   if (!order || order.reservationReleasedAt) return false;
   for (const item of order.items || []) {
@@ -1869,7 +2038,7 @@ function releaseOrderReservation(db, order, reason = "Réservation expirée") {
     product.reservedQuantity = Math.max(0, Number(product.reservedQuantity || 0) - quantity);
     if (product.status === "reserved") product.status = product.category === "Preorder" ? "preorder" : "available";
   }
-  order.status = "expired";
+  transitionOrder(order, "expired", { reason });
   order.expiredAt = new Date().toISOString();
   order.reservationReleasedAt = order.expiredAt;
   order.cancelReason = reason;
@@ -2280,7 +2449,7 @@ function resendEmail(message) {
         response.on("data", (chunk) => chunks.push(chunk));
         response.on("end", () => {
           const text = Buffer.concat(chunks).toString("utf8");
-          if (response.statusCode >= 400) return reject(new Error(`Resend ${response.statusCode}: ${text.slice(0, 220)}`));
+          if (response.statusCode >= 400) return reject(new Error(`Resend ${response.statusCode}`));
           try {
             resolve(JSON.parse(text));
           } catch {
@@ -2289,6 +2458,7 @@ function resendEmail(message) {
         });
       }
     );
+    request.setTimeout(15000, () => request.destroy(new Error("Service externe indisponible")));
     request.on("error", reject);
     request.write(body);
     request.end();
@@ -2487,17 +2657,25 @@ function updateOrderEmailStatus(db, order) {
 
 async function readBody(req) {
   const raw = await readRawBody(req);
-  return raw ? JSON.parse(raw) : {};
+  let body;
+  try { body = raw ? JSON.parse(raw) : {}; } catch { security.fail("JSON malformé"); }
+  return security.validateBody(new URL(req.url, "http://localhost").pathname, body);
 }
 
 async function saveImageData(imageData, id) {
-  if (!imageData || !String(imageData).startsWith("data:image/")) return "";
+  if (!imageData) return "";
+  security.id(id);
+  security.text(imageData, 6 * 1024 * 1024);
   const match = String(imageData).match(/^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/);
-  if (!match) return "";
+  if (!match) security.fail("Image invalide");
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(match[2])) security.fail("Image base64 invalide");
+  const bytes = Buffer.from(match[2], "base64");
+  const validImage = match[1] === "png" ? bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) : match[1] === "webp" ? bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP" : bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+  if (!validImage) security.fail("Format image invalide");
   const ext = match[1] === "jpeg" ? "jpg" : match[1];
   const filename = `${id}.${ext}`;
   await fs.mkdir(uploadDir, { recursive: true });
-  await fs.writeFile(path.join(uploadDir, filename), Buffer.from(match[2], "base64"));
+  await fs.writeFile(path.join(uploadDir, filename), bytes, { flag: fsSync.constants.O_WRONLY | fsSync.constants.O_CREAT | fsSync.constants.O_TRUNC | fsSync.constants.O_NOFOLLOW });
   return `/assets/uploads/${filename}`;
 }
 
@@ -2655,8 +2833,10 @@ async function syncMarketPricesFromDisk(options = {}) {
 
 async function getSessionUser(req, db) {
   const sessionId = parseCookies(req).cb_session;
-  const userId = sessionId ? db.sessions[sessionId] : null;
-  return userId ? db.users.find((user) => user.id === userId) : null;
+  const session = sessionId ? db.sessions[sessionId] : null;
+  // Legacy sessions without server-side expiration require a fresh login.
+  if (!session || typeof session !== "object" || !Number.isFinite(Date.parse(session.expiresAt)) || Date.parse(session.expiresAt) <= Date.now()) return null;
+  return db.users.find(user => user.id === session.userId) || null;
 }
 
 const localAddresses = [
@@ -2695,7 +2875,7 @@ const localAddresses = [
 function httpsJson(url) {
   return new Promise((resolve, reject) => {
     https
-      .get(url, (response) => {
+      .get(url, { timeout: 8000 }, (response) => {
         const chunks = [];
         response.on("data", (chunk) => chunks.push(chunk));
         response.on("end", () => {
@@ -2706,6 +2886,7 @@ function httpsJson(url) {
           }
         });
       })
+      .on("timeout", function () { this.destroy(new Error("Service externe indisponible")); })
       .on("error", reject);
   });
 }
@@ -2718,7 +2899,7 @@ function httpsJsonWithHeaders(url, headers = {}) {
         response.on("data", (chunk) => chunks.push(chunk));
         response.on("end", () => {
           const body = Buffer.concat(chunks).toString("utf8");
-          if (response.statusCode >= 400) return reject(new Error(`Pricing API ${response.statusCode}: ${body.slice(0, 160)}`));
+          if (response.statusCode >= 400) return reject(new Error(`Pricing API ${response.statusCode}`));
           try {
             resolve(JSON.parse(body));
           } catch (error) {
@@ -2726,6 +2907,8 @@ function httpsJsonWithHeaders(url, headers = {}) {
           }
         });
       })
+      .on("timeout", function () { this.destroy(new Error("Service externe indisponible")); })
+      .setTimeout(8000)
       .on("error", reject)
       .end();
   });
@@ -2750,7 +2933,7 @@ function httpsPostJson(url, payload, headers = {}) {
         response.on("data", (chunk) => chunks.push(chunk));
         response.on("end", () => {
           const text = Buffer.concat(chunks).toString("utf8");
-          if (response.statusCode >= 400) return reject(new Error(`OpenAI ${response.statusCode}: ${text.slice(0, 220)}`));
+          if (response.statusCode >= 400) return reject(new Error(`OpenAI ${response.statusCode}`));
           try {
             resolve(JSON.parse(text));
           } catch (error) {
@@ -2759,6 +2942,7 @@ function httpsPostJson(url, payload, headers = {}) {
         });
       }
     );
+    request.setTimeout(15000, () => request.destroy(new Error("Service externe indisponible")));
     request.on("error", reject);
     request.write(body);
     request.end();
@@ -2849,7 +3033,8 @@ function googleCalendarOAuthRedirectUri(req) {
 }
 
 function tokenCryptoKey() {
-  const secret = jarvisTokenSecret || "coffee-break-local-jarvis-token-secret";
+  const secret = jarvisTokenSecret;
+  if (!secret) throw new Error("Secret de chiffrement Jarvis non configuré");
   return crypto.createHash("sha256").update(secret).digest();
 }
 
@@ -3083,7 +3268,7 @@ async function googleGetJson(url, accessToken) {
         response.on("data", (chunk) => chunks.push(chunk));
         response.on("end", () => {
           const body = Buffer.concat(chunks).toString("utf8");
-          if (response.statusCode >= 400) return reject(new Error(`Google ${response.statusCode}: ${body.slice(0, 220)}`));
+          if (response.statusCode >= 400) return reject(new Error(`Google ${response.statusCode}`));
           try {
             resolve(JSON.parse(body));
           } catch (error) {
@@ -3113,7 +3298,7 @@ function gmailApiJson(url, method, accessToken, payload = null) {
         response.on("data", (chunk) => chunks.push(chunk));
         response.on("end", () => {
           const text = Buffer.concat(chunks).toString("utf8");
-          if (response.statusCode >= 400) return reject(new Error(`Gmail ${response.statusCode}: ${text.slice(0, 260)}`));
+          if (response.statusCode >= 400) return reject(new Error(`Gmail ${response.statusCode}`));
           try {
             resolve(text ? JSON.parse(text) : {});
           } catch (error) {
@@ -3122,6 +3307,7 @@ function gmailApiJson(url, method, accessToken, payload = null) {
         });
       }
     );
+    request.setTimeout(15000, () => request.destroy(new Error("Service externe indisponible")));
     request.on("error", reject);
     if (body) request.write(body);
     request.end();
@@ -3551,10 +3737,7 @@ function squareApiHost() {
   return squareEnvironment === "production" ? "connect.squareup.com" : "connect.squareupsandbox.com";
 }
 
-function publicOrigin(req) {
-  const proto = req.headers["x-forwarded-proto"] || "http";
-  return `${proto}://${req.headers.host}`;
-}
+function publicOrigin(req) { return security.origin(req); }
 
 function squareJson(pathname, body) {
   if (!squareAccessToken || !squareLocationId) {
@@ -3579,7 +3762,7 @@ function squareJson(pathname, body) {
         response.on("data", (chunk) => chunks.push(chunk));
         response.on("end", () => {
           const text = Buffer.concat(chunks).toString("utf8");
-          if (response.statusCode >= 400) return reject(new Error(`Square ${response.statusCode}: ${text.slice(0, 220)}`));
+          if (response.statusCode >= 400) return reject(new Error(`Square ${response.statusCode}`));
           try {
             resolve(JSON.parse(text));
           } catch {
@@ -3588,6 +3771,7 @@ function squareJson(pathname, body) {
         });
       }
     );
+    request.setTimeout(15000, () => request.destroy(new Error("Service externe indisponible")));
     request.on("error", reject);
     request.write(payload);
     request.end();
@@ -3615,7 +3799,7 @@ function squareRequest(pathname, method = "GET") {
         response.on("data", (chunk) => chunks.push(chunk));
         response.on("end", () => {
           const text = Buffer.concat(chunks).toString("utf8");
-          if (response.statusCode >= 400) return reject(new Error(`Square ${response.statusCode}: ${text.slice(0, 220)}`));
+          if (response.statusCode >= 400) return reject(new Error(`Square ${response.statusCode}`));
           try {
             resolve(JSON.parse(text));
           } catch {
@@ -3624,6 +3808,7 @@ function squareRequest(pathname, method = "GET") {
         });
       }
     );
+    request.setTimeout(15000, () => request.destroy(new Error("Service externe indisponible")));
     request.on("error", reject);
     request.end();
   });
@@ -3636,10 +3821,10 @@ async function getSquarePayment(paymentId) {
 }
 
 function verifySquareWebhookSignature(req, rawBody) {
-  if (!squareWebhookSignatureKey) return true;
+  if (!squareWebhookSignatureKey || !squareWebhookNotificationUrl) return false;
   const signature = String(req.headers["x-square-hmacsha256-signature"] || "");
   if (!signature) return false;
-  const notificationUrl = squareWebhookNotificationUrl || `${publicOrigin(req)}/api/square/webhook`;
+  const notificationUrl = squareWebhookNotificationUrl;
   const expected = crypto
     .createHmac("sha256", squareWebhookSignatureKey)
     .update(notificationUrl + rawBody)
@@ -3650,6 +3835,7 @@ function verifySquareWebhookSignature(req, rawBody) {
 }
 
 async function readRawBody(req) {
+  if (req.cachedRawBody !== undefined) return req.cachedRawBody;
   const chunks = [];
   let total = 0;
   for await (const chunk of req) {
@@ -3661,13 +3847,23 @@ async function readRawBody(req) {
     }
     chunks.push(chunk);
   }
-  return Buffer.concat(chunks).toString("utf8");
+  req.cachedRawBody = Buffer.concat(chunks).toString("utf8");
+  return req.cachedRawBody;
 }
 
 function markOrderPaidFromSquare(db, order, payment, eventType = "square_webhook") {
   if (!order) return { changed: false, reason: "order_missing" };
   if (order.status === "paid") return { changed: false, reason: "already_paid" };
-  if (order.status !== "pending_payment") return { changed: false, reason: `status_${order.status}` };
+  if (order.status === "expired") {
+    transitionOrder(order, "payment_received_after_expiry", { reason: "Paiement Square reçu après expiration" });
+    if (!canReserveLatePayment(db, order)) {
+      transitionOrder(order, "manual_review", { reason: "Stock indisponible après expiration" });
+      return { changed: false, reason: "late_payment_stock_unavailable", manualReview: true };
+    }
+    reserveLatePayment(db, order);
+  } else if (order.status !== "pending_payment" && order.status !== "payment_received_after_expiry") {
+    return { changed: false, reason: `status_${order.status}`, manualReview: true };
+  }
   for (const item of order.items || []) {
     const product = db.inventory.find((candidate) => candidate.id === item.id);
     if (!product) continue;
@@ -3679,7 +3875,7 @@ function markOrderPaidFromSquare(db, order, payment, eventType = "square_webhook
       product.status = product.category === "Preorder" ? "preorder" : "available";
     }
   }
-  order.status = "paid";
+  transitionOrder(order, "paid", { reason: eventType });
   order.paidAt = new Date().toISOString();
   order.paymentConfirmedBy = eventType;
   order.squarePayment = {
@@ -3695,70 +3891,56 @@ function markOrderPaidFromSquare(db, order, payment, eventType = "square_webhook
 
 async function handleSquareWebhook(req, res, db) {
   const rawBody = await readRawBody(req);
-  if (!verifySquareWebhookSignature(req, rawBody)) {
-    return json(res, 403, { error: "Signature Square invalide" });
-  }
+  const correlationId = requestId(req);
+  if (!squareWebhookSignatureKey || !squareWebhookNotificationUrl) return json(res, 503, { error: "Webhook Square non configuré" });
+  if (!verifySquareWebhookSignature(req, rawBody)) return json(res, 403, { error: "Signature Square invalide" });
   let event;
-  try {
-    event = rawBody ? JSON.parse(rawBody) : {};
-  } catch {
-    return json(res, 400, { error: "Webhook Square JSON invalide" });
+  try { event = JSON.parse(rawBody); } catch { return json(res, 400, { error: "Webhook JSON invalide" }); }
+  if (!event || typeof event !== "object" || typeof event.event_id !== "string" || !/^[a-zA-Z0-9_-]{1,200}$/.test(event.event_id)) return json(res, 400, { error: "Événement invalide" });
+  if (event.type !== "payment.updated") return json(res, 200, { ok: true, ignored: true });
+  if ((db.orders || []).some(order => (order.squareWebhookEvents || []).some(e => e.eventId === event.event_id)) || (db.paymentReconciliation || []).some(entry => entry.eventId === event.event_id)) {
+    log("info", "square.webhook.duplicate", { requestId: correlationId, eventId: event.event_id });
+    return json(res, 200, { ok: true, duplicate: true });
   }
-
-  const eventType = event.type || "";
-  const eventPayment = event.data?.object?.payment || {};
-  const eventPaymentId = eventPayment.id || event.data?.id || "";
-  let payment = eventPayment;
-  if (eventPaymentId && (!payment.status || !payment.order_id)) {
-    try {
-      payment = await getSquarePayment(eventPaymentId);
-    } catch (error) {
-      db.emailOutbox.push({
-        id: `square-webhook-${event.event_id || Date.now()}`,
-        to: shopEmail,
-        subject: "Webhook Square à vérifier",
-        body: `Impossible de récupérer le paiement Square ${eventPaymentId}: ${error.message}`,
-        status: "prepared",
-        createdAt: new Date().toISOString(),
-      });
-    }
-  }
-
-  const paymentStatus = payment?.status || eventPayment.status || "";
-  const squareOrderId = payment?.order_id || eventPayment.order_id || "";
-  const paymentId = payment?.id || eventPaymentId;
-  const order = (db.orders || []).find(
-    (candidate) =>
-      candidate.squarePaymentLink?.orderId === squareOrderId ||
-      candidate.squarePayment?.id === paymentId ||
-      candidate.squarePaymentLink?.id === eventPayment.payment_link_id
-  );
-
-  const webhookRecord = {
-    eventId: event.event_id || crypto.randomBytes(8).toString("hex"),
-    type: eventType,
-    paymentId,
-    squareOrderId,
-    paymentStatus,
-    receivedAt: new Date().toISOString(),
-  };
-
-  if (eventType === "payment.updated" && paymentStatus === "COMPLETED" && order) {
-    const result = markOrderPaidFromSquare(db, order, payment, "square_webhook");
-    if (result.changed) {
-      await queueOrderEmails(db, order);
-      updateOrderEmailStatus(db, order);
-    }
-    order.squareWebhookEvents = [...(order.squareWebhookEvents || []), webhookRecord].slice(-10);
+  const supplied = event.data?.object?.payment;
+  if (!supplied || typeof supplied.id !== "string" || !supplied.id) return json(res, 400, { error: "Paiement invalide" });
+  // Retrieve the authoritative payment; never mark paid from browser-supplied fields.
+  let payment;
+  try { payment = await getSquarePayment(supplied.id); } catch { return json(res, 502, { error: "Vérification Square indisponible" }); }
+  if (!payment || payment.id !== supplied.id || !payment.order_id) return json(res, 400, { error: "Paiement non associé" });
+  if (payment.status !== "COMPLETED") return json(res, 200, { ok: true, ignored: true });
+  const order = (db.orders || []).find(candidate => candidate.squarePaymentLink?.orderId && candidate.squarePaymentLink.orderId === payment.order_id);
+  if (!order) {
+    recordReconciliation(db, { eventId: event.event_id, paymentId: payment.id, squareOrderId: payment.order_id, reason: "order_missing", status: "manual_review", requestId: correlationId });
+    audit(db, { action: "payment.manual_review", resource: "payment", resourceId: payment.id, result: "order_missing", requestId: correlationId });
     await writeDb(db);
-    return json(res, 200, { ok: true, orderId: order.id, changed: result.changed, reason: result.reason || "" });
+    log("warn", "square.payment.manual_review", { requestId: correlationId, eventId: event.event_id, paymentId: payment.id, reason: "order_missing" });
+    return json(res, 200, { ok: true, manualReview: true });
   }
-
-  if (order) {
-    order.squareWebhookEvents = [...(order.squareWebhookEvents || []), webhookRecord].slice(-10);
+  const amount = payment.total_money || payment.amount_money;
+  const mismatch = !amount || amount.currency !== "CAD" ? "currency_mismatch" : !Number.isSafeInteger(amount.amount) || amount.amount !== Math.round(orderGrandTotal(order) * 100) ? "amount_mismatch" : !squareLocationId || payment.location_id !== squareLocationId ? "location_mismatch" : "";
+  if (mismatch) {
+    if (["pending_payment", "expired"].includes(order.status)) transitionOrder(order, "manual_review", { reason: mismatch, requestId: correlationId });
+    recordReconciliation(db, { eventId: event.event_id, paymentId: payment.id, orderId: order.id, squareOrderId: payment.order_id, reason: mismatch, status: "manual_review", requestId: correlationId });
+    audit(db, { action: "payment.manual_review", resource: "order", resourceId: order.id, result: mismatch, requestId: correlationId });
+    await writeDb(db);
+    log("warn", "square.payment.manual_review", { requestId: correlationId, eventId: event.event_id, paymentId: payment.id, orderId: order.id, reason: mismatch });
+    return json(res, 200, { ok: true, manualReview: true });
+  }
+  const result = markOrderPaidFromSquare(db, order, payment, "square_webhook");
+  if (result.manualReview) recordReconciliation(db, { eventId: event.event_id, paymentId: payment.id, orderId: order.id, reason: result.reason, status: "manual_review", requestId: correlationId });
+  order.squareWebhookEvents = [...(order.squareWebhookEvents || []), { eventId: event.event_id, paymentId: payment.id, type: event.type, receivedAt: new Date().toISOString() }].slice(-100);
+  // Persist payment before email delivery so provider retries cannot repeat a sale.
+  await writeDb(db);
+  if (result.changed) {
+    await queueOrderEmails(db, order);
+    updateOrderEmailStatus(db, order);
     await writeDb(db);
   }
-  return json(res, 200, { ok: true, ignored: true, type: eventType, paymentStatus, orderId: order?.id || "" });
+  audit(db, { action: result.changed ? "payment.confirmed" : "payment.reviewed", resource: "order", resourceId: order.id, result: result.reason || "paid", requestId: correlationId });
+  await writeDb(db);
+  log(result.manualReview ? "warn" : "info", result.changed ? "square.payment.confirmed" : "square.payment.reviewed", { requestId: correlationId, eventId: event.event_id, paymentId: payment.id, orderId: order.id, result: result.reason || "paid" });
+  return json(res, 200, { ok: true, changed: result.changed, reason: result.reason || "" });
 }
 
 async function createSquarePaymentLink(order, req) {
@@ -4135,9 +4317,11 @@ async function searchTcgdexPokemonCards(query, numberHint = "", intent = {}) {
   const terms = [...new Set(languages.flatMap((tcgdexLanguage) => tcgdexSearchTerms(query, tcgdexLanguage === "ja" ? "jp" : tcgdexLanguage === "zh-cn" || tcgdexLanguage === "zh-tw" ? "cn" : tcgdexLanguage)))];
   if (!terms.length) return [];
   const results = [];
+  const deadline = Date.now() + 12000;
   for (const tcgdexLanguage of languages) {
     const candidateLanguage = tcgdexLanguage === "ja" ? "jp" : tcgdexLanguage === "zh-cn" || tcgdexLanguage === "zh-tw" ? "cn" : tcgdexLanguage;
     for (const term of terms) {
+      if (Date.now() > deadline) break;
       const url = new URL(`https://api.tcgdex.net/v2/${tcgdexLanguage}/cards`);
       url.searchParams.set("name", term);
       try {
@@ -4503,8 +4687,9 @@ async function retrieveAddress(id, provider) {
 }
 
 async function handleApi(req, res) {
+  const url = new URL(req.url, "http://localhost");
+  for (const [key, value] of url.searchParams) security.text(value, key === "q" ? 300 : 2048);
   const db = await readDb();
-  const url = new URL(req.url, `http://${req.headers.host}`);
   const expiredReservations = expirePendingReservations(db);
   if (expiredReservations) await writeDb(db);
 
@@ -4630,8 +4815,8 @@ async function handleApi(req, res) {
     const state = url.searchParams.get("state") || "";
     const code = url.searchParams.get("code") || "";
     const oauthState = db.jarvisOAuthStates?.[state];
-    if (!state || !code || !oauthState) return redirect(res, "/jarvis?gmail=invalid-state");
-    if (new Date(oauthState.expiresAt || 0).getTime() < Date.now()) {
+    if (!state || !code || !oauthState || oauthState.service === "calendar" || !Object.hasOwn(jarvisGmailAccounts(), oauthState.source)) return redirect(res, "/jarvis?gmail=invalid-state");
+    if (!Number.isFinite(Date.parse(oauthState.expiresAt)) || Date.parse(oauthState.expiresAt) <= Date.now()) {
       delete db.jarvisOAuthStates[state];
       await writeDb(db);
       return redirect(res, "/jarvis?gmail=expired");
@@ -4663,7 +4848,7 @@ async function handleApi(req, res) {
     const code = url.searchParams.get("code") || "";
     const oauthState = db.jarvisOAuthStates?.[state];
     if (!state || !code || !oauthState || oauthState.service !== "calendar") return redirect(res, "/jarvis?calendar=invalid-state");
-    if (new Date(oauthState.expiresAt || 0).getTime() < Date.now()) {
+    if (!Number.isFinite(Date.parse(oauthState.expiresAt)) || Date.parse(oauthState.expiresAt) <= Date.now()) {
       delete db.jarvisOAuthStates[state];
       await writeDb(db);
       return redirect(res, "/jarvis?calendar=expired");
@@ -4673,7 +4858,7 @@ async function handleApi(req, res) {
       const accessToken = token.access_token;
       const profile = await googleGetJson("https://www.googleapis.com/oauth2/v2/userinfo", accessToken);
       const email = String(profile.email || "").trim().toLowerCase();
-      if (email && !jarvisAllowedEmails.includes(email)) {
+      if (!email || !jarvisAllowedEmails.includes(email)) {
         return redirect(res, `/jarvis?calendar=wrong-account&email=${encodeURIComponent(email)}`);
       }
       storeGoogleCalendarToken(db, token, email || "google-calendar");
@@ -5188,11 +5373,12 @@ async function handleApi(req, res) {
     const body = await readBody(req);
     const email = String(body.email || "").trim().toLowerCase();
     const password = String(body.password || "");
-    if (!adminPassword && !adminPasswordHash) {
+    if ((!adminPassword && !adminPasswordHash) || (process.env.NODE_ENV === "production" && !adminPasswordHash)) {
       return json(res, 503, { error: "Mot de passe admin non configuré sur le serveur" });
     }
     if (email !== adminEmail || !adminPasswordMatches(password)) {
       recordAdminLoginFailure(req);
+      log("warn", "auth.admin.failed", { requestId: requestId(req), ip: requestIp(req) });
       return json(res, 401, { error: "Identifiants admin invalides" });
     }
     clearAdminLoginFailures(req);
@@ -5203,7 +5389,9 @@ async function handleApi(req, res) {
       expiresAt: new Date(Date.now() + adminSessionMs).toISOString(),
       ip: requestIp(req),
     };
+    audit(db, { action: "auth.admin.login", actor: adminEmail, resource: "session", result: "success", requestId: requestId(req) });
     await writeDb(db);
+    log("info", "auth.admin.login", { requestId: requestId(req), actor: adminEmail });
     return json(res, 200, { admin: publicAdmin(db.adminSessions[sessionId]) }, adminCookieHeader(sessionId));
   }
 
@@ -5224,6 +5412,46 @@ async function handleApi(req, res) {
 
   if (url.pathname.startsWith("/api/admin/") && !getAdminSession(req, db)) {
     return json(res, 401, { error: "Connexion admin requise" });
+  }
+
+  if (url.pathname === "/api/admin/reconciliation" && req.method === "GET") {
+    return json(res, 200, reconciliationReport(db));
+  }
+
+  if (url.pathname === "/api/admin/staging/proxy" && req.method === "GET") {
+    return json(res, 200, security.proxyDiagnostic(req));
+  }
+
+  if (url.pathname === "/api/admin/orders/transition" && req.method === "POST") {
+    const body = await readBody(req);
+    const order = db.orders.find(candidate => candidate.id === body.id);
+    if (!order) return json(res, 404, { error: "Commande introuvable" });
+    const changed = transitionOrder(order, body.status, { reason: body.reason || "Intervention admin", requestId: requestId(req) });
+    if (body.status === "fulfilled") {
+      order.fulfilledAt = order.fulfilledAt || new Date().toISOString();
+      order.shippedAt = order.shippedAt || order.fulfilledAt;
+      order.shippingStatus = "shipped";
+    }
+    if (body.status === "refunded") order.refundedAt = order.refundedAt || new Date().toISOString();
+    audit(db, { action: "order.transition", actor: getAdminSession(req, db)?.email, resource: "order", resourceId: order.id, result: body.status, requestId: requestId(req) });
+    await writeDb(db);
+    log("info", "order.transition", { requestId: requestId(req), orderId: order.id, status: body.status, changed });
+    return json(res, 200, { order, changed });
+  }
+
+  if (url.pathname === "/api/admin/orders/resend-emails" && req.method === "POST") {
+    const body = await readBody(req);
+    const order = db.orders.find(candidate => candidate.id === body.id);
+    if (!order || !["paid", "fulfilled"].includes(order.status)) return json(res, 409, { error: "Commande payée requise" });
+    for (const message of db.emailOutbox || []) {
+      if (String(message.id || "").startsWith(`${order.id}-`) && message.status !== "sent") message.status = "prepared";
+    }
+    await queueOrderEmails(db, order);
+    updateOrderEmailStatus(db, order);
+    audit(db, { action: "order.email_resend", actor: getAdminSession(req, db)?.email, resource: "order", resourceId: order.id, result: order.emailStatus, requestId: requestId(req) });
+    await writeDb(db);
+    log(order.emailStatus === "sent" ? "info" : "warn", "order.email_resend", { requestId: requestId(req), orderId: order.id, emailStatus: order.emailStatus });
+    return json(res, 200, { orderId: order.id, emailStatus: order.emailStatus });
   }
 
   if (url.pathname === "/api/admin/reports/sales.csv" && req.method === "GET") {
@@ -5455,6 +5683,7 @@ async function handleApi(req, res) {
     };
     db.inventory.splice(index, 1);
     db.orders.push(order);
+    audit(db, { action: "inventory.sold", actor: getAdminSession(req, db)?.email, resource: "product", resourceId: product.id, result: order.id, requestId: requestId(req) });
     await writeDb(db);
     return json(res, 201, { order, product: publicProduct(soldProduct), summary: summarizeSales(db) });
   }
@@ -5476,6 +5705,7 @@ async function handleApi(req, res) {
     product.priceAuto = false;
     product.badge = product.badge || "Prix réduit";
     product.updatedAt = new Date().toISOString();
+    audit(db, { action: "product.price_changed", actor: getAdminSession(req, db)?.email, resource: "product", resourceId: product.id, result: "success", requestId: requestId(req) });
     await writeDb(db);
     return json(res, 200, { product: publicProduct(product), inventory: db.inventory.map(publicProduct), summary: summarizeSales(db) });
   }
@@ -5496,6 +5726,7 @@ async function handleApi(req, res) {
     db.inventory.splice(index, 1);
     db.removedInventory = Array.isArray(db.removedInventory) ? db.removedInventory : [];
     db.removedInventory.push(removedProduct);
+    audit(db, { action: "product.removed", actor: getAdminSession(req, db)?.email, resource: "product", resourceId: product.id, result: "success", requestId: requestId(req) });
     await writeDb(db);
     return json(res, 200, { product: publicProduct(removedProduct), inventory: db.inventory.map(publicProduct), summary: summarizeSales(db) });
   }
@@ -5512,6 +5743,7 @@ async function handleApi(req, res) {
     db.removedInventory = Array.isArray(db.removedInventory)
       ? db.removedInventory.filter((candidate) => candidate.id !== body.id)
       : [];
+    audit(db, { action: "product.deleted", actor: getAdminSession(req, db)?.email, resource: "product", resourceId: product.id, result: "success", requestId: requestId(req) });
     await writeDb(db);
     return json(res, 200, { deleted: true, inventory: db.inventory.map(publicProduct), summary: summarizeSales(db) });
   }
@@ -5531,9 +5763,10 @@ async function handleApi(req, res) {
       product.reservedQuantity = Math.max(0, Number(product.reservedQuantity || 0) - quantity);
       if (product.status === "reserved") product.status = product.category === "Preorder" ? "preorder" : "available";
     }
-    order.status = "cancelled";
+    transitionOrder(order, "cancelled", { reason: body.reason || "Paiement non reçu", requestId: requestId(req) });
     order.cancelledAt = new Date().toISOString();
     order.cancelReason = body.reason || "Paiement non reçu";
+    audit(db, { action: "order.cancelled", actor: getAdminSession(req, db)?.email, resource: "order", resourceId: order.id, result: "success", requestId: requestId(req) });
     await writeDb(db);
     return json(res, 200, { order, summary: summarizeSales(db), inventory: db.inventory.map(publicProduct) });
   }
@@ -5548,6 +5781,7 @@ async function handleApi(req, res) {
     markOrderPaidFromSquare(db, order, { status: "COMPLETED" }, "admin");
     await queueOrderEmails(db, order);
     updateOrderEmailStatus(db, order);
+    audit(db, { action: "order.payment_confirmed_manual", actor: getAdminSession(req, db)?.email, resource: "order", resourceId: order.id, result: "paid", requestId: requestId(req) });
     await writeDb(db);
     return json(res, 200, { order, summary: summarizeSales(db), inventory: db.inventory.map(publicProduct) });
   }
@@ -5681,7 +5915,9 @@ async function handleApi(req, res) {
       };
     }
     else db.inventory.push(product);
+    audit(db, { action: existingIndex >= 0 ? "product.updated" : "product.created", actor: getAdminSession(req, db)?.email, resource: "product", resourceId: product.id, result: product.status, requestId: requestId(req) });
     await writeDb(db);
+    log("info", existingIndex >= 0 ? "product.updated" : "product.created", { requestId: requestId(req), productId: product.id, status: product.status });
     return json(res, 201, { product });
   }
 
@@ -5843,8 +6079,8 @@ async function handleApi(req, res) {
     const email = String(body.email || "").trim().toLowerCase();
     const password = String(body.password || "");
     const name = String(body.name || "").trim() || email.split("@")[0];
-    if (!email || password.length < 6) {
-      return json(res, 400, { error: "Courriel valide et mot de passe de 6 caracteres requis" });
+    if (!email || password.length < 12) {
+      return json(res, 400, { error: "Courriel valide et mot de passe de 12 caracteres requis" });
     }
     if (db.users.some((user) => user.email === email)) {
       return json(res, 409, { error: "Ce courriel existe deja" });
@@ -5868,7 +6104,7 @@ async function handleApi(req, res) {
     }
     const sessionId = crypto.randomBytes(24).toString("hex");
     db.users.push(user);
-    db.sessions[sessionId] = user.id;
+    db.sessions[sessionId] = { userId: user.id, expiresAt: new Date(Date.now() + 7 * 86400000).toISOString() };
     await writeDb(db);
     return json(res, 201, { user: publicUser(user) }, cookieHeader(sessionId));
   }
@@ -5882,9 +6118,9 @@ async function handleApi(req, res) {
     }
     const sessionId = crypto.randomBytes(24).toString("hex");
     user.lastLogin = new Date().toISOString();
-    db.sessions[sessionId] = user.id;
+    db.sessions[sessionId] = { userId: user.id, expiresAt: new Date(Date.now() + (body.rememberMe ? 30 : 7) * 86400000).toISOString() };
     await writeDb(db);
-    return json(res, 200, { user: publicUser(user) }, cookieHeader(sessionId, body.rememberMe ? 60 * 60 * 24 * 90 : undefined));
+    return json(res, 200, { user: publicUser(user) }, cookieHeader(sessionId, body.rememberMe ? 60 * 60 * 24 * 30 : undefined));
   }
 
   if (url.pathname === "/api/logout" && req.method === "POST") {
@@ -5921,9 +6157,8 @@ async function handleApi(req, res) {
   if (url.pathname === "/api/order" && req.method === "POST") {
     const user = await getSessionUser(req, db);
     const body = await readBody(req);
-    if (!Array.isArray(body.items) || !body.items.length) {
-      return json(res, 400, { error: "Panier vide" });
-    }
+    body.items = security.checkoutItems(body.items, db.inventory);
+    if (!squareWebhookSignatureKey || !squareWebhookNotificationUrl) return json(res, 503, { error: "Paiement temporairement indisponible" });
 
     const requestedPaymentType = "square";
     const paymentMethod = { type: "square", label: "Carte avec Square" };
@@ -5973,7 +6208,7 @@ async function handleApi(req, res) {
       userId: user?.id || "guest",
       customer: body.customer || null,
       items: orderItems,
-      shipping: body.shipping,
+      shipping: "canada_post_manual",
       taxBreakdown: taxes,
       originalSubtotalAmount: subtotal,
       subtotalAmount: taxes.subtotal,
@@ -5984,6 +6219,7 @@ async function handleApi(req, res) {
       marketingOptIn: Boolean(body.marketingOptIn),
       paymentMethod,
       status: "pending_payment",
+      statusHistory: [],
       reservationExpiresAt: new Date(Date.now() + reservationHoldMs).toISOString(),
       emailStatus: "waiting_payment",
       emailMessage: "Les courriels seront envoyés après confirmation du paiement Square.",
@@ -6000,23 +6236,34 @@ async function handleApi(req, res) {
         });
       }
     }
+    await writeDbBackup(db, { force: true, reason: "pre-checkout-reservation" });
+    for (const item of orderItems) {
+      const product = db.inventory.find((candidate) => candidate.id === item.id);
+      product.stock -= Number(item.quantity);
+      product.reservedQuantity = Number(product.reservedQuantity || 0) + Number(item.quantity);
+      if (product.stock <= 0) product.status = "reserved";
+    }
+    db.orders.push(order);
+    audit(db, { action: "checkout.reserved", resource: "order", resourceId: order.id, requestId: requestId(req) });
+    await writeDb(db);
+    log("info", "checkout.reserved", { requestId: requestId(req), orderId: order.id, itemCount: orderItems.length, totalAmount: order.totalAmount });
     if (requestedPaymentType === "square") {
       try {
         order.squarePaymentLink = await createSquarePaymentLink(order, req);
         order.paymentUrl = order.squarePaymentLink.url;
       } catch (error) {
+        releaseOrderReservation(db, order, "Création du checkout Square échouée");
+        transitionOrder(order, "checkout_failed", { reason: "Création du checkout Square échouée", requestId: requestId(req) });
+        audit(db, { action: "checkout.failed", resource: "order", resourceId: order.id, result: "square_unavailable", requestId: requestId(req) });
+        await writeDb(db);
+        log("error", "checkout.failed", { requestId: requestId(req), orderId: order.id, provider: "square" });
         return json(res, 502, { error: `Square indisponible: ${error.message}` });
       }
     }
-    for (const item of orderItems) {
-      const product = db.inventory.find((candidate) => candidate.id === item.id);
-      if (!product) continue;
-      product.stock = Math.max(0, Number(product.stock || 0) - Number(item.quantity || 1));
-      product.reservedQuantity = Number(product.reservedQuantity || 0) + Number(item.quantity || 1);
-      if (Number(product.stock || 0) <= 0) product.status = "reserved";
-    }
-    db.orders.push(order);
     await writeDb(db);
+    audit(db, { action: "checkout.created", resource: "order", resourceId: order.id, requestId: requestId(req) });
+    await writeDb(db);
+    log("info", "checkout.created", { requestId: requestId(req), orderId: order.id, checkoutId: order.squarePaymentLink?.id || "" });
     return json(res, 201, { order, user: publicUser(user), squareCheckoutUrl: order.paymentUrl || "" });
   }
 
@@ -6145,7 +6392,8 @@ function merchantFeed(db) {
 }
 
 async function serveStatic(req, res) {
-  const url = new URL(req.url, `http://${req.headers.host}`);
+  if (!["GET", "HEAD"].includes(req.method)) return json(res, 405, { error: "Méthode interdite" });
+  const url = new URL(req.url, "http://localhost");
   if (url.pathname === "/robots.txt") {
     res.writeHead(200, { ...securityHeaders, "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" });
     return res.end(
@@ -6192,53 +6440,100 @@ async function serveStatic(req, res) {
     "/faq",
     "/apropos",
   ]);
-  const safePath = path.normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, "");
-  const requested = safePath === "/" || appRoutes.has(safePath) ? "/index.html" : safePath === "/jarvis" ? "/jarvis.html" : safePath;
-  const isUploadAsset = requested.startsWith("/assets/uploads/");
-  const uploadFileName = isUploadAsset ? path.basename(requested) : "";
-  const filePath = isUploadAsset ? path.join(uploadDir, uploadFileName) : path.join(root, requested);
-  const allowedRoot = isUploadAsset ? uploadDir : root;
-  if (!filePath.startsWith(allowedRoot)) {
-    res.writeHead(403, securityHeaders);
-    return res.end("Forbidden");
-  }
-  try {
-    const file = await fs.readFile(filePath);
-    res.writeHead(200, {
-      ...securityHeaders,
-      "Content-Type": mimeTypes[path.extname(filePath)] || "application/octet-stream",
-      "Cache-Control": ["html", ".js", ".css"].some((ext) => filePath.endsWith(ext)) ? "no-store" : "public, max-age=3600",
-    });
-    res.end(file);
-  } catch {
-    const acceptsHtml = (req.headers.accept || "").includes("text/html");
-    if (acceptsHtml && !url.pathname.startsWith("/assets/")) {
-      const fallbackFile = url.pathname === "/jarvis" ? "jarvis.html" : "index.html";
-      const file = await fs.readFile(path.join(root, fallbackFile));
-      res.writeHead(200, { ...securityHeaders, "Content-Type": mimeTypes[".html"] });
-      return res.end(file);
-    }
-    res.writeHead(404, securityHeaders);
-    res.end("Not found");
-  }
+  const filePath = await security.publicFile(root, uploadDir, req.url, appRoutes);
+  if (!filePath) return json(res, 404, { error: "Introuvable" });
+  const file = await fs.readFile(filePath);
+  res.writeHead(200, {
+    ...securityHeaders,
+    "Content-Type": mimeTypes[path.extname(filePath)] || "application/octet-stream",
+    "Cache-Control": /\.(html|js|css)$/.test(filePath) ? "no-store" : "public, max-age=3600",
+  });
+  res.end(req.method === "HEAD" ? undefined : file);
+}
+
+// A single-process queue prevents overlapping JSON snapshots during API mutations,
+// including concurrent Square deliveries and checkout reservations.
+let apiQueue = Promise.resolve();
+let queuedApiCount = 0;
+function serializeApi(work) {
+  if (queuedApiCount >= 100) security.fail("Serveur occupé", 503);
+  queuedApiCount += 1;
+  const result = apiQueue.then(work).finally(() => { queuedApiCount -= 1; });
+  apiQueue = result.catch(() => {});
+  return result;
 }
 
 const server = http.createServer(async (req, res) => {
   try {
-    if (req.url.startsWith("/api/")) return await handleApi(req, res);
+    res.setHeader("X-Request-Id", requestId(req));
+    if (req.url.startsWith("/api/")) {
+      security.guardRequest(req, new URL(req.url, "http://localhost").pathname);
+      // Read bounded bodies before the database queue so a slow sender cannot hold its lock.
+      if (req.method === "POST") await readRawBody(req);
+      return await serializeApi(() => handleApi(req, res));
+    }
     return await serveStatic(req, res);
   } catch (error) {
     const status = Number(error.statusCode || 500);
-    json(res, status, { error: error.message || "Erreur serveur" });
+    if (status === 429) res.setHeader("Retry-After", "900");
+    log(status >= 500 ? "error" : "warn", status === 429 ? "request.rate_limited" : "request.failed", { requestId: requestId(req), status, method: req.method, path: String(req.url || "").split("?")[0] });
+    json(res, status, { error: status >= 500 ? "Erreur serveur" : error.message || "Requête invalide" });
   }
 });
 
-server.listen(port, () => {
-  console.log(`Coffee Break TCG running at http://localhost:${port}`);
+server.requestTimeout = 30000;
+server.headersTimeout = 15000;
+
+let shuttingDown = false;
+async function shutdown(signal, exitCode = 0) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  log(exitCode ? "error" : "info", "server.shutdown.started", { signal });
+  const forceTimer = setTimeout(() => process.exit(exitCode || 1), 15000).unref();
+  if (server.listening) await new Promise(resolve => server.close(resolve));
+  await apiQueue.catch(() => {});
+  clearTimeout(forceTimer);
+  log("info", "server.shutdown.completed", { signal });
+  process.exit(exitCode);
+}
+
+async function start() {
+  if (process.argv[2] === "restore-backup") {
+    const fileName = process.argv[3] || "";
+    await serializeApi(() => restoreBackup(fileName));
+    return;
+  }
+  server.listen(port, () => log("info", "server.started", {
+    port: server.address()?.port || port,
+    environment: validatedConfig.environment,
+    deploymentStage: validatedConfig.deploymentStage,
+    dataDirectory: dataDir,
+    backupDirectory: backupDir,
+  }));
+  const timer = setInterval(() => {
+    serializeApi(() => syncMarketPricesFromDisk()).catch(() => log("error", "price_sync.failed"));
+  }, priceSyncIntervalMs);
+  timer.unref();
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+  process.once("SIGINT", () => shutdown("SIGINT"));
+  process.once("uncaughtException", error => {
+    log("error", "process.uncaught_exception", { errorName: error?.name || "Error" });
+    shutdown("uncaughtException", 1);
+  });
+  process.once("unhandledRejection", reason => {
+    log("error", "process.unhandled_rejection", { errorName: reason?.name || "Error" });
+    shutdown("unhandledRejection", 1);
+  });
+}
+
+if (require.main === module) start().catch(error => {
+  log("error", "server.start_failed", { code: error.code || "START_FAILED", variables: error.variables || [] });
+  process.exitCode = 1;
 });
 
-setInterval(() => {
-  syncMarketPricesFromDisk().catch((error) => {
-    console.error("Price sync failed:", error.message);
-  });
-}, priceSyncIntervalMs).unref();
+module.exports = {
+  allowedOrderTransitions, backupEnvelope, getAdminSession, getJarvisSession, getSessionUser,
+  handleSquareWebhook, hashPassword, reconciliationReport, restoreBackup, securityHeaders,
+  server, transitionOrder, validateBackup, verifyPassword, verifySquareWebhookSignature,
+  writeDbBackup, cookieHeader, adminCookieHeader, jarvisCookieHeader,
+};

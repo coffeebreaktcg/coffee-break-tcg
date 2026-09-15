@@ -68,3 +68,18 @@ Ajouter ensuite dans Render:
 SQUARE_WEBHOOK_SIGNATURE_KEY=...
 SQUARE_WEBHOOK_NOTIFICATION_URL=https://coffeebreaktcg.com/api/square/webhook
 ```
+
+## Sécurisation phase 1
+
+Voir `docs/security-phase1.md` pour les protections, limites et contrôles avant déploiement.
+
+```bash
+npm run check
+npm test
+```
+
+Les tests HTTP utilisent uniquement une base temporaire et des réponses Square simulées.
+
+La Phase 2 ajoute la validation stricte de production, les paiements tardifs, le rapprochement, les logs structurés et la restauration vérifiée. Commencer par `docs/production-checklist.md`. La restauration s’exécute, service arrêté, avec `node server.js restore-backup NOM.json`.
+
+La Phase 3 ajoute le diagnostic de staging (`npm run diagnose:staging`), le contrôle du disque persistant et les scénarios réalistes décrits dans `docs/staging-validation.md`.
