@@ -5,7 +5,7 @@
   "description": "Boutique Coffee Break TCG avec inventaire, compte client et checkout local.",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check app.js && node --check server.js && node --check security.js && node --check config.js && node --check staging-diagnostics.js && node --check jarvis.js",
+    "check": "node --check app.js && node --check server.js && node --check security.js && node --check config.js && node --check staging-diagnostics.js",
     "test": "npm run test:security && npm run test:phase2 && npm run test:phase3",
     "test:security": "node --test tests/security.test.js",
     "test:phase2": "node --test tests/phase2.test.js",

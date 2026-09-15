@@ -3,6 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const promises = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
@@ -12,11 +13,11 @@ for (const key of Object.keys(process.env)) if (/DATA_DIR|UPLOAD_DIR|NODE_ENV/.t
 Object.assign(process.env, { NODE_ENV: "test", DATA_DIR: temp, UPLOAD_DIR: path.join(temp, "uploads") });
 
 const { redact, validateConfig } = require("../config");
-const { backupEnvelope, reconciliationReport, restoreBackup, transitionOrder, validateBackup, writeDbBackup } = require("../server");
+const { backupEnvelope, jarvisDataMigration, readDb, reconciliationReport, restoreBackup, transitionOrder, validateBackup, writeDbBackup } = require("../server");
 const dbFile = path.join(temp, "db.json");
 
 function database(inventory = [], orders = []) {
-  return { users: [], sessions: {}, adminSessions: {}, jarvisSessions: {}, inventory, orders, emailOutbox: [], auditLog: [], paymentReconciliation: [], migrations: ["clear-all-inventory-2026-06-02"] };
+  return { users: [], sessions: {}, adminSessions: {}, inventory, orders, emailOutbox: [], auditLog: [], paymentReconciliation: [], migrations: ["clear-all-inventory-2026-06-02"] };
 }
 
 test.after(() => fs.rmSync(temp, { recursive: true, force: true }));
@@ -27,7 +28,7 @@ test("production configuration is strict and development remains usable", () => 
   assert.throws(() => validateConfig({ NODE_ENV: "production", TRUST_PROXY_HOPS: "wrong" }), error => error.variables.includes("TRUST_PROXY_HOPS"));
   const valid = {
     NODE_ENV: "production", PUBLIC_ORIGIN: "https://coffeebreaktcg.com", DATA_DIR: "/var/data", UPLOAD_DIR: "/var/data/uploads", PERSISTENT_DISK_MOUNT_PATH: "/var/data",
-    TRUST_PROXY_HOPS: "1", ADMIN_PASSWORD_HASH: `${"a".repeat(32)}:${"b".repeat(64)}`, JARVIS_PASSWORD_HASH: `scrypt:${"c".repeat(32)}:${"d".repeat(64)}`, JARVIS_TOKEN_SECRET: "x".repeat(32),
+    TRUST_PROXY_HOPS: "1", ADMIN_PASSWORD_HASH: `${"a".repeat(32)}:${"b".repeat(64)}`,
     SQUARE_ENVIRONMENT: "production", SQUARE_ACCESS_TOKEN: "x".repeat(32), SQUARE_LOCATION_ID: "configured",
     SQUARE_WEBHOOK_SIGNATURE_KEY: "x".repeat(32), SQUARE_WEBHOOK_NOTIFICATION_URL: "https://coffeebreaktcg.com/api/square/webhook",
   };
@@ -35,6 +36,76 @@ test("production configuration is strict and development remains usable", () => 
   for (const name of ["PUBLIC_ORIGIN", "ADMIN_PASSWORD_HASH", "SQUARE_ACCESS_TOKEN", "SQUARE_WEBHOOK_NOTIFICATION_URL"]) {
     const copy = { ...valid, [name]: "" };
     assert.throws(() => validateConfig(copy), error => error.variables.includes(name));
+  }
+});
+
+test("migration removes only Jarvis data, preserves unknown keys and is idempotent", async () => {
+  const db = {
+    ...database([{ id: "p1", stock: 2 }], [{ id: "sale-1", status: "admin_sale", items: [{ id: "p1", quantity: 1 }] }]),
+    users: [{ id: "client-1", email: "client@example.test" }],
+    sessions: { client: { userId: "client-1", expiresAt: "2099-01-01T00:00:00.000Z" } },
+    adminSessions: { admin: { email: "admin@example.test", expiresAt: "2099-01-01T00:00:00.000Z" } },
+    cardShows: [{ id: "show-1", name: "Test Show" }],
+    merchandising: { decisions: { featured: "p1" }, history: [], performance: [], updatedAt: "" },
+    newArrivalSlides: [{ id: "slide-1", imageUrl: "/assets/test.png" }],
+    newsletter: [{ email: "news@example.test" }],
+    expenses: [{ id: "expense-1", amount: 5 }],
+    removedInventory: [{ id: "old-product" }],
+    priceSync: { lastRunAt: "2026-01-01T00:00:00.000Z" },
+    emailOutbox: [{ id: "message-1", status: "sent" }],
+    auditLog: [{ action: "test" }],
+    paymentReconciliation: [{ id: "reconciliation-1" }],
+    jarvisSessions: { secret: { expiresAt: "2099-01-01T00:00:00.000Z" } },
+    jarvisEmails: [{ id: "mail-1" }],
+    jarvisEmailFeedback: [{ id: "feedback-1" }],
+    jarvisEmailActions: [{ id: "action-1" }],
+    jarvisCalendarEvents: [{ id: "event-1" }],
+    jarvisTasks: [{ id: "task-1" }],
+    jarvisGoogleTokens: { business: { encrypted: "secret" } },
+    jarvisCalendarTokens: { primary: { encrypted: "secret" } },
+    jarvisOAuthStates: { state: { source: "business" } },
+    jarvisDiagnostics: { errors: [{ message: "test" }] },
+    jarvisActivity: [{ type: "test" }],
+    futureCoffeeFeature: { enabled: true },
+  };
+  fs.writeFileSync(dbFile, JSON.stringify(db));
+  const first = await readDb();
+  const backupsAfterFirst = fs.readdirSync(path.join(temp, "backups"));
+  const preCleanup = backupsAfterFirst
+    .map(file => JSON.parse(fs.readFileSync(path.join(temp, "backups", file), "utf8")))
+    .find(envelope => envelope.reason === "pre-legacy-assistant-cleanup");
+  assert.deepEqual(preCleanup.db, db);
+  assert.equal(first.jarvisSessions, undefined);
+  assert.equal(first.jarvisActivity, undefined);
+  assert.deepEqual(first.futureCoffeeFeature, db.futureCoffeeFeature);
+  for (const key of ["inventory", "orders", "users", "sessions", "adminSessions", "cardShows", "merchandising", "newArrivalSlides", "newsletter", "expenses", "removedInventory", "priceSync", "emailOutbox", "auditLog", "paymentReconciliation", "migrations"]) {
+    assert.deepEqual(first[key], db[key], key);
+  }
+  const persistedAfterFirst = fs.readFileSync(dbFile, "utf8");
+  const second = await readDb();
+  const third = await readDb();
+  assert.deepEqual(second, first);
+  assert.deepEqual(third, first);
+  assert.equal(fs.readFileSync(dbFile, "utf8"), persistedAfterFirst);
+  assert.deepEqual(fs.readdirSync(path.join(temp, "backups")), backupsAfterFirst);
+  const plan = jarvisDataMigration(first);
+  assert.deepEqual(plan.removedKeys, []);
+  assert.deepEqual(plan.unknownKeys, ["futureCoffeeFeature"]);
+});
+
+test("migration aborts without changing the database when its forced backup fails", async () => {
+  const db = { ...database([{ id: "safe", stock: 1 }]), jarvisTasks: [{ id: "task" }], futureCoffeeFeature: { enabled: true } };
+  fs.writeFileSync(dbFile, JSON.stringify(db));
+  const originalRename = promises.rename;
+  promises.rename = async (source, target) => {
+    if (String(target).includes(`${path.sep}backups${path.sep}`)) throw new Error("simulated backup failure");
+    return originalRename(source, target);
+  };
+  try {
+    await assert.rejects(readDb(), /simulated backup failure/);
+    assert.deepEqual(JSON.parse(fs.readFileSync(dbFile)), db);
+  } finally {
+    promises.rename = originalRename;
   }
 });
 
@@ -97,7 +168,6 @@ test("backup rotation keeps forty healthy snapshots", async () => {
 });
 
 test("backup rename failure is reported and leaves no temporary snapshot", async () => {
-  const promises = require("node:fs/promises");
   const originalRename = promises.rename;
   promises.rename = async () => { const error = new Error("simulated rename failure"); error.code = "EIO"; throw error; };
   try {

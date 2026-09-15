@@ -19,8 +19,8 @@ function productionEnv(overrides = {}) {
   return {
     NODE_ENV: "production", DEPLOYMENT_STAGE: "staging", PUBLIC_ORIGIN: "https://staging.example.com",
     DATA_DIR: "/var/data", UPLOAD_DIR: "/var/data/uploads", PERSISTENT_DISK_MOUNT_PATH: "/var/data", TRUST_PROXY_HOPS: "1",
-    ADMIN_PASSWORD_HASH: `${"a".repeat(32)}:${"b".repeat(64)}`, JARVIS_PASSWORD_HASH: `${"c".repeat(32)}:${"d".repeat(64)}`,
-    JARVIS_TOKEN_SECRET: "j".repeat(32), SQUARE_ENVIRONMENT: "sandbox", SQUARE_ACCESS_TOKEN: "s".repeat(32),
+    ADMIN_PASSWORD_HASH: `${"a".repeat(32)}:${"b".repeat(64)}`,
+    SQUARE_ENVIRONMENT: "sandbox", SQUARE_ACCESS_TOKEN: "s".repeat(32),
     SQUARE_LOCATION_ID: "sandbox-location", SQUARE_WEBHOOK_SIGNATURE_KEY: "w".repeat(32),
     SQUARE_WEBHOOK_NOTIFICATION_URL: "https://staging.example.com/api/square/webhook", ...overrides,
   };
@@ -50,7 +50,7 @@ test("storage diagnostic writes, renames, reads and cleans all persistent direct
 
 test("backup, mutation and restore recover the complete business data", async () => {
   const original = {
-    migrations: ["clear-all-inventory-2026-06-02"], users: [{ id: "u1", email: "anonymous@example.test" }], sessions: {}, adminSessions: {}, jarvisSessions: {},
+    migrations: ["clear-all-inventory-2026-06-02"], users: [{ id: "u1", email: "anonymous@example.test" }], sessions: {}, adminSessions: {},
     inventory: [{ id: "p1", name: "Card", category: "Singles", status: "available", price: 12, stock: 3 }],
     orders: [{ id: "o1", status: "paid", items: [{ id: "p1", quantity: 1, price: 12 }] }], emailOutbox: [], auditLog: [], paymentReconciliation: [],
   };
@@ -115,7 +115,7 @@ test("restart recovers active reservations and expires only overdue orders", asy
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cb-stage-restart-"));
   const dbPath = path.join(dataDir, "db.json");
   const db = {
-    migrations: ["clear-all-inventory-2026-06-02"], users: [], sessions: {}, adminSessions: {}, jarvisSessions: {},
+    migrations: ["clear-all-inventory-2026-06-02"], users: [], sessions: {}, adminSessions: {},
     inventory: [{ id: "one", name: "One", category: "Singles", status: "reserved", price: 10, stock: 0, reservedQuantity: 2 }],
     orders: [
       { id: "ACTIVE", status: "pending_payment", reservationExpiresAt: new Date(Date.now() + 600000).toISOString(), items: [{ id: "one", quantity: 1, price: 10 }] },

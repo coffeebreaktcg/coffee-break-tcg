@@ -4,7 +4,7 @@
 - [ ] `NODE_ENV`, `DEPLOYMENT_STAGE`, chemins absolus, `PERSISTENT_DISK_MOUNT_PATH`, `PUBLIC_ORIGIN`, `ALLOWED_ORIGINS` et `TRUST_PROXY_HOPS` validés.
 - [ ] HTTPS, HSTS, cookies Secure et `X-Request-Id` observés depuis le domaine final.
 - [ ] Secrets de la checklist de rotation renouvelés si l’ancienne version était publique.
-- [ ] Login admin/Jarvis, expiration, origine intersite et limite de tentatives vérifiés.
+- [ ] Login admin, expiration, origine intersite et limite de tentatives vérifiés.
 - [ ] Fichiers privés et traversées refusés sur le déploiement.
 - [ ] Square sandbox validé entièrement, y compris signature, location, montant, répétition et événement tardif.
 - [ ] `/api/admin/reconciliation` ne contient aucune anomalie non comprise.

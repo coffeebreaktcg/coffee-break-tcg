@@ -10,7 +10,7 @@ const crypto = require("node:crypto");
 const { EventEmitter } = require("node:events");
 // No real credentials, database, uploads, emails or external requests are used.
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), "cb-security-"));
-for (const key of Object.keys(process.env)) if (/SQUARE|RESEND|GOOGLE|JARVIS|ADMIN|OPENAI|DATA_DIR|UPLOAD_DIR|PUBLIC_ORIGIN|ALLOWED_ORIGINS|TRUST_PROXY/.test(key)) delete process.env[key];
+for (const key of Object.keys(process.env)) if (/SQUARE|RESEND|GOOGLE|ADMIN|DATA_DIR|UPLOAD_DIR|PUBLIC_ORIGIN|ALLOWED_ORIGINS|TRUST_PROXY/.test(key)) delete process.env[key];
 Object.assign(process.env, { NODE_ENV: "test", DATA_DIR: temp, UPLOAD_DIR: path.join(temp, "uploads"), SQUARE_ACCESS_TOKEN: "test-only", SQUARE_LOCATION_ID: "test-location", SQUARE_WEBHOOK_SIGNATURE_KEY: "test-signature", SQUARE_WEBHOOK_NOTIFICATION_URL: "https://shop.example/api/square/webhook", RESEND_API_KEY: "test-resend-only", RESEND_FROM_EMAIL: "Test <test@example.com>", ADMIN_EMAIL: "admin@example.com", ADMIN_PASSWORD: "test-password-long", MAX_JSON_BODY_BYTES: "8192" });
 let calls = [], emailCalls = [], emailMode = "failure", payment = null, squareMode = "ok";
 https.get = () => { throw new Error("External network forbidden in tests"); };
@@ -62,19 +62,19 @@ test.before(async () => { reset(); await new Promise(resolve => api.server.liste
 test.after(async () => { await new Promise(resolve => api.server.close(resolve)); fs.rmSync(temp, { recursive: true, force: true }); });
 
 test("private files, encoded traversal, unsupported files and symlinks are denied", async () => {
-  for (const url of ["/.env", "/.env.example", "/.git/config", "/data/db.json", "/data/seed.json", "/server.js", "/security.js", "/package.json", "/package-lock.json", "/jarvis_system_prompt.txt", "/docs/coffee-photo-guide.md", "/reports/test.csv", "/../.env", "/%2e%2e/.env", "/%252e%252e/.env", "/assets/../server.js", "/assets/%2e%2e/server.js", "/assets%5c..%5c.env", "//etc/passwd", "/%00", "/%ZZ", "/assets/uploads/expense-private.png", "/Assets/Uploads/expense-private.png"]) assert.equal((await request(url)).status, 404, url);
+  for (const url of ["/.env", "/.env.example", "/.git/config", "/data/db.json", "/data/seed.json", "/server.js", "/security.js", "/package.json", "/package-lock.json", "/docs/coffee-photo-guide.md", "/reports/test.csv", "/../.env", "/%2e%2e/.env", "/%252e%252e/.env", "/assets/../server.js", "/assets/%2e%2e/server.js", "/assets%5c..%5c.env", "//etc/passwd", "/%00", "/%ZZ", "/assets/uploads/expense-private.png", "/Assets/Uploads/expense-private.png"]) assert.equal((await request(url)).status, 404, url);
   fs.mkdirSync(process.env.UPLOAD_DIR); fs.symlinkSync(dbFile, path.join(process.env.UPLOAD_DIR, "leak.png"));
   assert.equal((await request("/assets/uploads/leak.png")).status, 404);
 });
 test("public routes/assets still resolve, headers and CORS are safe", async () => {
-  for (const route of ["/", "/singles", "/slabs", "/sealed", "/one-piece", "/one-piece/singles", "/produit/test-card", "/admin", "/jarvis", "/app.js", "/styles.css", "/jarvis.js", "/jarvis-manifest.webmanifest", "/assets/coffee-cup-mark.png", "/sitemap.xml", "/robots.txt"]) assert.equal((await request(route)).status, 200, route);
+  for (const route of ["/", "/singles", "/slabs", "/sealed", "/one-piece", "/one-piece/singles", "/produit/test-card", "/admin", "/app.js", "/styles.css", "/assets/coffee-cup-mark.png", "/sitemap.xml", "/robots.txt"]) assert.equal((await request(route)).status, 200, route);
   const res = await request("/api/products", "GET", undefined, { Origin: "https://evil.example" });
   assert.equal(res.headers["access-control-allow-origin"], undefined); assert.equal(res.headers["x-content-type-options"], "nosniff"); assert.match(res.headers["content-security-policy"], /frame-ancestors 'none'/);
   assert.equal((await request("/api/logout", "POST", {}, { Origin: "https://evil.example" })).status, 403);
   assert.equal((await request("/api/logout", "POST", "{}", { "Content-Type": "text/plain" })).status, 415);
 });
-test("admin and Jarvis require server sessions, malformed JSON rejected", async () => {
-  for (const route of ["/api/admin/summary", "/api/admin/card-images?q=Pikachu", "/api/jarvis/briefing"]) assert.equal((await request(route)).status, 401);
+test("admin routes require server sessions, malformed JSON rejected", async () => {
+  for (const route of ["/api/admin/summary", "/api/admin/card-images?q=Pikachu"]) assert.equal((await request(route)).status, 401);
   assert.equal((await request("/api/admin/products", "POST", { name: "Injected" })).status, 401);
   assert.equal((await request("/api/signup", "POST", "{")).status, 400);
   assert.equal((await request("/api/signup", "POST", "x".repeat(9000))).status, 413);
@@ -188,7 +188,7 @@ test("admin reconciliation, fulfillment and email retry use existing authenticat
 });
 test("cookies, hashes, session expiry and proxy trust", async () => {
   process.env.NODE_ENV = "production";
-  for (const create of [api.cookieHeader, api.adminCookieHeader, api.jarvisCookieHeader]) { const cookie = create("test")["Set-Cookie"]; for (const part of ["HttpOnly", "Secure", "SameSite=", "Path=/", "Max-Age="]) assert.ok(cookie.includes(part)); }
+  for (const create of [api.cookieHeader, api.adminCookieHeader]) { const cookie = create("test")["Set-Cookie"]; for (const part of ["HttpOnly", "Secure", "SameSite=", "Path=/", "Max-Age="]) assert.ok(cookie.includes(part)); }
   process.env.NODE_ENV = "test";
   const hashed = api.hashPassword("long-test-password"); assert.ok(api.verifyPassword("long-test-password", hashed)); assert.ok(!api.verifyPassword("wrong", hashed));
   const salt = "a".repeat(32); const legacy = `${salt}:${crypto.pbkdf2Sync("legacy", salt, 120000, 32, "sha256").toString("hex")}`; assert.ok(api.verifyPassword("legacy", legacy));
@@ -201,9 +201,8 @@ test("configuration absent fails closed; malformed admin sessions expire", async
   const { validateConfig } = require("../config");
   assert.throws(() => validateConfig({ NODE_ENV: "production" }), error => error.code === "CONFIG_INVALID" && error.variables.includes("SQUARE_ACCESS_TOKEN"));
   for (const expiresAt of [undefined, "invalid", "2000-01-01"]) {
-    const req = { headers: { cookie: "cb_admin=a; cb_jarvis=j" } };
+    const req = { headers: { cookie: "cb_admin=a" } };
     assert.equal(api.getAdminSession(req, { adminSessions: { a: { expiresAt } } }), null);
-    assert.equal(api.getJarvisSession(req, { jarvisSessions: { j: { expiresAt } } }), null);
   }
 });
 test("concurrent checkout cannot oversell a one-unit product", async () => {

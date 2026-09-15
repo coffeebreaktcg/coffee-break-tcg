@@ -6,7 +6,7 @@ Cette procédure utilise uniquement un service Render de staging, des données d
 
 Configurer `NODE_ENV=production` pour conserver les cookies Secure et les contrôles de production, puis `DEPLOYMENT_STAGE=staging` et `SQUARE_ENVIRONMENT=sandbox`.
 
-Variables obligatoires : `NODE_ENV`, `DEPLOYMENT_STAGE`, `PUBLIC_ORIGIN`, `DATA_DIR`, `UPLOAD_DIR`, `PERSISTENT_DISK_MOUNT_PATH`, `TRUST_PROXY_HOPS`, `ADMIN_PASSWORD_HASH`, `JARVIS_PASSWORD_HASH`, `JARVIS_TOKEN_SECRET`, `SQUARE_ENVIRONMENT`, `SQUARE_ACCESS_TOKEN`, `SQUARE_LOCATION_ID`, `SQUARE_WEBHOOK_SIGNATURE_KEY` et `SQUARE_WEBHOOK_NOTIFICATION_URL`. Définir aussi `ADMIN_EMAIL`, `JARVIS_ALLOWED_EMAILS`, `RESEND_API_KEY` et `RESEND_FROM_EMAIL` pour les essais correspondants.
+Variables obligatoires : `NODE_ENV`, `DEPLOYMENT_STAGE`, `PUBLIC_ORIGIN`, `DATA_DIR`, `UPLOAD_DIR`, `PERSISTENT_DISK_MOUNT_PATH`, `TRUST_PROXY_HOPS`, `ADMIN_PASSWORD_HASH`, `SQUARE_ENVIRONMENT`, `SQUARE_ACCESS_TOKEN`, `SQUARE_LOCATION_ID`, `SQUARE_WEBHOOK_SIGNATURE_KEY` et `SQUARE_WEBHOOK_NOTIFICATION_URL`. Définir aussi `ADMIN_EMAIL`, `RESEND_API_KEY` et `RESEND_FROM_EMAIL` pour les essais correspondants.
 
 Valeurs structurelles attendues sur un service dont le disque est monté dans `/var/data` :
 

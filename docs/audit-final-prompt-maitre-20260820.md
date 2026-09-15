@@ -34,7 +34,7 @@ Ce qui empêche de dire “100% terminé et testé”: les tests Safari iOS / An
 | JSON-LD Product | ✅ TERMINÉ | Présent dans `app.js`. |
 | BreadcrumbList | ✅ TERMINÉ | Présent dans `app.js`. |
 | Sitemap | ✅ TERMINÉ | `GET /sitemap.xml` retourne 200 et inclut les routes principales. |
-| Robots | ✅ TERMINÉ | `GET /robots.txt` retourne 200, bloque `/admin`, `/jarvis`, `/checkout`, `/compte`. |
+| Robots | ✅ TERMINÉ | `GET /robots.txt` retourne 200, bloque `/admin`, `/checkout`, `/compte`. |
 | Signaux confiance | ✅ TERMINÉ | Paiement sécurisé, expédition suivie, cartes inspectées, emballage protecteur. |
 | Mission plus haut | ✅ TERMINÉ | Section `Cartes aujourd’hui, coffee shop demain.` présente. |
 | Recherche globale | ✅ TERMINÉ | Overlay présent, `Escape` corrigé. |
@@ -76,7 +76,7 @@ Ce qui empêche de dire “100% terminé et testé”: les tests Safari iOS / An
 - `GET /slabs` : 200 OK.
 - `GET /admin` : 200 OK.
 - `GET /sitemap.xml` : 200 OK, routes publiques présentes.
-- `GET /robots.txt` : 200 OK, admin/checkout/compte/Jarvis bloqués.
+- `GET /robots.txt` : 200 OK, admin/checkout/compte bloqués.
 - Audit statique automatisé: 20/20 checks mécaniques OK.
 
 ## Résultats spécifiques demandés

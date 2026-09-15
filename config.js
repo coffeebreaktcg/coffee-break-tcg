@@ -4,12 +4,9 @@ const path = require("node:path");
 
 const secretNames = new Set([
   "ADMIN_PASSWORD_HASH",
-  "JARVIS_PASSWORD_HASH",
-  "JARVIS_TOKEN_SECRET",
   "SQUARE_ACCESS_TOKEN",
   "SQUARE_WEBHOOK_SIGNATURE_KEY",
   "RESEND_API_KEY",
-  "GOOGLE_OAUTH_CLIENT_SECRET",
   "GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON",
   "GOOGLE_DRIVE_PRIVATE_KEY",
 ]);
@@ -50,16 +47,14 @@ function validateConfig(env = process.env, options = {}) {
   if (env.SQUARE_ENVIRONMENT && !["sandbox", "production"].includes(env.SQUARE_ENVIRONMENT)) errors.push("SQUARE_ENVIRONMENT");
   if (production) {
     for (const name of [
-      "PUBLIC_ORIGIN", "DATA_DIR", "UPLOAD_DIR", "PERSISTENT_DISK_MOUNT_PATH", "ADMIN_PASSWORD_HASH", "JARVIS_PASSWORD_HASH",
-      "JARVIS_TOKEN_SECRET", "SQUARE_ENVIRONMENT", "SQUARE_ACCESS_TOKEN", "SQUARE_LOCATION_ID",
+      "PUBLIC_ORIGIN", "DATA_DIR", "UPLOAD_DIR", "PERSISTENT_DISK_MOUNT_PATH", "ADMIN_PASSWORD_HASH",
+      "SQUARE_ENVIRONMENT", "SQUARE_ACCESS_TOKEN", "SQUARE_LOCATION_ID",
       "SQUARE_WEBHOOK_SIGNATURE_KEY", "SQUARE_WEBHOOK_NOTIFICATION_URL",
     ]) if (!String(env[name] || "").trim()) errors.push(name);
     if (env.ADMIN_PASSWORD) errors.push("ADMIN_PASSWORD");
-    if (env.JARVIS_PASSWORD) errors.push("JARVIS_PASSWORD");
     if (hops < 1) errors.push("TRUST_PROXY_HOPS");
     if (!/^(?:scrypt:)?[a-f0-9]{32}:[a-f0-9]{64}$/.test(env.ADMIN_PASSWORD_HASH || "")) errors.push("ADMIN_PASSWORD_HASH");
-    if (!/^(?:scrypt:)?[a-f0-9]{32}:[a-f0-9]{64}$/.test(env.JARVIS_PASSWORD_HASH || "")) errors.push("JARVIS_PASSWORD_HASH");
-    for (const name of ["JARVIS_TOKEN_SECRET", "SQUARE_ACCESS_TOKEN", "SQUARE_WEBHOOK_SIGNATURE_KEY"]) if (String(env[name] || "").length < 32) errors.push(name);
+    for (const name of ["SQUARE_ACCESS_TOKEN", "SQUARE_WEBHOOK_SIGNATURE_KEY"]) if (String(env[name] || "").length < 32) errors.push(name);
     const expectedSquareEnvironment = deploymentStage === "staging" ? "sandbox" : "production";
     if (env.SQUARE_ENVIRONMENT !== expectedSquareEnvironment && !options.allowSandboxProduction) errors.push("SQUARE_ENVIRONMENT");
     if (env.PERSISTENT_DISK_MOUNT_PATH) {
@@ -79,9 +74,15 @@ function validateConfig(env = process.env, options = {}) {
     production,
     trustProxyHops: hops,
     categories: {
-      required: production ? ["PUBLIC_ORIGIN", "DATA_DIR", "UPLOAD_DIR", "PERSISTENT_DISK_MOUNT_PATH", "ADMIN_PASSWORD_HASH", "JARVIS_PASSWORD_HASH", "JARVIS_TOKEN_SECRET", "SQUARE_ENVIRONMENT", "SQUARE_ACCESS_TOKEN", "SQUARE_LOCATION_ID", "SQUARE_WEBHOOK_SIGNATURE_KEY", "SQUARE_WEBHOOK_NOTIFICATION_URL"] : [],
-      optional: ["ADMIN_EMAIL", "JARVIS_ALLOWED_EMAILS", "RESEND_API_KEY", "RESEND_FROM_EMAIL", "GOOGLE_DRIVE_BACKUP_FOLDER_ID", "GOOGLE_OAUTH_CLIENT_ID", "POKEMON_TCG_API_KEY", "TCG_API_KEY", "CANADA_POST_ADDRESS_KEY"],
-      developmentOnly: ["ADMIN_PASSWORD", "JARVIS_PASSWORD"],
+      required: production ? ["PUBLIC_ORIGIN", "DATA_DIR", "UPLOAD_DIR", "PERSISTENT_DISK_MOUNT_PATH", "ADMIN_PASSWORD_HASH", "SQUARE_ENVIRONMENT", "SQUARE_ACCESS_TOKEN", "SQUARE_LOCATION_ID", "SQUARE_WEBHOOK_SIGNATURE_KEY", "SQUARE_WEBHOOK_NOTIFICATION_URL"] : [],
+      optional: [
+        "ADMIN_EMAIL", "ALLOWED_ORIGINS", "MAX_JSON_BODY_BYTES", "RESEND_API_KEY", "RESEND_FROM_EMAIL",
+        "GOOGLE_DRIVE_BACKUP_FOLDER_ID", "GOOGLE_DRIVE_BACKUP_FILE_ID", "GOOGLE_DRIVE_BACKUP_FILE_NAME",
+        "GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON", "GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE", "GOOGLE_DRIVE_CLIENT_EMAIL",
+        "GOOGLE_DRIVE_PRIVATE_KEY", "MARKET_PRICE_PROVIDER", "MARKET_USD_TO_CAD", "USD_TO_CAD_RATE",
+        "POKEMON_TCG_API_KEY", "TCG_API_KEY", "CANADA_POST_ADDRESS_KEY", "PORT",
+      ],
+      developmentOnly: ["ADMIN_PASSWORD"],
       productionOnly: ["DEPLOYMENT_STAGE", "PUBLIC_ORIGIN", "PERSISTENT_DISK_MOUNT_PATH", "TRUST_PROXY_HOPS"],
     },
   };

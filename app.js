@@ -819,7 +819,7 @@ function baseStructuredData(meta) {
 
 function updatePageMeta() {
   const meta = pageMetaForPath();
-  const noindexPaths = new Set(["/checkout", "/compte", "/creer-compte", "/admin", "/jarvis"]);
+  const noindexPaths = new Set(["/checkout", "/compte", "/creer-compte", "/admin"]);
   setRobots(!noindexPaths.has(window.location.pathname));
   document.title = meta.title;
   setMetaContent('meta[name="description"]', meta.description);
@@ -5701,7 +5701,6 @@ document.addEventListener("click", (event) => {
       const firstVisible = adminVisibleInventory(adminInventoryCache).find((item) => Number(item.stock || 0) > 0);
       if (firstVisible) openAdminSaleModal(firstVisible.id);
     }
-    if (command === "jarvis") window.location.href = "/jarvis";
     if (!["add", "session", "sale"].includes(command)) closeAdminPanels();
   }
   if (merchActionButton) {

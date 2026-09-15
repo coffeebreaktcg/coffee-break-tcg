@@ -189,7 +189,7 @@ function rateLimit(req, route) {
   let group = "api", limit = 1200;
   if (/\/(login|signup)$/.test(route)) { group = "auth"; limit = 20; }
   else if (route === "/api/order") { group = "checkout"; limit = 30; }
-  else if (/card-images|market-suggest|\/address\/|\/sets$|\/api\/jarvis\//.test(route)) { group = "external"; limit = 120; }
+  else if (/card-images|market-suggest|\/address\/|\/sets$/.test(route)) { group = "external"; limit = 120; }
   else if (route === "/api/sell-request") { group = "sell"; limit = 10; }
   else if (route.startsWith("/api/admin/")) { group = "admin"; limit = 600; }
   const key = `${group}:${requestIp(req)}`;
@@ -217,8 +217,8 @@ async function publicFile(root, uploadDir, rawUrl, appRoutes) {
   if (!rawPath.startsWith("/") || rawPath.startsWith("//")) return null;
   let pathname; try { pathname = decodeURIComponent(rawPath); } catch { return null; }
   if (/[\\%\x00-\x1f\x7f]/.test(pathname) || pathname.split("/").some(s => s === "." || s === ".." || s.startsWith("."))) return null;
-  const entry = pathname === "/" || appRoutes.has(pathname) || /^\/produit\/[a-zA-Z0-9_-]{1,180}$/.test(pathname) ? "index.html" : pathname === "/jarvis" ? "jarvis.html" : pathname.slice(1);
-  const files = new Set(["index.html", "app.js", "styles.css", "jarvis.html", "jarvis.js", "jarvis.css", "jarvis-manifest.webmanifest"]);
+  const entry = pathname === "/" || appRoutes.has(pathname) || /^\/produit\/[a-zA-Z0-9_-]{1,180}$/.test(pathname) ? "index.html" : pathname.slice(1);
+  const files = new Set(["index.html", "app.js", "styles.css"]);
   let base = root, relative = entry;
   if (!files.has(entry)) {
     if (!/^assets\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_.-]+\.(?:png|jpe?g|webp|gif|avif|ico|svg|woff2?|ttf|otf)$/i.test(entry)) return null;

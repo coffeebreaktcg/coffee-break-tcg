@@ -1,6 +1,6 @@
 # Données personnelles
 
-`DATA_DIR/db.json` peut contenir noms, courriels, téléphones, adresses postales, notes de livraison, comptes, commandes, inscriptions marketing et demandes de vente. `emailOutbox` contient le contenu des notifications. Les jetons Google chiffrés et sessions se trouvent aussi dans cette base. Les uploads peuvent contenir des photos de collections ; les pièces comptables `expense-*` ne sont pas servies publiquement.
+`DATA_DIR/db.json` peut contenir noms, courriels, téléphones, adresses postales, notes de livraison, comptes, commandes, inscriptions marketing, sessions et demandes de vente. `emailOutbox` contient le contenu des notifications. Les uploads peuvent contenir des photos de collections ; les pièces comptables `expense-*` ne sont pas servies publiquement.
 
 Les mêmes données sont présentes dans les sauvegardes locales et, si configuré, dans le backup Google Drive. Les logs structurés ajoutés par cette phase utilisent des identifiants techniques et évitent les secrets, cookies et coordonnées clients.
 
