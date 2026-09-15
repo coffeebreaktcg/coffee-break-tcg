@@ -27,6 +27,13 @@ function validHttpsUrl(value, suffix = "") {
   }
 }
 
+function validSquareWebhookSignatureKey(value) {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed !== value) return false;
+  return !/^(?:\.{3}|placeholder|change[\s_-]*me|replace[\s_-]*me|your[\s_-]*(?:square[\s_-]*)?(?:webhook[\s_-]*)?signature[\s_-]*key|square[\s_-]*webhook[\s_-]*signature[\s_-]*key|<[^>]+>)$/i.test(trimmed);
+}
+
 function validateConfig(env = process.env, options = {}) {
   const production = env.NODE_ENV === "production";
   const deploymentStage = env.DEPLOYMENT_STAGE || (production ? "production" : "development");
@@ -54,7 +61,8 @@ function validateConfig(env = process.env, options = {}) {
     if (env.ADMIN_PASSWORD) errors.push("ADMIN_PASSWORD");
     if (hops < 1) errors.push("TRUST_PROXY_HOPS");
     if (!/^(?:scrypt:)?[a-f0-9]{32}:[a-f0-9]{64}$/.test(env.ADMIN_PASSWORD_HASH || "")) errors.push("ADMIN_PASSWORD_HASH");
-    for (const name of ["SQUARE_ACCESS_TOKEN", "SQUARE_WEBHOOK_SIGNATURE_KEY"]) if (String(env[name] || "").length < 32) errors.push(name);
+    if (String(env.SQUARE_ACCESS_TOKEN || "").length < 32) errors.push("SQUARE_ACCESS_TOKEN");
+    if (!validSquareWebhookSignatureKey(env.SQUARE_WEBHOOK_SIGNATURE_KEY)) errors.push("SQUARE_WEBHOOK_SIGNATURE_KEY");
     const expectedSquareEnvironment = deploymentStage === "staging" ? "sandbox" : "production";
     if (env.SQUARE_ENVIRONMENT !== expectedSquareEnvironment && !options.allowSandboxProduction) errors.push("SQUARE_ENVIRONMENT");
     if (env.PERSISTENT_DISK_MOUNT_PATH) {

@@ -37,6 +37,13 @@ test("production configuration is strict and development remains usable", () => 
     const copy = { ...valid, [name]: "" };
     assert.throws(() => validateConfig(copy), error => error.variables.includes(name));
   }
+  assert.doesNotThrow(() => validateConfig({ ...valid, SQUARE_WEBHOOK_SIGNATURE_KEY: "testWebhookSignatureKey123" }));
+  for (const value of ["", "   ", "placeholder", "change-me", "your-webhook-signature-key", "<signature-key>"]) {
+    assert.throws(
+      () => validateConfig({ ...valid, SQUARE_WEBHOOK_SIGNATURE_KEY: value }),
+      error => error.variables.includes("SQUARE_WEBHOOK_SIGNATURE_KEY"),
+    );
+  }
 });
 
 test("migration removes only Jarvis data, preserves unknown keys and is idempotent", async () => {
