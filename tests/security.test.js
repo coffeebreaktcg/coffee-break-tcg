@@ -7,6 +7,7 @@ const path = require("node:path");
 const http = require("node:http");
 const https = require("node:https");
 const crypto = require("node:crypto");
+const { spawnSync } = require("node:child_process");
 const { EventEmitter } = require("node:events");
 // No real credentials, database, uploads, emails or external requests are used.
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), "cb-security-"));
@@ -196,6 +197,40 @@ test("cookies, hashes, session expiry and proxy trust", async () => {
   assert.equal(await api.getSessionUser({ headers: { cookie: "cb_session=test" } }, { sessions: { test: { userId: "u", expiresAt: "2000-01-01" } }, users: [{ id: "u" }] }), null);
   const req = { headers: { "x-forwarded-for": "1.1.1.1, 2.2.2.2" }, socket: { remoteAddress: "127.0.0.1" } };
   assert.equal(security.requestIp(req), "127.0.0.1"); process.env.TRUST_PROXY_HOPS = "1"; assert.equal(security.requestIp(req), "2.2.2.2"); delete process.env.TRUST_PROXY_HOPS;
+});
+test("admin password generator, verifier and CLI use the same scrypt format", () => {
+  const password = "fictitious-admin-password";
+  const generatedHash = api.hashPassword(password);
+  assert.match(generatedHash, /^scrypt:[a-f0-9]{32}:[a-f0-9]{64}$/);
+  assert.equal(api.verifyPassword(password, generatedHash), true);
+  assert.equal(api.verifyPassword("wrong-password", generatedHash), false);
+  for (const invalidHash of ["", "invalid", "scrypt:bad:hash", null]) {
+    assert.equal(api.verifyPassword(password, invalidHash), false);
+  }
+
+  const serverPath = path.resolve(__dirname, "../server.js");
+  const generatedByCli = spawnSync(process.execPath, [serverPath, "hash-admin-password", password], {
+    env: { ...process.env, NODE_ENV: "test" },
+    encoding: "utf8",
+  });
+  assert.equal(generatedByCli.status, 0, generatedByCli.stderr);
+  const cliHash = generatedByCli.stdout.trim();
+  assert.match(cliHash, /^scrypt:[a-f0-9]{32}:[a-f0-9]{64}$/);
+  assert.equal(api.verifyPassword(password, cliHash), true);
+
+  const verifiedByCli = spawnSync(process.execPath, [serverPath, "verify-admin-password"], {
+    env: { ...process.env, NODE_ENV: "test", ADMIN_PASSWORD_HASH: cliHash, ADMIN_PASSWORD_VERIFY: password },
+    encoding: "utf8",
+  });
+  assert.equal(verifiedByCli.status, 0, verifiedByCli.stderr);
+  assert.equal(verifiedByCli.stdout.trim(), "MATCH");
+
+  const rejectedByCli = spawnSync(process.execPath, [serverPath, "verify-admin-password"], {
+    env: { ...process.env, NODE_ENV: "test", ADMIN_PASSWORD_HASH: cliHash, ADMIN_PASSWORD_VERIFY: "wrong-password" },
+    encoding: "utf8",
+  });
+  assert.equal(rejectedByCli.status, 1, rejectedByCli.stderr);
+  assert.equal(rejectedByCli.stdout.trim(), "NO MATCH");
 });
 test("configuration absent fails closed; malformed admin sessions expire", async () => {
   const { validateConfig } = require("../config");

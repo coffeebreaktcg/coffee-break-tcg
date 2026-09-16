@@ -796,6 +796,13 @@ if (process.argv[2] === "hash-admin-password") {
   process.exit(0);
 }
 
+if (process.argv[2] === "verify-admin-password") {
+  const password = process.env.ADMIN_PASSWORD_VERIFY;
+  const matches = typeof password === "string" && Boolean(adminPasswordHash) && verifyPassword(password, adminPasswordHash);
+  console.log(matches ? "MATCH" : "NO MATCH");
+  process.exit(matches ? 0 : 1);
+}
+
 function requestIp(req) { return security.requestIp(req); }
 
 function adminAttemptState(req) {
