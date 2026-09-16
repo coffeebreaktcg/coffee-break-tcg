@@ -11259,9 +11259,9 @@ body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.content-mode) 
   height: 100%;
   max-width: 100%;
   max-height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   filter: none;
-  transform: scale(1.06);
+  transform: scale(0.97);
 }
 
 body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrival-slide.is-product {
@@ -11277,10 +11277,10 @@ body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):
   height: 100%;
   padding: 0;
   background: transparent;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
   filter: none;
-  transform: scale(1.06);
+  transform: scale(0.97);
 }
 
 /* Conversion-focused storefront refinement. */
@@ -11410,10 +11410,10 @@ body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):
 }
 
 .single-product-art {
-  width: 94%;
+  width: 88%;
   margin-inline: auto;
-  border-radius: 18px;
-  box-shadow: 0 14px 30px rgba(61, 42, 29, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(61, 42, 29, 0.1);
 }
 
 .similar-products {
