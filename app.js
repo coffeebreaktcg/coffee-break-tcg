@@ -297,6 +297,7 @@ const translations = {
     viewAllSealed: "Voir tout le sealed",
     buyCardsEyebrow: "On achète vos cartes",
     buyCardsTitle: "Fais-nous voir ta collection.",
+    buyCardsIntro: "Une collection de 1 000 $ et plus? Envoie-nous quelques photos et les cartes importantes. On te répond avec un deal clair, simplement.",
     buyCardsCardTitle: "On achète vos cartes",
     buyCardsCardText: "Soumets ta collection de 1 000 $ et plus avec un résumé clair, les cartes importantes et des photos nettes.",
     submitCollection: "Envoyer ma collection",
@@ -446,6 +447,7 @@ const translations = {
     viewAllSealed: "View all sealed",
     buyCardsEyebrow: "We buy cards",
     buyCardsTitle: "Show us your collection.",
+    buyCardsIntro: "Have a collection worth $1,000 or more? Send a few photos and the key cards. We’ll get back to you with a clear, simple deal.",
     buyCardsCardTitle: "We buy cards",
     buyCardsCardText: "Submit your collection of $1,000 and up with a clear summary, key cards and sharp photos.",
     submitCollection: "Send my collection",
@@ -2848,8 +2850,13 @@ function renderProductDetail(id) {
         ? `<section class="similar-products" aria-label="Produits similaires">
             <div class="section-heading compact">
               <div>
-                <p class="eyebrow">À voir aussi</p>
-                <h2>Produits similaires</h2>
+                <p class="eyebrow">${currentLang === "en" ? "Chosen by collectors" : "Choisies par des collectionneurs"}</p>
+                <h2>${currentLang === "en" ? "Cards we would choose ourselves." : "Des cartes qu’on choisirait pour vrai."}</h2>
+                <p class="similar-products-intro">${
+                  currentLang === "en"
+                    ? "Clear deals, carefully presented cards and a team that is easy to reach. We also buy collections."
+                    : "Des deals clairs, des cartes bien présentées et une équipe facile à joindre. On rachète aussi des collections."
+                }</p>
               </div>
             </div>
             <div class="similar-products-grid">${relatedProducts.map((item) => homeProductCard(item)).join("")}</div>
@@ -3148,9 +3155,11 @@ function renderContentPage(slug) {
     <p class="eyebrow">${page.eyebrow}</p>
     <h1>${page.title}</h1>
     <p class="content-lead">${page.text}</p>
-    <div class="content-grid">
-      ${page.cards.map(([title, text]) => `<article><h2>${title}</h2><p>${text}</p></article>`).join("")}
-    </div>
+    ${
+      page.sellForm
+        ? ""
+        : `<div class="content-grid">${page.cards.map(([title, text]) => `<article><h2>${title}</h2><p>${text}</p></article>`).join("")}</div>`
+    }
     ${
       page.sellForm
         ? `<form class="request-form sell-form">
