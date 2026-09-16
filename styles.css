@@ -11232,18 +11232,20 @@ body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):
   }
 }
 
-/* Branded backdrop for customer-facing product photography. */
+/* Keep customer-facing product photography free of decorative backdrops. */
 .home-product-art,
 .vitrine-art,
 .product-art,
 .detail-art {
-  background-color: #fffaf5;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.38)),
-    url("/assets/cbtcg-item-background-pattern.png");
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.home-product-card:hover .home-product-art,
+.product-card:hover .product-art,
+.vitrine-card:hover .vitrine-art {
+  box-shadow: none;
 }
 
 /* Absolute final mobile guardrails: no ghost storefront grid or page-width drift on home. */
