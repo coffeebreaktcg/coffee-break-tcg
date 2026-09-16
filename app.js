@@ -2368,7 +2368,7 @@ function homeProductCard(product, options = {}) {
   const badge = isRecentProduct(product) ? `<span class="home-product-badge">Nouveau</span>` : "";
   return `
     <article class="home-product-card ${options.hero ? "is-hero" : ""}" data-product-card="${escapeAttribute(product.id)}" data-view-product="${escapeAttribute(product.id)}">
-      <div class="home-product-art ${isSlabProduct(product) ? "slab-product-art" : ""}" style="--accent:${product.accent || "#d5742d"}">
+      <div class="home-product-art ${isSlabProduct(product) ? "slab-product-art" : product.category === "Singles" ? "single-product-art" : ""}" style="--accent:${product.accent || "#d5742d"}">
         ${badge}
         ${productVisual(product)}
       </div>
@@ -2398,7 +2398,7 @@ function vitrineProductCard(product, role = "mini") {
   const badge = vitrineBadge(product, role);
   return `
     <a class="vitrine-card vitrine-card-${escapeAttribute(role)} ${isSlabProduct(product) ? "is-slab" : ""}" href="${productDetailPath(product)}" data-view-product="${escapeAttribute(product.id)}" style="--accent:${product.accent || "#d5742d"}">
-      <div class="vitrine-art">
+      <div class="vitrine-art ${product.category === "Singles" && !isSlabProduct(product) ? "single-product-art" : ""}">
         ${productVisual(product)}
       </div>
       <div class="vitrine-copy">
@@ -2553,7 +2553,7 @@ function renderProducts() {
       const isReserved = status === "reserved";
       return `
         <article class="product-card" data-product-card="${product.id}" data-view-product="${product.id}" style="--stagger:${Math.min(index, 12) * 42}ms">
-          <a class="product-art ${isSlabProduct(product) ? "slab-product-art" : ""}" href="${productDetailPath(product)}" data-view-product="${product.id}" style="--accent: ${product.accent}">
+          <a class="product-art ${isSlabProduct(product) ? "slab-product-art" : product.category === "Singles" ? "single-product-art" : ""}" href="${productDetailPath(product)}" data-view-product="${product.id}" style="--accent: ${product.accent}">
             ${productVisual(product)}
           </a>
           <div class="product-meta">
@@ -2778,7 +2778,7 @@ function renderProductDetail(id) {
     <a class="back-link" href="${categoryPath(lastShopView?.category || product.category || "all")}" data-back-shop>${t("backShop")}</a>
     <div class="detail-layout">
       <div>
-        <div class="detail-art" style="--accent:${product.accent || "#d5742d"}">${productVisual(product)}</div>
+        <div class="detail-art ${product.category === "Singles" && !isSlabProduct(product) ? "single-product-art" : ""}" style="--accent:${product.accent || "#d5742d"}">${productVisual(product)}</div>
         ${
           galleryImages.length > 1
             ? `<div class="detail-gallery" aria-label="Photos additionnelles">

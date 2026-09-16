@@ -11248,6 +11248,22 @@ body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):
   box-shadow: none;
 }
 
+.single-product-art {
+  aspect-ratio: 5 / 7;
+  padding: 0;
+  overflow: hidden;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.content-mode) .single-product-art > .product-photo:not(.sealed-product-photo) {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+  filter: none;
+  transform: scale(1.06);
+}
+
 /* Absolute final mobile guardrails: no ghost storefront grid or page-width drift on home. */
 body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .inventory-shell.home-grid-hidden {
   display: none !important;
