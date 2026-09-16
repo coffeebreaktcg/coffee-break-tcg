@@ -1778,7 +1778,6 @@ function renderCardShows() {
   }
   const sortedShows = [...cardShows].sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
   const nextShow = sortedShows[0];
-  const badge = formatShowDateBadge(nextShow);
   const address = showAddress(nextShow);
   const showMedia = nextShow.imageUrl
     ? `<img src="${escapeAttribute(nextShow.imageUrl)}" alt="${escapeAttribute(nextShow.name)}" loading="lazy" />`
@@ -1793,19 +1792,20 @@ function renderCardShows() {
         <div class="next-show-copy">
           <span class="next-stop-pill">${currentLang === "en" ? "Next stop" : "Prochain arrêt"}</span>
           <div class="next-show-main">
-            <div class="next-show-date">
-              <strong>${escapeAttribute(badge.day)}</strong>
-              <small>${escapeAttribute(badge.month)}</small>
-            </div>
             <div>
-              <p class="next-show-day">${escapeAttribute(showDateLine(nextShow))}</p>
               <h3>${escapeAttribute(nextShow.name)}</h3>
+              <p class="next-show-day">${escapeAttribute(showDateLine(nextShow))}</p>
             </div>
           </div>
           <div class="next-show-details">
-            <p><span aria-hidden="true">•</span> ${escapeAttribute(address || (currentLang === "en" ? "Location to confirm" : "Lieu à confirmer"))}</p>
-            ${nextShow.tables ? `<p><span aria-hidden="true">•</span> ${escapeAttribute(nextShow.tables)}</p>` : ""}
-            ${nextShow.collaborator ? `<p><span aria-hidden="true">•</span> ${currentLang === "en" ? "With" : "Avec"} ${escapeAttribute(nextShow.collaborator)}</p>` : ""}
+            <p class="next-show-address">${escapeAttribute(address || (currentLang === "en" ? "Location to confirm" : "Lieu à confirmer"))}</p>
+            <p class="next-show-support">${
+              currentLang === "en"
+                ? "Meet us in person, arrange booth pickup or bring your collection if you’re looking to sell."
+                : "Viens nous rencontrer, récupérer une commande au booth ou nous montrer une collection que tu aimerais vendre."
+            }</p>
+            ${nextShow.tables ? `<p class="next-show-note">${escapeAttribute(nextShow.tables)}</p>` : ""}
+            ${nextShow.collaborator ? `<p class="next-show-note">${currentLang === "en" ? "With" : "Avec"} ${escapeAttribute(nextShow.collaborator)}</p>` : ""}
           </div>
           <div class="next-show-actions">
             <a class="next-show-button" href="${escapeAttribute(nextShow.announcementUrl || showMapsLink(nextShow))}" target="_blank" rel="noopener">${currentLang === "en" ? "Reserve for booth pickup" : "Réserver pour pickup au booth"}</a>
@@ -1816,9 +1816,6 @@ function renderCardShows() {
           ${showMedia}
         </div>
       </article>
-      <div class="show-accordion-list">
-        ${sortedShows.map(renderShowListItem).join("")}
-      </div>
     </div>
   `;
   observeDynamicElements();
