@@ -530,8 +530,8 @@ const categoryPageCopy = {
       intro: "Cartes Pokémon singles inspectées une par une, avec photos réelles, condition claire et expédition suivie partout au Canada.",
       metaTitle: "Singles Pokémon Canada | Coffee Break TCG",
       metaDescription: "Magasine des singles Pokémon inspectés, photographiés et expédiés avec suivi depuis le Québec. Cartes modernes, hits, promos et ajouts de collection.",
-      proof: ["Photos réelles", "Condition NM / LP / MP indiquée", "Emballage rigide", "Expédition suivie au Canada"],
-      seoText: "Les singles sont pensés pour les collectionneurs qui veulent compléter un binder, ajouter un coup de cœur moderne ou trouver une carte propre sans deviner l’état. Chaque carte publiée est sélectionnée, photographiée et préparée pour arriver protégée.",
+      proof: [],
+      seoText: "",
     },
     "/nouveautes": {
       eyebrow: "Coffee Break",
@@ -586,8 +586,8 @@ const categoryPageCopy = {
       intro: "Pokemon singles inspected one by one, with real photos, clear condition notes and tracked shipping across Canada.",
       metaTitle: "Pokemon Singles Canada | Coffee Break TCG",
       metaDescription: "Shop inspected Pokemon singles with real photos, clear condition notes and tracked Canadian shipping from Coffee Break TCG.",
-      proof: ["Real photos", "NM / LP / MP condition", "Rigid protection", "Tracked Canadian shipping"],
-      seoText: "Singles are for collectors who want to complete a binder, grab a modern hit or buy a clean card without guessing condition. Every listed card is selected, photographed and packed with care.",
+      proof: [],
+      seoText: "",
     },
     "/nouveautes": {
       eyebrow: "Coffee Break",
@@ -1882,15 +1882,18 @@ function renderCategorySeoPanel(copy) {
     return;
   }
   const featured = categoryFeaturedProducts();
+  const proof = copy.proof || [];
   categorySeoPanel.classList.remove("hidden");
   categorySeoPanel.innerHTML = `
-    <div class="category-proof-row">
-      ${(copy.proof || []).map((item) => `<span>${escapeAttribute(item)}</span>`).join("")}
-    </div>
-    <div class="category-seo-copy">
-      <p>${escapeAttribute(copy.seoText || copy.intro || "")}</p>
-      <a href="/livraison" data-content-route="livraison">${currentLang === "en" ? "Shipping and protection details" : "Voir la livraison et la protection"}</a>
-    </div>
+    ${proof.length ? `<div class="category-proof-row">${proof.map((item) => `<span>${escapeAttribute(item)}</span>`).join("")}</div>` : ""}
+    ${
+      copy.seoText
+        ? `<div class="category-seo-copy">
+            <p>${escapeAttribute(copy.seoText)}</p>
+            <a href="/livraison" data-content-route="livraison">${currentLang === "en" ? "Shipping and protection details" : "Voir la livraison et la protection"}</a>
+          </div>`
+        : ""
+    }
     ${
       featured.length
         ? `<div class="category-featured-products" aria-label="${currentLang === "en" ? "Featured products" : "Produits vedettes"}">
@@ -2751,7 +2754,6 @@ function renderProductDetail(id) {
   const status = getProductStatus(product);
   const features = getDeal(product);
   const cardCondition = cardConditionCode(product);
-  const conditionDetail = conditionDetailLabel(product);
   const limit = cartLineLimit(product);
   const galleryImages = productGalleryImages(product);
   const relatedProducts = similarProducts(product);
@@ -2814,16 +2816,12 @@ function renderProductDetail(id) {
         </div>
         <button class="button primary product-main-cta" type="button" data-add-cart="${product.id}" ${status === "reserved" || limit <= 0 ? "disabled" : ""}>${status === "reserved" ? t("reserved") : t("addToCartFull")}</button>
         <dl class="detail-specs">
-          ${detailSpec("Condition", conditionDetail)}
           ${detailSpec("Numéro", product.cardNumber)}
           ${detailSpec("Extension", product.setName)}
-          ${detailSpec("Rareté", product.rarity)}
           ${detailSpec("Slab", product.gradingCompany && product.grade ? `${product.gradingCompany} ${product.grade}` : "")}
           ${detailSpec("Disponibilité", publicStock)}
           ${features.length ? detailSpec("Spécifications", features.join(" - ")) : ""}
           <div><dt>Prix</dt><dd>${money.format(product.price)}</dd></div>
-          <div><dt>Protection</dt><dd>Sleeve, team bag et emballage rigide inclus.</dd></div>
-          <div><dt>Expédition</dt><dd>Livraison depuis Laval, suivi inclus.</dd></div>
         </dl>
         <div class="detail-trust" aria-label="Garanties Coffee Break TCG">
           <article>

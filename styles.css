@@ -11232,6 +11232,20 @@ body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):
   }
 }
 
+/* Branded backdrop for customer-facing product photography. */
+.home-product-art,
+.vitrine-art,
+.product-art,
+.detail-art {
+  background-color: #fffaf5;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.38)),
+    url("/assets/cbtcg-item-background-pattern.png");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
 /* Absolute final mobile guardrails: no ghost storefront grid or page-width drift on home. */
 body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .inventory-shell.home-grid-hidden {
   display: none !important;
