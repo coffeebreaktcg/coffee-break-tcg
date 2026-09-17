@@ -4438,9 +4438,25 @@ async function photoSaleImageBitmap(source) {
   return createImageBitmap(blob);
 }
 
-function photoSaleSignatureFromBitmap(bitmap, cropRatio = 0) {
-  const width = 10;
-  const height = 14;
+function photoSaleRecognitionUrl(product) {
+  if (String(product.imageUrl || "").startsWith("/")) return product.imageUrl;
+  return `/api/admin/products/image?id=${encodeURIComponent(product.id)}`;
+}
+
+function photoSaleNormalizedVector(values) {
+  const mean = values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length);
+  const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / Math.max(1, values.length);
+  const deviation = Math.sqrt(variance) || 1;
+  return values.map((value) => (value - mean) / deviation);
+}
+
+function photoSaleSignatureFromBitmap(bitmap, options = {}) {
+  const width = 20;
+  const height = 28;
+  const cropRatio = Number(options.ratio || 0);
+  const scale = Number(options.scale || 1);
+  const offsetX = Number(options.offsetX || 0);
+  const offsetY = Number(options.offsetY || 0);
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -4459,25 +4475,87 @@ function photoSaleSignatureFromBitmap(bitmap, cropRatio = 0) {
       sy = (bitmap.height - sh) / 2;
     }
   }
+  sw *= scale;
+  sh *= scale;
+  sx = Math.max(0, Math.min(bitmap.width - sw, sx + offsetX * bitmap.width));
+  sy = Math.max(0, Math.min(bitmap.height - sh, sy + offsetY * bitmap.height));
   context.drawImage(bitmap, sx, sy, sw, sh, 0, 0, width, height);
   const pixels = context.getImageData(0, 0, width, height).data;
-  const signature = [];
+  const gray = [];
+  const chroma = [];
   for (let index = 0; index < pixels.length; index += 4) {
-    signature.push(pixels[index] / 255, pixels[index + 1] / 255, pixels[index + 2] / 255);
+    const red = pixels[index] / 255;
+    const green = pixels[index + 1] / 255;
+    const blue = pixels[index + 2] / 255;
+    gray.push(red * 0.299 + green * 0.587 + blue * 0.114);
+    const total = red + green + blue + 0.08;
+    chroma.push(red / total, green / total, blue / total);
   }
-  return signature;
+  const normalizedGray = photoSaleNormalizedVector(gray);
+  const edges = [];
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = y * width + x;
+      edges.push(x + 1 < width ? normalizedGray[index + 1] - normalizedGray[index] : 0);
+      edges.push(y + 1 < height ? normalizedGray[index + width] - normalizedGray[index] : 0);
+    }
+  }
+  return { gray: normalizedGray, edges: photoSaleNormalizedVector(edges), chroma };
+}
+
+function photoSaleCorrelationDistance(left, right) {
+  if (!left?.length || left.length !== right?.length) return 1;
+  let dot = 0;
+  let leftSize = 0;
+  let rightSize = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    dot += left[index] * right[index];
+    leftSize += left[index] ** 2;
+    rightSize += right[index] ** 2;
+  }
+  if (!leftSize || !rightSize) return 1;
+  return Math.max(0, Math.min(1, (1 - dot / Math.sqrt(leftSize * rightSize)) / 2));
 }
 
 function photoSaleSignatureDistance(left, right) {
-  if (!left?.length || left.length !== right?.length) return Number.POSITIVE_INFINITY;
-  let difference = 0;
-  for (let index = 0; index < left.length; index += 1) difference += Math.abs(left[index] - right[index]);
-  return difference / left.length;
+  if (!left?.gray || !right?.gray) return Number.POSITIVE_INFINITY;
+  let colorDifference = 0;
+  for (let index = 0; index < left.chroma.length; index += 1) colorDifference += Math.abs(left.chroma[index] - right.chroma[index]);
+  colorDifference /= Math.max(1, left.chroma.length);
+  return photoSaleCorrelationDistance(left.gray, right.gray) * 0.52
+    + photoSaleCorrelationDistance(left.edges, right.edges) * 0.36
+    + Math.min(1, colorDifference * 2.5) * 0.12;
+}
+
+function photoSaleCaptureSignatures(bitmap) {
+  const signatures = [photoSaleSignatureFromBitmap(bitmap)];
+  const offsets = [
+    [0, 0],
+    [-0.055, 0],
+    [0.055, 0],
+    [0, -0.055],
+    [0, 0.055],
+  ];
+  for (const ratio of [0.72, 0.63]) {
+    for (const scale of [0.72, 0.84, 0.96]) {
+      for (const [offsetX, offsetY] of offsets) {
+        signatures.push(photoSaleSignatureFromBitmap(bitmap, { ratio, scale, offsetX, offsetY }));
+      }
+    }
+  }
+  return signatures;
 }
 
 async function photoSaleProductSignature(product) {
   if (photoSaleSignatureCache.has(product.id)) return photoSaleSignatureCache.get(product.id);
-  const promise = photoSaleImageBitmap(product.imageUrl)
+  const loadBitmap = async () => {
+    try {
+      return await photoSaleImageBitmap(product.imageUrl);
+    } catch {
+      return photoSaleImageBitmap(photoSaleRecognitionUrl(product));
+    }
+  };
+  const promise = loadBitmap()
     .then((bitmap) => {
       const signature = photoSaleSignatureFromBitmap(bitmap);
       bitmap.close?.();
@@ -4490,8 +4568,8 @@ async function photoSaleProductSignature(product) {
 
 function photoSaleConfidence(score, nextScore) {
   const gap = score - Number(nextScore || 0);
-  if (score >= 0.82 && gap >= 0.04) return "forte";
-  if (score >= 0.7) return "moyenne";
+  if (score >= 0.78 && gap >= 0.035) return "forte";
+  if (score >= 0.62 && gap >= 0.015) return "moyenne";
   return "à confirmer";
 }
 
@@ -4499,25 +4577,34 @@ async function analyzePhotoSaleEntry(entry) {
   const products = photoSaleInventory();
   try {
     const bitmap = await photoSaleImageBitmap(entry.file);
-    const capturedSignatures = [0.72, 0.63, 0].map((ratio) => photoSaleSignatureFromBitmap(bitmap, ratio));
+    const capturedSignatures = photoSaleCaptureSignatures(bitmap);
     bitmap.close?.();
     const scored = [];
-    for (const product of products) {
-      const reference = await photoSaleProductSignature(product);
-      if (!reference) continue;
-      const distance = Math.min(...capturedSignatures.map((signature) => photoSaleSignatureDistance(signature, reference)));
-      scored.push({ id: product.id, score: Math.max(0, 1 - distance) });
-    }
+    let cursor = 0;
+    const workers = Array.from({ length: Math.min(6, products.length) }, async () => {
+      while (cursor < products.length) {
+        const product = products[cursor];
+        cursor += 1;
+        const reference = await photoSaleProductSignature(product);
+        if (!reference) continue;
+        const distance = Math.min(...capturedSignatures.map((signature) => photoSaleSignatureDistance(signature, reference)));
+        scored.push({ id: product.id, score: Math.max(0, 1 - distance) });
+      }
+    });
+    await Promise.all(workers);
     entry.candidates = scored.sort((a, b) => b.score - a.score).slice(0, 5);
+    entry.analyzedCount = scored.length;
     const best = entry.candidates[0];
     const duplicate = photoSaleEntries.some((candidate) => candidate !== entry && candidate.selectedId === best?.id);
-    entry.selectedId = best && !duplicate ? best.id : "";
+    const isClearEnough = best && best.score >= 0.56 && best.score - Number(entry.candidates[1]?.score || 0) >= 0.01;
+    entry.selectedId = isClearEnough && !duplicate ? best.id : "";
     entry.confirmed = false;
     entry.confidence = best ? photoSaleConfidence(best.score, entry.candidates[1]?.score) : "manuelle";
     entry.status = "ready";
   } catch {
     entry.status = "ready";
     entry.confidence = "manuelle";
+    entry.analyzedCount = 0;
   }
   renderPhotoSaleQueue();
 }
@@ -4549,7 +4636,7 @@ function renderPhotoSaleQueue() {
       <article class="photo-sale-entry ${entry.status === "analyzing" ? "is-analyzing" : ""}" data-photo-sale-entry="${escapeAttribute(entry.id)}">
         <div class="photo-sale-captured"><img src="${escapeAttribute(entry.previewUrl)}" alt="Photo ${index + 1} de la vente" /><span>${index + 1}</span></div>
         <div class="photo-sale-match">
-          <div><strong>${entry.status === "analyzing" ? "Recherche dans l’inventaire…" : selected?.name || "Correspondance à confirmer"}</strong><small>${entry.status === "analyzing" ? "Comparaison des images en cours" : `Confiance ${entry.confidence || "manuelle"} · vérifie avant de vendre`}</small></div>
+          <div><strong>${entry.status === "analyzing" ? "Recherche dans l’inventaire…" : selected?.name || "Correspondance à confirmer"}</strong><small>${entry.status === "analyzing" ? "Comparaison des images en cours" : `${Number(entry.analyzedCount || 0)} image${Number(entry.analyzedCount || 0) === 1 ? "" : "s"} comparée${Number(entry.analyzedCount || 0) === 1 ? "" : "s"} · confiance ${entry.confidence || "manuelle"}`}</small></div>
           <label>Carte dans l’inventaire<select data-photo-sale-select="${escapeAttribute(entry.id)}" ${entry.status === "analyzing" ? "disabled" : ""}>${photoSaleSelectOptions(entry)}</select></label>
           ${entry.status === "ready" && entry.selectedId ? `<button class="photo-sale-confirm ${entry.confirmed ? "is-confirmed" : ""}" type="button" data-photo-sale-confirm="${escapeAttribute(entry.id)}">${entry.confirmed ? "✓ Carte confirmée" : "Confirmer cette carte"}</button>` : ""}
         </div>
@@ -4580,6 +4667,7 @@ function addPhotoSaleFiles(files) {
       selectedId: "",
       confirmed: false,
       candidates: [],
+      analyzedCount: 0,
       confidence: "",
       status: "analyzing",
     };

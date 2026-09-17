@@ -2071,6 +2071,52 @@ function httpsJsonWithHeaders(url, headers = {}) {
   });
 }
 
+const recognitionImageHosts = new Set([
+  "images.pokemontcg.io",
+  "images.scrydex.com",
+  "assets.tcgdex.net",
+  "assets.pokemon.com",
+  "en.onepiece-cardgame.com",
+  "www.pokemon-card.com",
+]);
+
+function fetchRecognitionImage(rawUrl, redirectCount = 0) {
+  return new Promise((resolve, reject) => {
+    let url;
+    try { url = new URL(rawUrl); } catch { return reject(new Error("URL d’image invalide")); }
+    if (url.protocol !== "https:" || url.port || url.username || url.password || !recognitionImageHosts.has(url.hostname.toLowerCase())) {
+      return reject(new Error("Hôte d’image non autorisé"));
+    }
+    const request = https.request(url, { headers: { Accept: "image/avif,image/webp,image/png,image/jpeg", "User-Agent": "CoffeeBreakTCG/1.0" } }, (response) => {
+      if ([301, 302, 303, 307, 308].includes(response.statusCode) && response.headers.location && redirectCount < 2) {
+        response.resume();
+        return fetchRecognitionImage(new URL(response.headers.location, url).toString(), redirectCount + 1).then(resolve, reject);
+      }
+      const contentType = String(response.headers["content-type"] || "").split(";")[0].toLowerCase();
+      if (response.statusCode < 200 || response.statusCode >= 300 || !new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]).has(contentType)) {
+        response.resume();
+        return reject(new Error("Image distante indisponible"));
+      }
+      const declaredSize = Number(response.headers["content-length"] || 0);
+      if (declaredSize > 8 * 1024 * 1024) {
+        response.resume();
+        return reject(new Error("Image distante trop volumineuse"));
+      }
+      const chunks = [];
+      let size = 0;
+      response.on("data", (chunk) => {
+        size += chunk.length;
+        if (size > 8 * 1024 * 1024) request.destroy(new Error("Image distante trop volumineuse"));
+        else chunks.push(chunk);
+      });
+      response.on("end", () => resolve({ body: Buffer.concat(chunks), contentType }));
+    });
+    request.setTimeout(8000, () => request.destroy(new Error("Service d’image indisponible")));
+    request.on("error", reject);
+    request.end();
+  });
+}
+
 function squareApiHost() {
   return squareEnvironment === "production" ? "connect.squareup.com" : "connect.squareupsandbox.com";
 }
@@ -3245,6 +3291,29 @@ async function handleApi(req, res) {
     return json(res, 401, { error: "Connexion admin requise" });
   }
 
+  if (url.pathname === "/api/admin/products/image" && req.method === "GET") {
+    const productId = url.searchParams.get("id") || "";
+    security.id(productId);
+    const product = db.inventory.find((candidate) => candidate.id === productId);
+    if (!product?.imageUrl) return json(res, 404, { error: "Image introuvable" });
+    if (String(product.imageUrl).startsWith("/")) {
+      res.writeHead(302, { ...securityHeaders, Location: product.imageUrl, "Cache-Control": "private, max-age=3600" });
+      return res.end();
+    }
+    try {
+      const image = await fetchRecognitionImage(product.imageUrl);
+      res.writeHead(200, {
+        ...securityHeaders,
+        "Content-Type": image.contentType,
+        "Content-Length": image.body.length,
+        "Cache-Control": "private, max-age=3600",
+      });
+      return res.end(image.body);
+    } catch {
+      return json(res, 502, { error: "Cette image ne peut pas être analysée automatiquement" });
+    }
+  }
+
   if (url.pathname === "/api/admin/reconciliation" && req.method === "GET") {
     return json(res, 200, reconciliationReport(db));
   }
@@ -4390,9 +4459,12 @@ const server = http.createServer(async (req, res) => {
   try {
     res.setHeader("X-Request-Id", requestId(req));
     if (req.url.startsWith("/api/")) {
-      security.guardRequest(req, new URL(req.url, "http://localhost").pathname);
+      const apiPath = new URL(req.url, "http://localhost").pathname;
+      security.guardRequest(req, apiPath);
       // Read bounded bodies before the database queue so a slow sender cannot hold its lock.
       if (req.method === "POST") await readRawBody(req);
+      // Image recognition is read-only and may request several inventory images at once.
+      if (req.method === "GET" && apiPath === "/api/admin/products/image") return await handleApi(req, res);
       return await serializeApi(() => handleApi(req, res));
     }
     return await serveStatic(req, res);

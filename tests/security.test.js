@@ -75,7 +75,7 @@ test("public routes/assets still resolve, headers and CORS are safe", async () =
   assert.equal((await request("/api/logout", "POST", "{}", { "Content-Type": "text/plain" })).status, 415);
 });
 test("admin routes require server sessions, malformed JSON rejected", async () => {
-  for (const route of ["/api/admin/summary", "/api/admin/card-images?q=Pikachu"]) assert.equal((await request(route)).status, 401);
+  for (const route of ["/api/admin/summary", "/api/admin/card-images?q=Pikachu", "/api/admin/products/image?id=test-card"]) assert.equal((await request(route)).status, 401);
   assert.equal((await request("/api/admin/products", "POST", { name: "Injected" })).status, 401);
   assert.equal((await request("/api/signup", "POST", "{")).status, 400);
   assert.equal((await request("/api/signup", "POST", "x".repeat(9000))).status, 413);
@@ -174,12 +174,15 @@ test("admin input validation and image writes, compatible numeric form strings",
   assert.equal((await request("/api/admin/logout", "POST", {}, headers)).status, 200); assert.equal((await request("/api/admin/summary", "GET", undefined, headers)).status, 401);
 });
 test("photo sale groups cards, allocates the exact total and backs up before mutation", async () => {
-  const first = { ...baseProduct, id: "photo-card-a", name: "Card A", stock: 1, price: 75, cost: 20 };
+  const first = { ...baseProduct, id: "photo-card-a", name: "Card A", stock: 1, price: 75, cost: 20, imageUrl: "/assets/pokemon-card-placeholder.png" };
   const second = { ...baseProduct, id: "photo-card-b", name: "Card B", stock: 1, price: 25, cost: 10 };
   reset({ inventory: [first, second] });
   assert.equal((await request("/api/admin/sales/batch", "POST", { productIds: [first.id], totalAmount: 10 })).status, 401);
   const login = await request("/api/admin/login", "POST", { email: "admin@example.com", password: "test-password-long" });
   const headers = { Cookie: login.headers["set-cookie"][0].split(";")[0] };
+  const recognitionImage = await request(`/api/admin/products/image?id=${first.id}`, "GET", undefined, headers);
+  assert.equal(recognitionImage.status, 302);
+  assert.equal(recognitionImage.headers.location, first.imageUrl);
   assert.equal((await request("/api/admin/sales/batch", "POST", { productIds: [first.id, first.id], totalAmount: 10 }, headers)).status, 400);
   assert.equal(JSON.parse(fs.readFileSync(dbFile)).inventory.length, 2);
 
