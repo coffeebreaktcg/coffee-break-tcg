@@ -952,80 +952,31 @@ body.admin-mode .admin-page {
     white-space: normal;
   }
 
+  .admin-workspace {
+    padding: 20px 16px 28px;
+  }
+
   .admin-inventory-table {
-    min-width: 0;
-    border-collapse: separate;
-    border-spacing: 0 12px;
+    min-width: 760px;
+    font-size: 12px;
   }
 
-  .admin-inventory-table thead {
+  .admin-inventory-table th:nth-child(2),
+  .admin-inventory-table td:nth-child(2) {
     display: none;
   }
 
-  .admin-inventory-table,
-  .admin-inventory-table tbody,
-  .admin-inventory-table tr,
   .admin-inventory-table td {
-    display: block;
-    width: 100%;
+    padding: 8px 5px;
   }
 
-  .admin-inventory-table tr {
-    position: relative;
-    border: 1px solid rgba(61, 42, 29, 0.1);
-    border-radius: 16px;
-    background: rgba(255, 248, 239, 0.88);
-    padding: 12px;
+  .admin-inventory-table .admin-item {
+    min-width: 190px;
   }
 
-  .admin-inventory-table td {
-    display: grid;
-    grid-template-columns: 130px minmax(0, 1fr);
-    align-items: center;
-    gap: 12px;
-    border-bottom: 1px solid rgba(237, 212, 184, 0.62);
-    padding: 9px 0;
-  }
-
-  .admin-inventory-table td::before {
-    content: attr(data-label);
-    color: var(--muted);
-    font-size: 10px;
-    font-weight: 900;
-    text-transform: uppercase;
-  }
-
-  .admin-inventory-table td:first-child,
-  .admin-inventory-table td:last-child {
-    grid-template-columns: 1fr;
-  }
-
-  .admin-inventory-table td:first-child::before,
-  .admin-inventory-table td:last-child::before {
-    display: none;
-  }
-
-  .admin-inventory-table td:last-child {
-    border-bottom: 0;
-    padding-bottom: 0;
-  }
-
-  .admin-row-actions {
-    width: 100%;
-  }
-
-  .admin-action-menu summary {
-    width: 100%;
-    min-height: 42px;
-    border-radius: 12px;
-    font-size: 18px;
-  }
-
-  .admin-action-menu > div {
-    position: static;
-    width: 100%;
-    margin-top: 8px;
-    box-shadow: none;
+  .admin-inventory-table .admin-photo {
+    width: 40px;
+    height: 40px;
   }
 
   .admin-sold-table {
