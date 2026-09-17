@@ -1825,8 +1825,9 @@ function renderCardShows() {
 async function loadPokemonSets() {
   if (!pokemonSetSelect) return;
   const game = productGameSelect?.value || "Pokemon";
+  const language = cardLanguageSelect?.value || "en";
   try {
-    const payload = await api(`/api/admin/sets?game=${encodeURIComponent(game)}`);
+    const payload = await api(`/api/admin/sets?game=${encodeURIComponent(game)}&language=${encodeURIComponent(language)}`);
     pokemonSetSelect.innerHTML = [
       `<option value="">Choisir une extension</option>`,
       ...(payload.sets || []).map(
@@ -6354,6 +6355,7 @@ adminProductForm?.querySelector('input[name="name"]')?.addEventListener("input",
 });
 cardLanguageSelect?.addEventListener("change", () => {
   syncAdminLanguageQuickFilter(cardLanguageSelect.value);
+  loadPokemonSets();
   renderAdminSearchIntent();
   resetImageSearch();
 });

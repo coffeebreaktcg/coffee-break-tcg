@@ -2411,6 +2411,9 @@ function pokemonAliasSearchTerms(query = "") {
     { keys: ["gyarados"], ja: ["Gyarados", "ギャラドス"], cn: ["暴鲤龙", "Gyarados"] },
     { keys: ["misty", "ondine"], ja: ["Misty", "カスミ"], cn: ["小霞", "Misty"] },
     { keys: ["charizard"], ja: ["Charizard", "リザードン"], cn: ["喷火龙", "Charizard"] },
+    { keys: ["magmortar"], ja: ["Magmortar", "ブーバーン"], cn: ["鸭嘴炎兽", "Magmortar"] },
+    { keys: ["groudon"], ja: ["Groudon", "グラードン"], cn: ["固拉多", "Groudon"] },
+    { keys: ["kecleon"], ja: ["Kecleon", "カクレオン"], cn: ["变隐龙", "Kecleon"] },
   ];
   const matches = aliases.filter((alias) => alias.keys.some((key) => normalized.includes(key)));
   return {
@@ -2418,6 +2421,21 @@ function pokemonAliasSearchTerms(query = "") {
     cn: matches.flatMap((alias) => alias.cn),
     en: matches.flatMap((alias) => [...alias.ja, ...alias.cn].filter((term) => /^[a-z0-9' .-]+$/i.test(term))),
   };
+}
+
+async function pokemonJapaneseSpeciesNames(query = "") {
+  const clean = normalizeSealedSearch(cleanCardSearchTerm(query));
+  const slug = clean.split(" ").filter(Boolean)[0] || "";
+  if (!slug || !/^[a-z0-9-]+$/.test(slug)) return [];
+  try {
+    const payload = await httpsJson(`https://pokeapi.co/api/v2/pokemon-species/${encodeURIComponent(slug)}`);
+    return (Array.isArray(payload?.names) ? payload.names : [])
+      .filter((entry) => ["ja-Hrkt", "ja"].includes(entry?.language?.name))
+      .map((entry) => String(entry.name || "").trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 function tcgdexSearchTerms(query = "", language = "en") {
@@ -2500,10 +2518,14 @@ function tcgdexCardCandidates(rows = [], language = "en", numberHint = "", inten
     });
 }
 
-async function searchTcgdexPokemonCards(query, numberHint = "", intent = {}) {
+async function searchTcgdexPokemonCards(query, numberHint = "", intent = {}, setId = "") {
   const language = intent.language || "en";
   const languages = tcgdexLanguageFallbacks(language);
-  const terms = [...new Set(languages.flatMap((tcgdexLanguage) => tcgdexSearchTerms(query, tcgdexLanguage === "ja" ? "jp" : tcgdexLanguage === "zh-cn" || tcgdexLanguage === "zh-tw" ? "cn" : tcgdexLanguage)))];
+  const japaneseSpeciesNames = language === "jp" ? await pokemonJapaneseSpeciesNames(query) : [];
+  const terms = [...new Set([
+    ...languages.flatMap((tcgdexLanguage) => tcgdexSearchTerms(query, tcgdexLanguage === "ja" ? "jp" : tcgdexLanguage === "zh-cn" || tcgdexLanguage === "zh-tw" ? "cn" : tcgdexLanguage)),
+    ...japaneseSpeciesNames,
+  ])];
   if (!terms.length) return [];
   const results = [];
   const deadline = Date.now() + 12000;
@@ -2523,12 +2545,53 @@ async function searchTcgdexPokemonCards(query, numberHint = "", intent = {}) {
     }
   }
   return results
+    .filter((candidate) => !setId || String(candidate.setId || "").toLowerCase() === String(setId).toLowerCase())
+    .filter((candidate, index, all) => all.findIndex((item) => item.id === candidate.id) === index)
+    .slice(0, 36);
+}
+
+async function searchOfficialJapaneseCardImages(query, setId = "") {
+  const aliases = pokemonAliasSearchTerms(query).ja.filter((term) => /[^\x00-\x7F]/.test(term));
+  const speciesNames = await pokemonJapaneseSpeciesNames(query);
+  const japaneseNames = [...new Set([...aliases, ...speciesNames])].slice(0, 3);
+  if (!japaneseNames.length) return [];
+  const selectedSet = fallbackJapanesePokemonSets().find((set) => set.id.toLowerCase() === String(setId).toLowerCase());
+  const candidates = [];
+  for (const japaneseName of japaneseNames) {
+    const url = new URL("https://www.pokemon-card.com/card-search/resultAPI.php");
+    url.searchParams.set("pokemon", japaneseName);
+    url.searchParams.set("regulation", "all");
+    try {
+      const payload = await httpsJson(url);
+      for (const card of Array.isArray(payload?.cardList) ? payload.cardList : []) {
+        const imagePath = String(card.cardThumbFile || "");
+        const cardSetId = imagePath.match(/\/card_images\/large\/([^/]+)\//i)?.[1] || "";
+        if (setId && cardSetId.toLowerCase() !== String(setId).toLowerCase()) continue;
+        candidates.push({
+          id: `pokemon-jp-${card.cardID}`,
+          name: cleanCardSearchTerm(query) || card.cardNameViewText || card.cardNameAltText || japaneseName,
+          setId: cardSetId,
+          set: selectedSet?.name || cardSetId || "Extension japonaise",
+          number: "",
+          rarity: "Carte japonaise",
+          imageUrl: imagePath.startsWith("http") ? imagePath : `https://www.pokemon-card.com${imagePath}`,
+          smallImageUrl: imagePath.startsWith("http") ? imagePath : `https://www.pokemon-card.com${imagePath}`,
+          language: "jp",
+          languageLabel: "Japonais",
+          providerNote: `Source officielle Pokémon Japon · ${card.cardNameViewText || japaneseName}`,
+        });
+      }
+    } catch {
+      // TCGdex remains available if the official Japanese search is temporarily unavailable.
+    }
+  }
+  return candidates
     .filter((candidate, index, all) => all.findIndex((item) => item.id === candidate.id) === index)
     .slice(0, 36);
 }
 
 async function searchPokemonCardImages(query, numberHint = "", setId = "", intent = {}) {
-  const key = cacheKey(["card", query, numberHint, setId, intent.language || "", intent.promo ? "promo" : "", intent.blackStarOnly ? "black-star" : "", intent.year || "", intent.mechanics || "", "tcgdex-v1"]);
+  const key = cacheKey(["card", query, numberHint, setId, intent.language || "", intent.promo ? "promo" : "", intent.blackStarOnly ? "black-star" : "", intent.year || "", intent.mechanics || "", "jp-official-v2"]);
   const cached = getCachedSearch(key);
   if (cached) return cached;
   const term = cleanCardSearchTerm(query);
@@ -2585,8 +2648,9 @@ async function searchPokemonCardImages(query, numberHint = "", setId = "", inten
           ? "Provider Pokémon TCG anglais; image à valider pour la langue."
           : "",
     }));
-  const internationalCandidates = await searchTcgdexPokemonCards(query, detectedNumber, intent);
-  const candidates = [...internationalCandidates, ...officialCandidates]
+  const japaneseOfficialCandidates = intent.language === "jp" ? await searchOfficialJapaneseCardImages(query, setId) : [];
+  const internationalCandidates = await searchTcgdexPokemonCards(query, detectedNumber, intent, setId);
+  const candidates = [...japaneseOfficialCandidates, ...internationalCandidates, ...officialCandidates]
     .filter((candidate, index, all) => all.findIndex((item) => item.id === candidate.id || item.imageUrl === candidate.imageUrl) === index)
     .slice(0, 48);
   return setCachedSearch(key, candidates);
@@ -2816,6 +2880,30 @@ function fallbackPokemonSets() {
     { id: "xyp", name: "XY Black Star Promos", releaseDate: "2013/10/12" },
     { id: "bwp", name: "BW Black Star Promos", releaseDate: "2011/03/01" },
   ];
+}
+
+function fallbackJapanesePokemonSets() {
+  return [
+    { id: "M6", name: "ストームエメラルダ / Storm Emeralda", releaseDate: "" },
+    { id: "M5", name: "アビスアイ / Abyss Eye", releaseDate: "" },
+    { id: "M4", name: "ニンジャスピナー / Ninja Spinner", releaseDate: "" },
+    { id: "M3", name: "ムニキスゼロ / Munikis Zero", releaseDate: "" },
+    { id: "M2a", name: "MEGAドリームex / Mega Dream ex", releaseDate: "" },
+    { id: "M2", name: "インフェルノX / Inferno X", releaseDate: "" },
+    { id: "M1S", name: "メガシンフォニア / Mega Symphonia", releaseDate: "" },
+    { id: "M1L", name: "メガブレイブ / Mega Brave", releaseDate: "" },
+    { id: "SV8a", name: "テラスタルフェスex / Terastal Festival ex", releaseDate: "" },
+  ];
+}
+
+async function fetchJapanesePokemonSets() {
+  const payload = await httpsJson("https://api.tcgdex.net/v2/ja/sets");
+  const fetched = (Array.isArray(payload) ? payload : [])
+    .map((set) => ({ id: String(set.id || ""), name: String(set.name || set.id || ""), releaseDate: "" }))
+    .filter((set) => set.id && set.name)
+    .reverse();
+  const priority = fallbackJapanesePokemonSets();
+  return [...priority, ...fetched.filter((set) => !priority.some((entry) => entry.id.toLowerCase() === set.id.toLowerCase()))];
 }
 
 async function fetchPokemonSets() {
@@ -3381,8 +3469,16 @@ async function handleApi(req, res) {
 
   if (url.pathname === "/api/admin/sets" && req.method === "GET") {
     const game = url.searchParams.get("game") || "Pokemon";
+    const language = url.searchParams.get("language") || "en";
     if (/one\s*piece/i.test(game)) {
       return json(res, 200, { sets: fallbackOnePieceSets() });
+    }
+    if (language === "jp") {
+      try {
+        return json(res, 200, { sets: await fetchJapanesePokemonSets(), language: "jp" });
+      } catch {
+        return json(res, 200, { sets: fallbackJapanesePokemonSets(), language: "jp", fallback: true });
+      }
     }
     try {
       return json(res, 200, { sets: await fetchPokemonSets() });
