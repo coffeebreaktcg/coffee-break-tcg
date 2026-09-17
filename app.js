@@ -1120,10 +1120,48 @@ function slabCompanyClass(product) {
   return "slab-psa";
 }
 
+function slabGradeDescriptor(company, grade) {
+  const numericGrade = Number(grade);
+  const psaLabels = {
+    10: "GEM MT",
+    9: "MINT",
+    8: "NM-MT",
+    7: "NM",
+    6: "EX-MT",
+    5: "EX",
+    4: "VG-EX",
+    3: "VG",
+    2: "GOOD",
+    1: "PR",
+  };
+  const cgcLabels = {
+    10: "PRISTINE",
+    9: "MINT",
+    8: "NM/MINT",
+    7: "NEAR MINT",
+    6: "EX/NM",
+    5: "EXCELLENT",
+    4: "VG/EX",
+    3: "VERY GOOD",
+    2: "GOOD",
+    1: "FAIR",
+  };
+  const labels = /cgc/i.test(company) ? cgcLabels : psaLabels;
+  return labels[numericGrade] || (grade ? "GRADED" : "AUTHENTIC");
+}
+
 function slabLabel(product) {
   const company = product.gradingCompany || "PSA";
   const grade = product.grade ? `${product.grade}` : "";
-  const gradeText = Number(grade) >= 10 ? "Gem Mint" : grade ? "Graded" : "Authentic";
+  const gradeText = slabGradeDescriptor(company, grade);
+  if (/^(?:PSA|CGC)$/i.test(company)) {
+    return `
+      <span class="slab-company-mark">${escapeAttribute(company.toUpperCase())}</span>
+      <small class="slab-grade-name">${escapeAttribute(gradeText)}</small>
+      ${grade ? `<strong>${escapeAttribute(grade)}</strong>` : ""}
+      <span class="slab-barcode" aria-hidden="true"></span>
+    `;
+  }
   return `
     <span class="slab-brand">${escapeAttribute(company)}</span>
     <small>${escapeAttribute(gradeText)}</small>
@@ -1185,7 +1223,7 @@ function productVisual(product) {
       ? `<img class="product-photo" src="${escapeAttribute(imageUrl)}" alt="${escapeAttribute(product.name)}" />`
       : `<span class="card-visual graded ${visualClass(product)}" aria-hidden="true"></span>`;
     return `
-      <span class="slab-frame ${slabCompanyClass(product)}">
+      <span class="slab-frame ${slabCompanyClass(product)} slab-grade-${escapeAttribute(String(product.grade || "authentic").replace(/[^0-9a-z]+/gi, "-"))}">
         <span class="slab-label">${slabLabel(product)}</span>
         <span class="slab-window">${visual}</span>
       </span>
@@ -3481,7 +3519,7 @@ function orderItemsMarkup(order) {
         <div class="sold-item">
           ${item.imageUrl ? `<img class="admin-photo" src="${item.imageUrl}" alt="" />` : ""}
           <div>
-            <strong>${item.name}</strong><br />
+            <strong>${item.name}${Number(item.quantity || 1) > 1 ? ` × ${Number(item.quantity)}` : ""}</strong><br />
             <span>${[
               item.gradingCompany && item.grade ? `${item.gradingCompany} ${item.grade}` : "",
               item.setName,
@@ -3671,6 +3709,7 @@ function syncAdminFilterButtons() {
 
 const adminSectionTitles = {
   inventory: "Inventaire",
+  sold: "Vendus",
   modifiers: "Modificateurs",
   sales: "Ventes",
   shows: "Card Shows",
@@ -4232,7 +4271,7 @@ async function renderAdmin() {
         .join("")
     : `<tr><td colspan="9">Aucun item ne correspond à la recherche.</td></tr>`;
 
-  const soldOrders = orders.filter((order) => ["paid", "admin_sale"].includes(order.status));
+  const soldOrders = orders.filter((order) => ["paid", "admin_sale", "fulfilled"].includes(order.status));
   adminOrderRows.innerHTML = soldOrders.length
     ? soldOrders
         .slice()
@@ -4242,12 +4281,12 @@ async function renderAdmin() {
           const cost = orderCost(order);
           return `
             <tr>
-              <td><strong>${order.id}</strong></td>
-              <td>${new Date(order.createdAt).toLocaleDateString("fr-CA")}</td>
-              <td>${orderItemsMarkup(order)}</td>
-              <td>${adminMoney(revenue)}</td>
-              <td>${adminMoney(cost)}</td>
-              <td>
+              <td data-label="Commande"><strong>${order.id}</strong></td>
+              <td data-label="Date">${new Date(order.createdAt).toLocaleDateString("fr-CA")}</td>
+              <td data-label="Items">${orderItemsMarkup(order)}</td>
+              <td data-label="Vendu">${adminMoney(revenue)}</td>
+              <td data-label="Payé">${adminMoney(cost)}</td>
+              <td data-label="Profit">
                 <div class="sale-inline">
                   <span>${adminMoney(revenue - cost)}</span>
                   <span>${statusLabel(order.status)}</span>
@@ -5686,7 +5725,8 @@ document.addEventListener("click", (event) => {
   }
   if (adminCancelEditButton) {
     event.preventDefault();
-    requestCloseAdminPanels();
+    markAdminProductFormPristine();
+    closeAdminPanels();
   }
   if (adminDiscardCancel) {
     event.preventDefault();

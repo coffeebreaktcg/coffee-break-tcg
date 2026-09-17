@@ -349,6 +349,7 @@
           </div>
           <nav class="admin-sidebar-nav" aria-label="Sections admin">
             <button class="active" type="button" data-admin-view="inventory">Inventaire</button>
+            <button type="button" data-admin-view="sold">Vendus</button>
             <button type="button" data-admin-view="modifiers">Modificateurs</button>
             <button type="button" data-admin-view="sales">Ventes</button>
             <button type="button" data-admin-view="shows">Card Shows</button>
@@ -858,16 +859,22 @@
           </div>
         </div>
 
-      <section class="admin-view-panel" data-admin-panel="sales" aria-label="Ventes">
-      <details class="admin-card admin-accordion" open>
-        <summary>Cartes vendues</summary>
+      <section class="admin-view-panel" data-admin-panel="sold" aria-label="Items vendus">
+      <section class="admin-card admin-sold-section">
+        <div class="admin-inventory-head">
+          <div>
+            <p class="eyebrow">Historique</p>
+            <h2>Items vendus</h2>
+          </div>
+          <p class="admin-sync-note">Les cartes d’une même commande restent regroupées sous le même numéro.</p>
+        </div>
         <div class="admin-table-wrap sold-cards-wrap" id="soldCardsWrap">
-          <table class="admin-table">
+          <table class="admin-table admin-sold-table">
             <thead>
               <tr>
-                <th>Vente</th>
+                <th>Commande</th>
                 <th>Date</th>
-                <th>Carte</th>
+                <th>Items</th>
                 <th>Vendu</th>
                 <th>Payé</th>
                 <th>Profit</th>
@@ -876,8 +883,10 @@
             <tbody id="adminOrderRows"></tbody>
           </table>
         </div>
-      </details>
+      </section>
+      </section>
 
+      <section class="admin-view-panel" data-admin-panel="sales" aria-label="Ventes">
       <details class="admin-card admin-accordion">
         <summary>Comptabilité</summary>
         <p class="accordion-help">
