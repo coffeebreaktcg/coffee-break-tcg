@@ -349,6 +349,7 @@
           </div>
           <nav class="admin-sidebar-nav" aria-label="Sections admin">
             <button class="active" type="button" data-admin-view="inventory">Inventaire</button>
+            <button type="button" data-admin-view="photo-sale">Vente photo</button>
             <button type="button" data-admin-view="sold">Vendus</button>
             <button type="button" data-admin-view="modifiers">Modificateurs</button>
             <button type="button" data-admin-view="sales">Ventes</button>
@@ -381,6 +382,41 @@
 
         <div class="admin-metrics" id="adminMetrics"></div>
         <p class="admin-price-sync hidden" id="adminPriceSync"></p>
+
+        <section class="admin-view-panel" data-admin-panel="photo-sale" aria-label="Vente par photo">
+          <section class="photo-sale-shell">
+            <div class="photo-sale-intro">
+              <p class="eyebrow">Vente mobile</p>
+              <h2>Photographie les cartes vendues</h2>
+              <p>Prends une photo claire par carte. CoffeeBreak propose les correspondances de l’inventaire et te laisse tout confirmer avant la vente.</p>
+            </div>
+            <ol class="photo-sale-steps" aria-label="Étapes de la vente photo">
+              <li><span>1</span><strong>Photos</strong></li>
+              <li><span>2</span><strong>Confirmation</strong></li>
+              <li><span>3</span><strong>Total vendu</strong></li>
+            </ol>
+            <div class="photo-sale-capture">
+              <input class="sr-only" id="photoSaleCameraInput" type="file" accept="image/*" capture="environment" multiple />
+              <input class="sr-only" id="photoSaleLibraryInput" type="file" accept="image/*" multiple />
+              <label class="photo-sale-camera-button" for="photoSaleCameraInput">
+                <span aria-hidden="true">⌁</span>
+                <strong>Ouvrir la caméra</strong>
+                <small>Caméra arrière · une carte par photo</small>
+              </label>
+              <label class="photo-sale-library-button" for="photoSaleLibraryInput">Choisir dans Photos</label>
+            </div>
+            <p class="photo-sale-privacy">Les photos servent seulement à la reconnaissance dans ce téléphone. Elles ne sont pas enregistrées sur le serveur.</p>
+            <div class="photo-sale-empty" id="photoSaleEmpty">
+              <strong>Aucune photo pour l’instant</strong>
+              <span>Cadre la carte au complet, bien droite, avec le moins de reflets possible.</span>
+            </div>
+            <div class="photo-sale-queue" id="photoSaleQueue" aria-live="polite"></div>
+            <div class="photo-sale-sticky-action">
+              <div><strong id="photoSaleCount">0 carte confirmée</strong><span id="photoSaleStatus" role="status">Ajoute une ou plusieurs photos.</span></div>
+              <button class="button primary" id="photoSaleReviewButton" type="button" disabled>Entrer le total vendu</button>
+            </div>
+          </section>
+        </section>
 
         <section class="admin-view-panel" data-admin-panel="modifiers" aria-label="Modificateurs">
         <details class="admin-card admin-accordion merchandising-admin">
@@ -793,6 +829,39 @@
               <label>Notes <input name="notes" placeholder="Optionnel" /></label>
             </div>
             <button class="button primary wide" type="submit">Confirmer la vente</button>
+            <p class="admin-status" role="status"></p>
+          </form>
+        </div>
+
+        <div class="admin-modal photo-sale-modal" id="photoSaleModal" aria-hidden="true">
+          <form class="admin-modal-card photo-sale-modal-card" id="photoSaleForm">
+            <div class="admin-drawer-head">
+              <div>
+                <p class="eyebrow">Vente groupée</p>
+                <h2>Confirmer le montant total</h2>
+              </div>
+              <button class="button secondary" type="button" data-admin-close-panel>Fermer</button>
+            </div>
+            <div class="photo-sale-summary" id="photoSaleSummary"></div>
+            <label class="photo-sale-total-label">Montant vendu pour toutes les cartes
+              <span class="photo-sale-money-input"><span>$</span><input name="totalAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required /></span>
+            </label>
+            <p class="photo-sale-allocation-note">Le montant sera réparti au prorata des prix affichés. La somme des lignes restera exactement égale au total.</p>
+            <div class="form-row two">
+              <label>Canal
+                <select name="channel">
+                  <option>Card Show</option>
+                  <option>Site CoffeeBreak</option>
+                  <option>Facebook</option>
+                  <option>eBay</option>
+                  <option>Trade</option>
+                  <option>Autre</option>
+                </select>
+              </label>
+              <label>Date <input name="date" type="date" /></label>
+            </div>
+            <label>Notes <input name="notes" maxlength="300" placeholder="Optionnel" /></label>
+            <button class="button primary wide" type="submit">Confirmer et marquer vendu</button>
             <p class="admin-status" role="status"></p>
           </form>
         </div>

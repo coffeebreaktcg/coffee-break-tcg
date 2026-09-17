@@ -97,6 +97,16 @@ const quickBatchPreview = document.querySelector("#quickBatchPreview");
 const quickBatchStatus = document.querySelector("#quickBatchStatus");
 const adminSaleModal = document.querySelector("#adminSaleModal");
 const adminSaleForm = document.querySelector("#adminSaleForm");
+const photoSaleCameraInput = document.querySelector("#photoSaleCameraInput");
+const photoSaleLibraryInput = document.querySelector("#photoSaleLibraryInput");
+const photoSaleQueue = document.querySelector("#photoSaleQueue");
+const photoSaleEmpty = document.querySelector("#photoSaleEmpty");
+const photoSaleCount = document.querySelector("#photoSaleCount");
+const photoSaleStatus = document.querySelector("#photoSaleStatus");
+const photoSaleReviewButton = document.querySelector("#photoSaleReviewButton");
+const photoSaleModal = document.querySelector("#photoSaleModal");
+const photoSaleForm = document.querySelector("#photoSaleForm");
+const photoSaleSummary = document.querySelector("#photoSaleSummary");
 const adminPriceModal = document.querySelector("#adminPriceModal");
 const adminPriceForm = document.querySelector("#adminPriceForm");
 const adminCommandPalette = document.querySelector("#adminCommandPalette");
@@ -152,6 +162,8 @@ let pendingAdminDiscardAction = null;
 let merchandisingState = { decisions: {}, history: [], updatedAt: "" };
 let merchandisingAlternativeSection = "";
 const merchandisingScoreCache = new Map();
+let photoSaleEntries = [];
+const photoSaleSignatureCache = new Map();
 let cart = JSON.parse(localStorage.getItem("coffeeBreakCart") || "[]");
 let lastShopView = JSON.parse(sessionStorage.getItem("coffeeBreakLastShopView") || "null");
 let pendingShopScrollRestore = null;
@@ -3760,6 +3772,7 @@ function syncAdminFilterButtons() {
 
 const adminSectionTitles = {
   inventory: "Inventaire",
+  "photo-sale": "Vente photo",
   sold: "Vendus",
   modifiers: "Modificateurs",
   sales: "Ventes",
@@ -3777,6 +3790,7 @@ function setAdminSection(section = "inventory") {
   });
   if (adminPageTitle) adminPageTitle.textContent = adminSectionTitles[activeAdminSection] || "Inventaire";
   adminOpenAddButton?.classList.toggle("hidden", activeAdminSection !== "inventory");
+  adminOpenManualCardButton?.classList.toggle("hidden", activeAdminSection !== "inventory");
   adminOpenCardShowButton?.classList.toggle("hidden", activeAdminSection !== "shows");
   adminOpenSessionButton?.classList.toggle("hidden", activeAdminSection !== "inventory");
   adminInventorySearch?.closest(".admin-command-search")?.classList.toggle("is-secondary", activeAdminSection !== "inventory");
@@ -4188,6 +4202,7 @@ async function renderAdmin() {
     merchandising,
   } = payload;
   adminInventoryCache = adminInventory || [];
+  renderPhotoSaleQueue();
   merchandisingState = merchandising || { decisions: {}, history: [], updatedAt: "" };
   cardShows = adminCardShows || [];
   reviews = adminReviews || [];
@@ -4406,6 +4421,224 @@ async function refreshAdminState() {
     toggleAdminLinks(true);
   } catch {
     toggleAdminLinks(false);
+  }
+}
+
+function photoSaleInventory() {
+  return adminInventoryCache
+    .filter((item) => ["Singles", "Graded"].includes(item.category) && Number(item.stock || 0) - Number(item.reservedQuantity || 0) > 0 && item.imageUrl)
+    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "fr"));
+}
+
+async function photoSaleImageBitmap(source) {
+  const blob = source instanceof File ? source : await fetch(source, { credentials: "same-origin" }).then((response) => {
+    if (!response.ok) throw new Error("Image inaccessible");
+    return response.blob();
+  });
+  return createImageBitmap(blob);
+}
+
+function photoSaleSignatureFromBitmap(bitmap, cropRatio = 0) {
+  const width = 10;
+  const height = 14;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  let sx = 0;
+  let sy = 0;
+  let sw = bitmap.width;
+  let sh = bitmap.height;
+  if (cropRatio > 0) {
+    const currentRatio = sw / sh;
+    if (currentRatio > cropRatio) {
+      sw = sh * cropRatio;
+      sx = (bitmap.width - sw) / 2;
+    } else {
+      sh = sw / cropRatio;
+      sy = (bitmap.height - sh) / 2;
+    }
+  }
+  context.drawImage(bitmap, sx, sy, sw, sh, 0, 0, width, height);
+  const pixels = context.getImageData(0, 0, width, height).data;
+  const signature = [];
+  for (let index = 0; index < pixels.length; index += 4) {
+    signature.push(pixels[index] / 255, pixels[index + 1] / 255, pixels[index + 2] / 255);
+  }
+  return signature;
+}
+
+function photoSaleSignatureDistance(left, right) {
+  if (!left?.length || left.length !== right?.length) return Number.POSITIVE_INFINITY;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) difference += Math.abs(left[index] - right[index]);
+  return difference / left.length;
+}
+
+async function photoSaleProductSignature(product) {
+  if (photoSaleSignatureCache.has(product.id)) return photoSaleSignatureCache.get(product.id);
+  const promise = photoSaleImageBitmap(product.imageUrl)
+    .then((bitmap) => {
+      const signature = photoSaleSignatureFromBitmap(bitmap);
+      bitmap.close?.();
+      return signature;
+    })
+    .catch(() => null);
+  photoSaleSignatureCache.set(product.id, promise);
+  return promise;
+}
+
+function photoSaleConfidence(score, nextScore) {
+  const gap = score - Number(nextScore || 0);
+  if (score >= 0.82 && gap >= 0.04) return "forte";
+  if (score >= 0.7) return "moyenne";
+  return "à confirmer";
+}
+
+async function analyzePhotoSaleEntry(entry) {
+  const products = photoSaleInventory();
+  try {
+    const bitmap = await photoSaleImageBitmap(entry.file);
+    const capturedSignatures = [0.72, 0.63, 0].map((ratio) => photoSaleSignatureFromBitmap(bitmap, ratio));
+    bitmap.close?.();
+    const scored = [];
+    for (const product of products) {
+      const reference = await photoSaleProductSignature(product);
+      if (!reference) continue;
+      const distance = Math.min(...capturedSignatures.map((signature) => photoSaleSignatureDistance(signature, reference)));
+      scored.push({ id: product.id, score: Math.max(0, 1 - distance) });
+    }
+    entry.candidates = scored.sort((a, b) => b.score - a.score).slice(0, 5);
+    const best = entry.candidates[0];
+    const duplicate = photoSaleEntries.some((candidate) => candidate !== entry && candidate.selectedId === best?.id);
+    entry.selectedId = best && !duplicate ? best.id : "";
+    entry.confirmed = false;
+    entry.confidence = best ? photoSaleConfidence(best.score, entry.candidates[1]?.score) : "manuelle";
+    entry.status = "ready";
+  } catch {
+    entry.status = "ready";
+    entry.confidence = "manuelle";
+  }
+  renderPhotoSaleQueue();
+}
+
+function photoSaleSelectOptions(entry) {
+  const products = photoSaleInventory();
+  const topIds = new Set((entry.candidates || []).map((candidate) => candidate.id));
+  const option = (product, prefix = "") => `<option value="${escapeAttribute(product.id)}" ${entry.selectedId === product.id ? "selected" : ""}>${prefix}${escapeAttribute(product.name)} · ${escapeAttribute(product.setName || product.category || "")} · ${adminMoney(product.price)}</option>`;
+  const suggestions = (entry.candidates || []).map((candidate) => {
+    const product = products.find((item) => item.id === candidate.id);
+    return product ? option(product, `${Math.round(candidate.score * 100)}% · `) : "";
+  }).join("");
+  const others = products.filter((product) => !topIds.has(product.id)).map((product) => option(product)).join("");
+  return `<option value="">Choisir une carte…</option>${suggestions ? `<optgroup label="Correspondances proposées">${suggestions}</optgroup>` : ""}<optgroup label="Tout l’inventaire">${others}</optgroup>`;
+}
+
+function photoSaleSelectionIsValid() {
+  if (!photoSaleEntries.length || photoSaleEntries.some((entry) => entry.status !== "ready" || !entry.selectedId || !entry.confirmed)) return false;
+  const ids = photoSaleEntries.map((entry) => entry.selectedId);
+  return new Set(ids).size === ids.length;
+}
+
+function renderPhotoSaleQueue() {
+  if (!photoSaleQueue) return;
+  photoSaleEmpty?.classList.toggle("hidden", photoSaleEntries.length > 0);
+  photoSaleQueue.innerHTML = photoSaleEntries.map((entry, index) => {
+    const selected = adminInventoryCache.find((item) => item.id === entry.selectedId);
+    return `
+      <article class="photo-sale-entry ${entry.status === "analyzing" ? "is-analyzing" : ""}" data-photo-sale-entry="${escapeAttribute(entry.id)}">
+        <div class="photo-sale-captured"><img src="${escapeAttribute(entry.previewUrl)}" alt="Photo ${index + 1} de la vente" /><span>${index + 1}</span></div>
+        <div class="photo-sale-match">
+          <div><strong>${entry.status === "analyzing" ? "Recherche dans l’inventaire…" : selected?.name || "Correspondance à confirmer"}</strong><small>${entry.status === "analyzing" ? "Comparaison des images en cours" : `Confiance ${entry.confidence || "manuelle"} · vérifie avant de vendre`}</small></div>
+          <label>Carte dans l’inventaire<select data-photo-sale-select="${escapeAttribute(entry.id)}" ${entry.status === "analyzing" ? "disabled" : ""}>${photoSaleSelectOptions(entry)}</select></label>
+          ${entry.status === "ready" && entry.selectedId ? `<button class="photo-sale-confirm ${entry.confirmed ? "is-confirmed" : ""}" type="button" data-photo-sale-confirm="${escapeAttribute(entry.id)}">${entry.confirmed ? "✓ Carte confirmée" : "Confirmer cette carte"}</button>` : ""}
+        </div>
+        <button class="photo-sale-remove" type="button" data-photo-sale-remove="${escapeAttribute(entry.id)}" aria-label="Retirer cette photo">×</button>
+      </article>`;
+  }).join("");
+  const confirmed = photoSaleEntries.filter((entry) => entry.selectedId && entry.confirmed && entry.status === "ready").length;
+  if (photoSaleCount) photoSaleCount.textContent = `${confirmed} carte${confirmed === 1 ? "" : "s"} confirmée${confirmed === 1 ? "" : "s"}`;
+  const valid = photoSaleSelectionIsValid();
+  if (photoSaleReviewButton) photoSaleReviewButton.disabled = !valid;
+  if (photoSaleStatus) {
+    photoSaleStatus.textContent = photoSaleEntries.some((entry) => entry.status === "analyzing")
+      ? "Analyse des photos en cours…"
+      : !photoSaleEntries.length
+      ? "Ajoute une ou plusieurs photos."
+      : !valid
+      ? "Vérifie et confirme une carte différente pour chaque photo."
+      : "Tout est prêt pour saisir le montant total.";
+  }
+}
+
+function addPhotoSaleFiles(files) {
+  [...files].filter((file) => file.type.startsWith("image/")).slice(0, 20).forEach((file) => {
+    const entry = {
+      id: `photo-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      file,
+      previewUrl: URL.createObjectURL(file),
+      selectedId: "",
+      confirmed: false,
+      candidates: [],
+      confidence: "",
+      status: "analyzing",
+    };
+    photoSaleEntries.push(entry);
+    analyzePhotoSaleEntry(entry);
+  });
+  renderPhotoSaleQueue();
+}
+
+function resetPhotoSale() {
+  photoSaleEntries.forEach((entry) => URL.revokeObjectURL(entry.previewUrl));
+  photoSaleEntries = [];
+  if (photoSaleCameraInput) photoSaleCameraInput.value = "";
+  if (photoSaleLibraryInput) photoSaleLibraryInput.value = "";
+  renderPhotoSaleQueue();
+}
+
+function openPhotoSaleReview() {
+  if (!photoSaleSelectionIsValid() || !photoSaleForm) return;
+  const products = photoSaleEntries.map((entry) => adminInventoryCache.find((item) => item.id === entry.selectedId)).filter(Boolean);
+  photoSaleSummary.innerHTML = products.map((product) => `<div>${adminProductThumb(product)}<span><strong>${escapeAttribute(product.name)}</strong><small>${adminMoney(product.price)} affiché</small></span></div>`).join("");
+  photoSaleForm.reset();
+  photoSaleForm.querySelector('[name="totalAmount"]').value = products.reduce((sum, product) => sum + Number(product.price || 0), 0).toFixed(2);
+  photoSaleForm.querySelector('[name="date"]').value = new Date().toISOString().slice(0, 10);
+  photoSaleForm.querySelector(".admin-status").textContent = "";
+  openAdminPanel(photoSaleModal);
+  window.requestAnimationFrame(() => photoSaleForm.querySelector('[name="totalAmount"]')?.focus());
+}
+
+async function registerPhotoSale(event) {
+  event.preventDefault();
+  if (!photoSaleSelectionIsValid()) return;
+  const form = new FormData(photoSaleForm);
+  const submit = photoSaleForm.querySelector('button[type="submit"]');
+  const status = photoSaleForm.querySelector(".admin-status");
+  submit.disabled = true;
+  status.textContent = "Enregistrement de la vente…";
+  try {
+    const payload = await api("/api/admin/sales/batch", {
+      method: "POST",
+      body: JSON.stringify({
+        productIds: photoSaleEntries.map((entry) => entry.selectedId),
+        totalAmount: form.get("totalAmount"),
+        channel: form.get("channel"),
+        date: form.get("date"),
+        notes: form.get("notes"),
+      }),
+    });
+    resetPhotoSale();
+    closeAdminPanels();
+    await loadProducts();
+    renderProducts();
+    await renderAdmin();
+    setAdminSection("sold");
+    if (adminPriceSync) adminPriceSync.textContent = `Vente ${payload.order.id} enregistrée avec ${payload.order.items.length} cartes.`;
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    submit.disabled = false;
   }
 }
 
@@ -4925,7 +5158,7 @@ function setEditingPreview(item) {
 }
 
 function closeAdminPanels() {
-  [adminProductDrawer, adminSessionDrawer, adminSaleModal, adminPriceModal, adminCommandPalette, adminDiscardModal].forEach((panel) => {
+  [adminProductDrawer, adminSessionDrawer, adminSaleModal, photoSaleModal, adminPriceModal, adminCommandPalette, adminDiscardModal].forEach((panel) => {
     panel?.setAttribute("aria-hidden", "true");
   });
   document.body.classList.remove("admin-panel-open");
@@ -6135,6 +6368,48 @@ adminSaleForm?.addEventListener("submit", async (event) => {
   if (status) status.textContent = "Vente en cours...";
   await registerAdminSale(form.get("id"), submitButton, form.get("soldPrice"));
 });
+
+[photoSaleCameraInput, photoSaleLibraryInput].forEach((input) => {
+  input?.addEventListener("change", () => {
+    addPhotoSaleFiles(input.files || []);
+    input.value = "";
+  });
+});
+
+photoSaleQueue?.addEventListener("change", (event) => {
+  const select = event.target.closest("[data-photo-sale-select]");
+  if (!select) return;
+  const entry = photoSaleEntries.find((candidate) => candidate.id === select.dataset.photoSaleSelect);
+  if (!entry) return;
+  entry.selectedId = select.value;
+  entry.confirmed = false;
+  entry.confidence = "confirmée manuellement";
+  renderPhotoSaleQueue();
+});
+
+photoSaleQueue?.addEventListener("click", (event) => {
+  const confirm = event.target.closest("[data-photo-sale-confirm]");
+  if (confirm) {
+    const entry = photoSaleEntries.find((candidate) => candidate.id === confirm.dataset.photoSaleConfirm);
+    if (entry?.selectedId) {
+      const duplicate = photoSaleEntries.some((candidate) => candidate !== entry && candidate.confirmed && candidate.selectedId === entry.selectedId);
+      if (!duplicate) entry.confirmed = true;
+      else if (photoSaleStatus) photoSaleStatus.textContent = "Cette carte est déjà confirmée pour une autre photo.";
+      renderPhotoSaleQueue();
+    }
+    return;
+  }
+  const remove = event.target.closest("[data-photo-sale-remove]");
+  if (!remove) return;
+  const index = photoSaleEntries.findIndex((entry) => entry.id === remove.dataset.photoSaleRemove);
+  if (index < 0) return;
+  URL.revokeObjectURL(photoSaleEntries[index].previewUrl);
+  photoSaleEntries.splice(index, 1);
+  renderPhotoSaleQueue();
+});
+
+photoSaleReviewButton?.addEventListener("click", openPhotoSaleReview);
+photoSaleForm?.addEventListener("submit", registerPhotoSale);
 
 adminUsePriceSuggestionButton?.addEventListener("click", () => {
   if (!adminPriceForm) return;

@@ -3466,6 +3466,107 @@ async function handleApi(req, res) {
     return json(res, 200, result);
   }
 
+  if (url.pathname === "/api/admin/sales/batch" && req.method === "POST") {
+    const body = await readBody(req);
+    const productIds = Array.isArray(body.productIds) ? body.productIds : [];
+    if (!productIds.length || productIds.length > 20) {
+      return json(res, 400, { error: "Sélection de cartes invalide" });
+    }
+    if (productIds.some((id) => typeof id !== "string" || !/^[a-zA-Z0-9_-]{1,180}$/.test(id))) {
+      return json(res, 400, { error: "Identifiant de carte invalide" });
+    }
+    if (new Set(productIds).size !== productIds.length) {
+      return json(res, 400, { error: "Une même carte ne peut pas être vendue deux fois" });
+    }
+    const totalAmount = Number(body.totalAmount);
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0 || totalAmount > 1000000) {
+      return json(res, 400, { error: "Montant total invalide" });
+    }
+    const channel = String(body.channel || "Autre").trim().slice(0, 80);
+    const notes = String(body.notes || "").trim().slice(0, 300);
+    const saleDate = String(body.date || "").trim();
+    if (saleDate && !/^\d{4}-\d{2}-\d{2}$/.test(saleDate)) {
+      return json(res, 400, { error: "Date de vente invalide" });
+    }
+    const selected = productIds.map((id) => db.inventory.find((candidate) => candidate.id === id));
+    if (selected.some((product) => !product)) return json(res, 404, { error: "Une carte sélectionnée est introuvable" });
+    if (selected.some((product) => Number(product.stock || 0) - Number(product.reservedQuantity || 0) < 1)) {
+      return json(res, 409, { error: "Une carte n’est plus disponible. Recharge l’inventaire avant de confirmer." });
+    }
+
+    const totalCents = Math.round(totalAmount * 100);
+    const weights = selected.map((product) => Math.max(0, Math.round(Number(product.price || product.market || 0) * 100)));
+    const weightTotal = weights.reduce((sum, value) => sum + value, 0);
+    const effectiveWeights = weightTotal > 0 ? weights : selected.map(() => 1);
+    const effectiveTotal = effectiveWeights.reduce((sum, value) => sum + value, 0);
+    const exactShares = effectiveWeights.map((weight) => (totalCents * weight) / effectiveTotal);
+    const allocations = exactShares.map(Math.floor);
+    let remainingCents = totalCents - allocations.reduce((sum, value) => sum + value, 0);
+    exactShares
+      .map((share, index) => ({ index, remainder: share - Math.floor(share) }))
+      .sort((a, b) => b.remainder - a.remainder)
+      .forEach(({ index }) => {
+        if (remainingCents > 0) {
+          allocations[index] += 1;
+          remainingCents -= 1;
+        }
+      });
+
+    const createdAt = saleDate ? `${saleDate}T12:00:00.000Z` : new Date().toISOString();
+    let orderNumber = (db.orders || []).length + 1;
+    let orderId = `CB-${String(orderNumber).padStart(5, "0")}`;
+    while ((db.orders || []).some((order) => order.id === orderId)) {
+      orderNumber += 1;
+      orderId = `CB-${String(orderNumber).padStart(5, "0")}`;
+    }
+    const soldProducts = selected.map((product, index) => ({
+      ...product,
+      stock: 0,
+      soldAt: createdAt,
+      soldPrice: allocations[index] / 100,
+    }));
+    const order = {
+      id: orderId,
+      userId: "admin",
+      items: selected.map((product, index) => ({
+        id: product.id,
+        name: product.name,
+        quantity: 1,
+        price: allocations[index] / 100,
+        cost: Number(product.cost || 0),
+        imageUrl: product.imageUrl || "",
+        category: product.category,
+        kind: product.kind || product.visual || "single",
+        condition: product.condition || "",
+        setId: product.setId || "",
+        setName: product.setName || "",
+        cardNumber: product.cardNumber || "",
+        rarity: product.rarity || "",
+        gradingCompany: product.gradingCompany || "",
+        grade: product.grade || "",
+        market: Number(product.market || 0),
+        listedPrice: Number(product.price || 0),
+        features: Array.isArray(product.features) ? product.features : [],
+      })),
+      shipping: "admin_sale",
+      channel,
+      notes,
+      address: null,
+      paymentMethod: null,
+      status: "admin_sale",
+      createdAt,
+      soldProducts,
+    };
+
+    await writeDbBackup(db, { force: true, reason: "pre-admin-photo-sale" });
+    const soldIds = new Set(productIds);
+    db.inventory = db.inventory.filter((product) => !soldIds.has(product.id));
+    db.orders.push(order);
+    audit(db, { action: "inventory.photo_sale", actor: getAdminSession(req, db)?.email, resource: "order", resourceId: order.id, result: `${order.items.length}_items`, requestId: requestId(req) });
+    await writeDb(db);
+    return json(res, 201, { order, products: soldProducts.map(publicProduct), summary: summarizeSales(db) });
+  }
+
   if (url.pathname === "/api/admin/sales" && req.method === "POST") {
     const body = await readBody(req);
     const index = db.inventory.findIndex((candidate) => candidate.id === body.id);

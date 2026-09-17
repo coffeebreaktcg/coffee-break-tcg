@@ -173,6 +173,37 @@ test("admin input validation and image writes, compatible numeric form strings",
   const res = await request("/api/admin/products", "POST", { name: "Valid", price: "10.50", stock: "1", cost: "", market: "", featuredRank: "", category: "Singles" }, headers); assert.equal(res.status, 201); assert.equal(res.data.product.price, 10.5);
   assert.equal((await request("/api/admin/logout", "POST", {}, headers)).status, 200); assert.equal((await request("/api/admin/summary", "GET", undefined, headers)).status, 401);
 });
+test("photo sale groups cards, allocates the exact total and backs up before mutation", async () => {
+  const first = { ...baseProduct, id: "photo-card-a", name: "Card A", stock: 1, price: 75, cost: 20 };
+  const second = { ...baseProduct, id: "photo-card-b", name: "Card B", stock: 1, price: 25, cost: 10 };
+  reset({ inventory: [first, second] });
+  assert.equal((await request("/api/admin/sales/batch", "POST", { productIds: [first.id], totalAmount: 10 })).status, 401);
+  const login = await request("/api/admin/login", "POST", { email: "admin@example.com", password: "test-password-long" });
+  const headers = { Cookie: login.headers["set-cookie"][0].split(";")[0] };
+  assert.equal((await request("/api/admin/sales/batch", "POST", { productIds: [first.id, first.id], totalAmount: 10 }, headers)).status, 400);
+  assert.equal(JSON.parse(fs.readFileSync(dbFile)).inventory.length, 2);
+
+  const sale = await request("/api/admin/sales/batch", "POST", {
+    productIds: [first.id, second.id],
+    totalAmount: "80.01",
+    channel: "Card Show",
+    date: "2026-09-17",
+    notes: "Vente photo test",
+  }, headers);
+  assert.equal(sale.status, 201);
+  assert.equal(sale.data.order.items.length, 2);
+  assert.equal(sale.data.order.items.reduce((sum, item) => sum + Math.round(item.price * 100), 0), 8001);
+  assert.deepEqual(sale.data.order.items.map((item) => item.price), [60.01, 20]);
+  assert.equal(sale.data.order.channel, "Card Show");
+  const db = JSON.parse(fs.readFileSync(dbFile));
+  assert.equal(db.inventory.length, 0);
+  assert.equal(db.orders.length, 1);
+  assert.equal(db.orders[0].status, "admin_sale");
+  assert.ok(db.auditLog.some((entry) => entry.action === "inventory.photo_sale" && entry.resourceId === db.orders[0].id));
+  const backupFiles = fs.readdirSync(path.join(temp, "backups")).filter((file) => file.endsWith(".json"));
+  const backups = backupFiles.map((file) => JSON.parse(fs.readFileSync(path.join(temp, "backups", file))));
+  assert.ok(backups.some((backup) => backup.reason === "pre-admin-photo-sale" && backup.db.inventory.length === 2));
+});
 test("admin reconciliation, fulfillment and email retry use existing authentication", async () => {
   reset({ orders: [{ id: "CB-PAID", status: "paid", paidAt: new Date().toISOString(), items: [], emailStatus: "failed" }], emailOutbox: [{ id: "CB-PAID-client", to: "client@example.com", status: "failed" }] });
   const login = await request("/api/admin/login", "POST", { email: "admin@example.com", password: "test-password-long" });
