@@ -11704,6 +11704,93 @@ body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):
   }
 }
 
+/* Keep graded cards as tall as raw cards while preserving the full slab in product details. */
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .product-art.slab-product-art {
+  width: 88%;
+  aspect-ratio: 5 / 7;
+  margin-inline: auto;
+  padding: 0;
+  overflow: visible;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .product-art.slab-product-art .slab-frame {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .product-art.slab-product-art .slab-window {
+  margin: 4px 5px 6px;
+  padding: 2px 3px 4px;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .product-art.slab-product-art .slab-window .product-photo {
+  width: 104%;
+  height: 104%;
+  max-width: 104%;
+  max-height: 104%;
+}
+
+body.product-mode .detail-art .slab-frame {
+  width: min(440px, 76%);
+  max-width: 76%;
+  grid-template-rows: 20% 1fr;
+  border-width: 6px;
+  border-radius: 10px;
+}
+
+body.product-mode .detail-art .slab-label {
+  padding: 10px 12px 8px;
+}
+
+body.product-mode .detail-art .slab-grade-name {
+  font-size: clamp(15px, 2vw, 21px);
+}
+
+body.product-mode .detail-art .slab-label strong {
+  min-width: 42px;
+  font-size: clamp(24px, 3.2vw, 34px);
+}
+
+body.product-mode .detail-art .slab-barcode {
+  width: 76%;
+  height: 9px;
+}
+
+body.product-mode .detail-art .slab-company-mark {
+  font-size: 7px;
+}
+
+body.product-mode .detail-art .slab-window {
+  margin: 6px 8px 10px;
+  padding: 2px 3px 4px;
+}
+
+body.product-mode .detail-art .slab-window .product-photo {
+  width: 103%;
+  height: 103%;
+  max-width: 103%;
+  max-height: 103%;
+  object-fit: contain;
+}
+
+@media (max-width: 720px) {
+  body.product-mode .detail-art .slab-frame {
+    width: min(250px, 74%);
+    max-width: 74%;
+  }
+
+  body.product-mode .detail-art .slab-grade-name {
+    font-size: 13px;
+  }
+
+  body.product-mode .detail-art .slab-label strong {
+    min-width: 32px;
+    font-size: 22px;
+  }
+}
+
 /* Keep customer-facing product photography free of decorative backdrops. */
 .home-product-art,
 .vitrine-art,
