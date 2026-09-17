@@ -154,10 +154,12 @@ let merchandisingAlternativeSection = "";
 const merchandisingScoreCache = new Map();
 let cart = JSON.parse(localStorage.getItem("coffeeBreakCart") || "[]");
 let lastShopView = JSON.parse(sessionStorage.getItem("coffeeBreakLastShopView") || "null");
+let pendingShopScrollRestore = null;
 let cardShows = [];
 let reviews = [];
 let newArrivalSlides = [];
 let currentUser = null;
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 let customerOrders = [];
 let profileEditMode = false;
 let currentLang = localStorage.getItem("coffeeBreakLang") || "fr";
@@ -1341,9 +1343,10 @@ function saveShopView(productId = "") {
     productId,
   };
   sessionStorage.setItem("coffeeBreakLastShopView", JSON.stringify(lastShopView));
+  history.replaceState({ ...(history.state || {}), restoreShopView: true }, "", window.location.href);
 }
 
-function restoreShopView() {
+function restoreShopView({ navigate = true } = {}) {
   const view = lastShopView || JSON.parse(sessionStorage.getItem("coffeeBreakLastShopView") || "null");
   if (!view) {
     goToCategory(state.category || "all");
@@ -1362,13 +1365,23 @@ function restoreShopView() {
   if (setFilterSelect) setFilterSelect.value = state.setFilter;
   if (conditionFilterSelect) conditionFilterSelect.value = state.conditionFilter;
   if (availabilityFilterSelect) availabilityFilterSelect.value = state.availabilityFilter;
-  history.pushState({ category: state.category }, "", categoryPath(state.category));
+  pendingShopScrollRestore = view;
+  if (navigate) history.pushState({ category: state.category }, "", categoryPath(state.category, state.game));
   applyRoute();
-  requestAnimationFrame(() => {
-    const card = view.productId ? document.querySelector(`[data-product-card="${CSS.escape(view.productId)}"]`) : null;
-    if (card) card.scrollIntoView({ block: "center" });
-    else window.scrollTo({ top: Number(view.scrollY || 0), behavior: "auto" });
-  });
+}
+
+function restoreShopScroll(view) {
+  const restore = () => {
+    const savedTop = Number(view?.scrollY);
+    if (Number.isFinite(savedTop)) {
+      window.scrollTo({ top: savedTop, behavior: "auto" });
+      return;
+    }
+    const card = view?.productId ? document.querySelector(`[data-product-card="${CSS.escape(view.productId)}"]`) : null;
+    card?.scrollIntoView({ block: "center", behavior: "auto" });
+  };
+  requestAnimationFrame(() => requestAnimationFrame(restore));
+  window.setTimeout(restore, 180);
 }
 
 function cartProduct(id) {
@@ -3448,7 +3461,9 @@ function scrollToShopItems(behavior = "smooth") {
 }
 
 function scrollToProductDetailTop(behavior = "auto") {
-  const target = document.querySelector("#productDetailPage");
+  const target = isMobileShop()
+    ? document.querySelector("#productDetailPage .detail-art")
+    : document.querySelector("#productDetailPage");
   if (!target) return;
   const headerHeight = document.querySelector(".site-header")?.getBoundingClientRect().height || 0;
   const top = Math.max(0, target.getBoundingClientRect().top + window.scrollY - headerHeight);
@@ -3505,7 +3520,9 @@ function applyRoute() {
   }
   if (productMatch) {
     renderProductDetail(productMatch[1]);
-    requestAnimationFrame(() => scrollToProductDetailTop("auto"));
+    const focusProduct = () => scrollToProductDetailTop("auto");
+    requestAnimationFrame(() => requestAnimationFrame(focusProduct));
+    window.setTimeout(focusProduct, 180);
     return;
   }
   if (contentMatch) {
@@ -3526,6 +3543,12 @@ function applyRoute() {
   });
   renderProducts();
   renderCardShows();
+  if (pendingShopScrollRestore) {
+    const view = pendingShopScrollRestore;
+    pendingShopScrollRestore = null;
+    restoreShopScroll(view);
+    return;
+  }
   if (window.location.pathname !== "/" && (category !== "all" || state.game !== "Pokemon")) {
     requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "auto" }));
     window.setTimeout(() => window.scrollTo({ top: 0, behavior: "auto" }), 160);
@@ -5986,7 +6009,7 @@ document.addEventListener("click", (event) => {
   if (viewProduct) {
     event.preventDefault();
     closeDrawers();
-    saveShopView(viewProduct.dataset.viewProduct);
+    if (!window.location.pathname.startsWith("/produit/")) saveShopView(viewProduct.dataset.viewProduct);
     history.pushState({}, "", productDetailPath({ id: viewProduct.dataset.viewProduct }));
     applyRoute();
   }
@@ -6711,7 +6734,13 @@ syncPricesButton?.addEventListener("click", async () => {
   }
 });
 
-window.addEventListener("popstate", applyRoute);
+window.addEventListener("popstate", (event) => {
+  if (event.state?.restoreShopView && !window.location.pathname.startsWith("/produit/")) {
+    restoreShopView({ navigate: false });
+    return;
+  }
+  applyRoute();
+});
 if (mobileShopQuery.addEventListener) {
   mobileShopQuery.addEventListener("change", renderProducts);
 } else {
