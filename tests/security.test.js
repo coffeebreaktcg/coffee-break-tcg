@@ -63,12 +63,14 @@ test.before(async () => { reset(); await new Promise(resolve => api.server.liste
 test.after(async () => { await new Promise(resolve => api.server.close(resolve)); fs.rmSync(temp, { recursive: true, force: true }); });
 
 test("private files, encoded traversal, unsupported files and symlinks are denied", async () => {
-  for (const url of ["/.env", "/.env.example", "/.git/config", "/data/db.json", "/data/seed.json", "/server.js", "/security.js", "/package.json", "/package-lock.json", "/docs/coffee-photo-guide.md", "/reports/test.csv", "/../.env", "/%2e%2e/.env", "/%252e%252e/.env", "/assets/../server.js", "/assets/%2e%2e/server.js", "/assets%5c..%5c.env", "//etc/passwd", "/%00", "/%ZZ", "/assets/uploads/expense-private.png", "/Assets/Uploads/expense-private.png"]) assert.equal((await request(url)).status, 404, url);
+  for (const url of ["/.env", "/.env.example", "/.git/config", "/data/db.json", "/data/seed.json", "/server.js", "/security.js", "/package.json", "/package-lock.json", "/docs/coffee-photo-guide.md", "/reports/test.csv", "/../.env", "/%2e%2e/.env", "/%252e%252e/.env", "/assets/../server.js", "/assets/%2e%2e/server.js", "/assets%5c..%5c.env", "//etc/passwd", "/%00", "/%ZZ", "/assets/uploads/expense-private.png", "/Assets/Uploads/expense-private.png", "/assets/vendor/tesseract/README.md", "/assets/vendor/tesseract/unknown.js"]) assert.equal((await request(url)).status, 404, url);
   fs.mkdirSync(process.env.UPLOAD_DIR); fs.symlinkSync(dbFile, path.join(process.env.UPLOAD_DIR, "leak.png"));
   assert.equal((await request("/assets/uploads/leak.png")).status, 404);
 });
 test("public routes/assets still resolve, headers and CORS are safe", async () => {
-  for (const route of ["/", "/singles", "/slabs", "/sealed", "/one-piece", "/one-piece/singles", "/produit/test-card", "/admin", "/app.js", "/styles.css", "/assets/coffee-cup-mark.png", "/sitemap.xml", "/robots.txt"]) assert.equal((await request(route)).status, 200, route);
+  for (const route of ["/", "/singles", "/slabs", "/sealed", "/one-piece", "/one-piece/singles", "/produit/test-card", "/admin", "/app.js", "/styles.css", "/assets/coffee-cup-mark.png", "/assets/vendor/tesseract/tesseract.min.js", "/assets/vendor/tesseract/worker.min.js", "/sitemap.xml", "/robots.txt"]) assert.equal((await request(route)).status, 200, route);
+  const ocrLanguage = await request("/assets/vendor/tesseract/eng.traineddata.gz", "HEAD");
+  assert.equal(ocrLanguage.status, 200); assert.equal(ocrLanguage.headers["content-type"], "application/gzip");
   const res = await request("/api/products", "GET", undefined, { Origin: "https://evil.example" });
   assert.equal(res.headers["access-control-allow-origin"], undefined); assert.equal(res.headers["x-content-type-options"], "nosniff"); assert.match(res.headers["content-security-policy"], /frame-ancestors 'none'/);
   assert.equal((await request("/api/logout", "POST", {}, { Origin: "https://evil.example" })).status, 403);

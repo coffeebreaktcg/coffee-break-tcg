@@ -221,7 +221,8 @@ async function publicFile(root, uploadDir, rawUrl, appRoutes) {
   const files = new Set(["index.html", "app.js", "styles.css"]);
   let base = root, relative = entry;
   if (!files.has(entry)) {
-    if (!/^assets\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_.-]+\.(?:png|jpe?g|webp|gif|avif|ico|svg|woff2?|ttf|otf)$/i.test(entry)) return null;
+    const ocrAsset = /^assets\/vendor\/tesseract\/(?:tesseract\.min\.js|worker\.min\.js|tesseract-core-lstm\.wasm\.js|eng\.traineddata\.gz)$/i.test(entry);
+    if (!ocrAsset && !/^assets\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_.-]+\.(?:png|jpe?g|webp|gif|avif|ico|svg|woff2?|ttf|otf)$/i.test(entry)) return null;
     if (entry.toLowerCase().startsWith("assets/uploads/")) {
       relative = entry.slice("assets/uploads/".length); base = uploadDir;
       if (!/^(?!expense-)[a-zA-Z0-9_-]+\.(?:png|jpe?g|webp)$/i.test(relative)) return null;

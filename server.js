@@ -136,6 +136,7 @@ const mimeTypes = {
   ".gif": "image/gif",
   ".avif": "image/avif",
   ".ico": "image/x-icon",
+  ".gz": "application/gzip",
 };
 
 const securityHeaders = {

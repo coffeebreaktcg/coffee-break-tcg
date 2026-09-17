@@ -164,6 +164,8 @@ let merchandisingAlternativeSection = "";
 const merchandisingScoreCache = new Map();
 let photoSaleEntries = [];
 const photoSaleSignatureCache = new Map();
+let photoSaleOcrWorkerPromise = null;
+let photoSaleOcrQueue = Promise.resolve();
 let cart = JSON.parse(localStorage.getItem("coffeeBreakCart") || "[]");
 let lastShopView = JSON.parse(sessionStorage.getItem("coffeeBreakLastShopView") || "null");
 let pendingShopScrollRestore = null;
@@ -4546,6 +4548,141 @@ function photoSaleCaptureSignatures(bitmap) {
   return signatures;
 }
 
+function photoSaleCardCrop(bitmap, ratio, scale) {
+  let width = bitmap.width;
+  let height = bitmap.height;
+  if (width / height > ratio) width = height * ratio;
+  else height = width / ratio;
+  width *= scale;
+  height *= scale;
+  return {
+    x: (bitmap.width - width) / 2,
+    y: (bitmap.height - height) / 2,
+    width,
+    height,
+  };
+}
+
+function photoSaleOcrCanvas(bitmap) {
+  const width = 1200;
+  const stripHeight = 250;
+  const crops = [0.72, 0.84, 0.96].map((scale) => photoSaleCardCrop(bitmap, 0.72, scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = stripHeight * crops.length * 2;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  context.fillStyle = "white";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  crops.forEach((crop, index) => {
+    const sourceTopHeight = crop.height * 0.24;
+    const sourceBottomHeight = crop.height * 0.2;
+    context.drawImage(bitmap, crop.x, crop.y, crop.width, sourceTopHeight, 0, index * stripHeight, width, stripHeight);
+    context.drawImage(bitmap, crop.x, crop.y + crop.height - sourceBottomHeight, crop.width, sourceBottomHeight, 0, (crops.length + index) * stripHeight, width, stripHeight);
+  });
+  const image = context.getImageData(0, 0, canvas.width, canvas.height);
+  for (let index = 0; index < image.data.length; index += 4) {
+    const luminance = image.data[index] * 0.299 + image.data[index + 1] * 0.587 + image.data[index + 2] * 0.114;
+    const contrasted = Math.max(0, Math.min(255, (luminance - 128) * 1.55 + 128));
+    image.data[index] = contrasted;
+    image.data[index + 1] = contrasted;
+    image.data[index + 2] = contrasted;
+  }
+  context.putImageData(image, 0, 0);
+  return canvas;
+}
+
+async function photoSaleOcrWorker() {
+  if (!window.Tesseract?.createWorker) throw new Error("Moteur OCR indisponible");
+  if (!photoSaleOcrWorkerPromise) {
+    photoSaleOcrWorkerPromise = window.Tesseract.createWorker("eng", window.Tesseract.OEM.LSTM_ONLY, {
+      workerPath: "/assets/vendor/tesseract/worker.min.js",
+      corePath: "/assets/vendor/tesseract/tesseract-core-lstm.wasm.js",
+      langPath: "/assets/vendor/tesseract",
+      logger(message) {
+        if (message.status === "recognizing text" && photoSaleStatus) {
+          photoSaleStatus.textContent = `Lecture du nom et du numéro… ${Math.round(Number(message.progress || 0) * 100)} %`;
+        }
+      },
+    }).then(async (worker) => {
+      await worker.setParameters({
+        tessedit_pageseg_mode: window.Tesseract.PSM.SPARSE_TEXT,
+        preserve_interword_spaces: "1",
+        user_defined_dpi: "300",
+      });
+      return worker;
+    }).catch((error) => {
+      photoSaleOcrWorkerPromise = null;
+      throw error;
+    });
+  }
+  return photoSaleOcrWorkerPromise;
+}
+
+function photoSaleReadText(bitmap) {
+  const canvas = photoSaleOcrCanvas(bitmap);
+  const run = async () => {
+    const worker = await photoSaleOcrWorker();
+    const result = await worker.recognize(canvas);
+    return { text: String(result?.data?.text || "").replace(/\s+/g, " ").trim().slice(0, 500), error: "" };
+  };
+  const result = photoSaleOcrQueue.then(run, run);
+  photoSaleOcrQueue = result.catch(() => ({ text: "", error: "" }));
+  return result.catch((error) => ({ text: "", error: String(error?.message || "OCR indisponible").slice(0, 160) }));
+}
+
+function photoSaleNormalizeText(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("fr-CA")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+function photoSaleEditSimilarity(left, right) {
+  const a = photoSaleNormalizeText(left).replace(/\s+/g, "").slice(0, 60);
+  const b = photoSaleNormalizeText(right).replace(/\s+/g, "").slice(0, 60);
+  if (!a || !b) return 0;
+  if (a.includes(b) || b.includes(a)) return Math.min(a.length, b.length) / Math.max(a.length, b.length);
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let row = 1; row <= a.length; row += 1) {
+    let diagonal = previous[0];
+    previous[0] = row;
+    for (let column = 1; column <= b.length; column += 1) {
+      const above = previous[column];
+      previous[column] = Math.min(
+        previous[column] + 1,
+        previous[column - 1] + 1,
+        diagonal + (a[row - 1] === b[column - 1] ? 0 : 1),
+      );
+      diagonal = above;
+    }
+  }
+  return Math.max(0, 1 - previous[b.length] / Math.max(a.length, b.length));
+}
+
+function photoSaleOcrMatchScore(product, ocrText) {
+  const normalized = photoSaleNormalizeText(ocrText);
+  const name = photoSaleNormalizeText(product.name);
+  if (!normalized || !name) return 0;
+  const compactText = normalized.replace(/\s+/g, "");
+  const compactName = name.replace(/\s+/g, "");
+  let score = compactText.includes(compactName) ? 1 : 0;
+  const words = normalized.split(" ").filter(Boolean);
+  const nameWordCount = Math.max(1, name.split(" ").length);
+  for (let length = Math.max(1, nameWordCount - 1); length <= nameWordCount + 2; length += 1) {
+    for (let index = 0; index + length <= words.length; index += 1) {
+      score = Math.max(score, photoSaleEditSimilarity(name, words.slice(index, index + length).join(" ")));
+    }
+  }
+  const number = photoSaleNormalizeText(product.cardNumber).replace(/\s+/g, "");
+  if (number && number.length >= 2 && compactText.includes(number)) score = Math.max(score, 0.86);
+  const setWords = photoSaleNormalizeText(product.setName).split(" ").filter((word) => word.length >= 4);
+  const setMatches = setWords.filter((word) => normalized.includes(word)).length;
+  if (setWords.length && setMatches) score = Math.max(score, 0.35 + 0.3 * (setMatches / setWords.length));
+  return Math.min(1, score);
+}
+
 async function photoSaleProductSignature(product) {
   if (photoSaleSignatureCache.has(product.id)) return photoSaleSignatureCache.get(product.id);
   const loadBitmap = async () => {
@@ -4578,22 +4715,40 @@ async function analyzePhotoSaleEntry(entry) {
   try {
     const bitmap = await photoSaleImageBitmap(entry.file);
     const capturedSignatures = photoSaleCaptureSignatures(bitmap);
+    const ocrPromise = photoSaleReadText(bitmap);
     bitmap.close?.();
     const scored = [];
+    let imageComparedCount = 0;
     let cursor = 0;
     const workers = Array.from({ length: Math.min(6, products.length) }, async () => {
       while (cursor < products.length) {
         const product = products[cursor];
         cursor += 1;
         const reference = await photoSaleProductSignature(product);
-        if (!reference) continue;
+        if (!reference) {
+          scored.push({ id: product.id, visualScore: 0 });
+          continue;
+        }
+        imageComparedCount += 1;
         const distance = Math.min(...capturedSignatures.map((signature) => photoSaleSignatureDistance(signature, reference)));
-        scored.push({ id: product.id, score: Math.max(0, 1 - distance) });
+        scored.push({ id: product.id, visualScore: Math.max(0, 1 - distance) });
       }
     });
     await Promise.all(workers);
+    const ocr = await ocrPromise;
+    entry.ocrText = ocr.text;
+    entry.ocrError = ocr.error;
+    scored.forEach((candidate) => {
+      const product = products.find((item) => item.id === candidate.id);
+      candidate.textScore = photoSaleOcrMatchScore(product, entry.ocrText);
+      candidate.score = candidate.textScore >= 0.72
+        ? candidate.visualScore * 0.25 + candidate.textScore * 0.75
+        : candidate.textScore >= 0.42
+        ? candidate.visualScore * 0.58 + candidate.textScore * 0.42
+        : candidate.visualScore;
+    });
     entry.candidates = scored.sort((a, b) => b.score - a.score).slice(0, 5);
-    entry.analyzedCount = scored.length;
+    entry.analyzedCount = imageComparedCount;
     const best = entry.candidates[0];
     const duplicate = photoSaleEntries.some((candidate) => candidate !== entry && candidate.selectedId === best?.id);
     const isClearEnough = best && best.score >= 0.56 && best.score - Number(entry.candidates[1]?.score || 0) >= 0.01;
@@ -4605,6 +4760,8 @@ async function analyzePhotoSaleEntry(entry) {
     entry.status = "ready";
     entry.confidence = "manuelle";
     entry.analyzedCount = 0;
+    entry.ocrText = "";
+    entry.ocrError = "Analyse interrompue";
   }
   renderPhotoSaleQueue();
 }
@@ -4636,7 +4793,7 @@ function renderPhotoSaleQueue() {
       <article class="photo-sale-entry ${entry.status === "analyzing" ? "is-analyzing" : ""}" data-photo-sale-entry="${escapeAttribute(entry.id)}">
         <div class="photo-sale-captured"><img src="${escapeAttribute(entry.previewUrl)}" alt="Photo ${index + 1} de la vente" /><span>${index + 1}</span></div>
         <div class="photo-sale-match">
-          <div><strong>${entry.status === "analyzing" ? "Recherche dans l’inventaire…" : selected?.name || "Correspondance à confirmer"}</strong><small>${entry.status === "analyzing" ? "Comparaison des images en cours" : `${Number(entry.analyzedCount || 0)} image${Number(entry.analyzedCount || 0) === 1 ? "" : "s"} comparée${Number(entry.analyzedCount || 0) === 1 ? "" : "s"} · confiance ${entry.confidence || "manuelle"}`}</small></div>
+          <div><strong>${entry.status === "analyzing" ? "Lecture de la carte…" : selected?.name || "Correspondance à confirmer"}</strong><small>${entry.status === "analyzing" ? "Nom, numéro et image en cours d’analyse" : `${Number(entry.analyzedCount || 0)} image${Number(entry.analyzedCount || 0) === 1 ? "" : "s"} comparée${Number(entry.analyzedCount || 0) === 1 ? "" : "s"} · confiance ${entry.confidence || "manuelle"}`}</small>${entry.status === "ready" ? `<small class="photo-sale-ocr-result">${entry.ocrError ? `OCR : ${escapeAttribute(entry.ocrError)}` : `Texte lu : ${escapeAttribute(entry.ocrText || "aucun texte fiable")}`}</small>` : ""}</div>
           <label>Carte dans l’inventaire<select data-photo-sale-select="${escapeAttribute(entry.id)}" ${entry.status === "analyzing" ? "disabled" : ""}>${photoSaleSelectOptions(entry)}</select></label>
           ${entry.status === "ready" && entry.selectedId ? `<button class="photo-sale-confirm ${entry.confirmed ? "is-confirmed" : ""}" type="button" data-photo-sale-confirm="${escapeAttribute(entry.id)}">${entry.confirmed ? "✓ Carte confirmée" : "Confirmer cette carte"}</button>` : ""}
         </div>
@@ -4668,6 +4825,8 @@ function addPhotoSaleFiles(files) {
       confirmed: false,
       candidates: [],
       analyzedCount: 0,
+      ocrText: "",
+      ocrError: "",
       confidence: "",
       status: "analyzing",
     };
