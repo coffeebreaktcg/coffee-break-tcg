@@ -932,7 +932,95 @@ function publicAdmin(session) {
   return session ? { email: session.email, name: "Coffee Break Admin", expiresAt: session.expiresAt || null } : null;
 }
 
-function publicProduct(product) {
+function rankingText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\b(vmax|vstar|ex|gx|v|ar|ir|sir|holo|reverse|promo|psa|bgs|cgc|sgc|tag|gold star)\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function rankingPokemonKey(product) {
+  return rankingText(product.name).split(" ")[0] || "unknown";
+}
+
+function rankingStyleKey(product) {
+  if (product.category === "Graded" || product.kind === "slab" || product.visual === "graded" || product.gradingCompany) return "slab";
+  if (product.category === "Sealed" || ["etb", "utb", "pack", "booster-bundle", "booster-box", "box", "japanese"].includes(product.kind)) return "sealed";
+  if (product.category === "Accessories" || product.kind === "accessory") return "accessory";
+  return "single";
+}
+
+function salesPotentialScores(db, now = Date.now()) {
+  const completedStatuses = new Set(["paid", "fulfilled", "admin_sale"]);
+  const signals = { id: new Map(), name: new Map(), pokemon: new Map(), set: new Map(), category: new Map(), style: new Map() };
+  const add = (map, key, amount) => {
+    if (!key) return;
+    map.set(key, Number(map.get(key) || 0) + amount);
+  };
+
+  for (const order of db.orders || []) {
+    if (!completedStatuses.has(String(order.status || ""))) continue;
+    const orderTime = Date.parse(order.paidAt || order.createdAt || "");
+    const ageDays = Number.isFinite(orderTime) ? Math.max(0, (now - orderTime) / 86400000) : 365;
+    const recencyWeight = ageDays <= 30 ? 1.5 : ageDays <= 90 ? 1.25 : ageDays <= 365 ? 1 : 0.65;
+    for (const item of order.items || []) {
+      const quantity = Math.max(1, Number(item.quantity || 1));
+      const weight = quantity * recencyWeight;
+      add(signals.id, String(item.id || ""), weight);
+      add(signals.name, rankingText(item.name), weight);
+      add(signals.pokemon, rankingPokemonKey(item), weight);
+      add(signals.set, rankingText(item.setName), weight);
+      add(signals.category, String(item.category || ""), weight);
+      add(signals.style, rankingStyleKey(item), weight);
+    }
+  }
+
+  const maxSignal = (map) => Math.max(0, ...map.values());
+  const maxima = {
+    pokemon: maxSignal(signals.pokemon),
+    set: maxSignal(signals.set),
+    category: maxSignal(signals.category),
+    style: maxSignal(signals.style),
+  };
+  const relative = (map, key, max, points) => (max > 0 ? (Number(map.get(key) || 0) / max) * points : 0);
+  const scores = new Map();
+
+  for (const product of db.inventory || []) {
+    const price = Number(product.price || 0);
+    const market = Number(product.market || product.lastMarketPrice || 0);
+    const cost = Number(product.cost || 0);
+    const createdAt = Date.parse(product.createdAt || product.updatedAt || "");
+    const ageDays = Number.isFinite(createdAt) ? Math.max(0, (now - createdAt) / 86400000) : 365;
+    const exactDemand = Number(signals.id.get(String(product.id || "")) || 0) + Number(signals.name.get(rankingText(product.name)) || 0);
+    let score = 20;
+    score += Math.min(24, Math.log2(1 + exactDemand) * 10);
+    score += relative(signals.pokemon, rankingPokemonKey(product), maxima.pokemon, 16);
+    score += relative(signals.set, rankingText(product.setName), maxima.set, 8);
+    score += relative(signals.category, String(product.category || ""), maxima.category, 5);
+    score += relative(signals.style, rankingStyleKey(product), maxima.style, 5);
+    if (product.imageUrl) score += 4;
+    if (price >= 15 && price <= 75) score += 6;
+    else if (price > 0 && price <= 150) score += 3;
+    if (market > 0 && price > 0) {
+      const priceRatio = price / market;
+      if (priceRatio <= 1) score += 10;
+      else if (priceRatio <= 1.08) score += 7;
+      else if (priceRatio <= 1.15) score += 3;
+      else if (priceRatio > 1.25) score -= 10;
+    }
+    if (cost > 0 && price > cost) score += Math.min(5, ((price - cost) / price) * 10);
+    if (ageDays <= 7) score += 5;
+    else if (ageDays <= 21) score += 3;
+    if (product.featured || product.heroFeatured) score += 4;
+    scores.set(product.id, Math.max(0, Math.min(100, Math.round(score))));
+  }
+  return scores;
+}
+
+function publicProduct(product, options = {}) {
   const reservedQuantity = Number(product.reservedQuantity || 0);
   const stock = Number(product.stock || 0);
   const baseStatus = product.status || (product.category === "Preorder" ? "preorder" : "available");
@@ -975,6 +1063,7 @@ function publicProduct(product) {
     createdAt: product.createdAt || product.updatedAt || "",
     updatedAt: product.updatedAt || "",
     lastFeaturedAt: product.lastFeaturedAt || "",
+    salesRankScore: Math.max(0, Math.min(100, Number(options.salesRankScore || 0))),
   };
 }
 
@@ -3072,10 +3161,11 @@ async function handleApi(req, res) {
   }
 
   if (url.pathname === "/api/products" && req.method === "GET") {
+    const rankingScores = salesPotentialScores(db);
     return json(res, 200, {
       products: db.inventory
         .filter((product) => !["draft", "admin_draft"].includes(product.status))
-        .map(publicProduct)
+        .map((product) => publicProduct(product, { salesRankScore: rankingScores.get(product.id) || 0 }))
         .filter((product) => product.status !== "reserved"),
     });
   }
@@ -4268,4 +4358,5 @@ module.exports = {
   handleSquareWebhook, hashPassword, reconciliationReport, restoreBackup, securityHeaders,
   server, transitionOrder, validateBackup, verifyPassword, verifySquareWebhookSignature,
   writeDbBackup, cookieHeader, adminCookieHeader, sealedInventoryDrafts, sealedInventoryMigration,
+  salesPotentialScores,
 };

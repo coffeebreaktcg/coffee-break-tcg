@@ -185,7 +185,7 @@ const translations = {
     trustLocal: "Laval, Québec",
     searchCard: "Rechercher une carte",
     sortProducts: "Trier les produits",
-    sortFeatured: "En vedette",
+    sortFeatured: "Recommandés",
     sortRecent: "Ajouts récents",
     sortPriceAsc: "Prix: bas à haut",
     sortPriceDesc: "Prix: haut à bas",
@@ -335,7 +335,7 @@ const translations = {
     trustLocal: "Laval, Quebec",
     searchCard: "Search for a card",
     sortProducts: "Sort products",
-    sortFeatured: "Featured",
+    sortFeatured: "Recommended",
     sortRecent: "Recent arrivals",
     sortPriceAsc: "Price: low to high",
     sortPriceDesc: "Price: high to low",
@@ -1050,6 +1050,12 @@ function originalOrder(a, b) {
   return inventory.indexOf(a) - inventory.indexOf(b);
 }
 
+function salesPotentialRank(product) {
+  const serverScore = Number(product.salesRankScore || 0);
+  const merchandisingScore = calculateMerchandisingScore(product).score;
+  return (serverScore > 0 ? serverScore * 2 : 0) + merchandisingScore;
+}
+
 function getProducts() {
   let products = inventory.filter((product) => {
     if (["Preorder"].includes(product.category)) return false;
@@ -1091,7 +1097,12 @@ function getProducts() {
     if (state.sort === "nameAsc") return a.name.localeCompare(b.name, "fr-CA") || originalOrder(a, b);
     if (state.sort === "nameDesc") return b.name.localeCompare(a.name, "fr-CA") || originalOrder(a, b);
     if (state.sort === "stockDesc") return statusRank(b) - statusRank(a) || sortNumber(b.stock) - sortNumber(a.stock) || originalOrder(a, b);
-    return Number(b.featured === true) - Number(a.featured === true) || originalOrder(a, b);
+    return (
+      salesPotentialRank(b) - salesPotentialRank(a) ||
+      Number(b.featured === true) - Number(a.featured === true) ||
+      merchDateValue(b.updatedAt || b.createdAt) - merchDateValue(a.updatedAt || a.createdAt) ||
+      originalOrder(a, b)
+    );
   });
 
   return products;
@@ -1908,7 +1919,10 @@ function categoryFeaturedProducts() {
     .sort((a, b) => {
       const featuredScore = Number(isHomepageFeatured(b) || isNewArrivalFavorite(b)) - Number(isHomepageFeatured(a) || isNewArrivalFavorite(a));
       if (featuredScore) return featuredScore;
-      return merchDateValue(b.updatedAt || b.createdAt) - merchDateValue(a.updatedAt || a.createdAt);
+      return (
+        salesPotentialRank(b) - salesPotentialRank(a) ||
+        merchDateValue(b.updatedAt || b.createdAt) - merchDateValue(a.updatedAt || a.createdAt)
+      );
     })
     .slice(0, 3);
 }
@@ -2119,6 +2133,7 @@ function calculateMerchandisingScore(product, context = {}) {
     product.homepageCollection,
     product.featured,
     product.heroFeatured,
+    product.salesRankScore,
   ].join("|");
   if (!hasContext && merchandisingScoreCache.has(cacheKey)) return merchandisingScoreCache.get(cacheKey);
   const reasons = [];
@@ -2166,6 +2181,11 @@ function calculateMerchandisingScore(product, context = {}) {
   if (product.featured || product.heroFeatured) addMerchPoints(buckets.demand, 3, "déjà marqué comme intéressant");
   if (Number(product.views || 0) > 0) addMerchPoints(buckets.demand, 3, "vues internes disponibles");
   if (Number(product.addToCart || 0) > 0) addMerchPoints(buckets.demand, 3, "ajouts panier internes disponibles");
+  const salesRankScore = Number(product.salesRankScore || 0);
+  if (salesRankScore >= 75) addMerchPoints(buckets.demand, 12, "fort potentiel selon les ventes réelles");
+  else if (salesRankScore >= 60) addMerchPoints(buckets.demand, 9, "bon potentiel selon les ventes réelles");
+  else if (salesRankScore >= 45) addMerchPoints(buckets.demand, 6, "potentiel confirmé par les ventes");
+  else if (salesRankScore > 0) addMerchPoints(buckets.demand, 3, "historique de vente pris en compte");
   buckets.demand.points = Math.min(15, buckets.demand.points);
 
   const age = daysSince(product.createdAt || product.updatedAt);
@@ -2298,10 +2318,15 @@ function rankedMerchProducts(products, section, options = {}) {
 }
 
 function automaticNewArrivals(products) {
-  return products
+  const recentProducts = products
     .filter((product) => !["sold", "removed", "draft", "admin_draft"].includes(String(product.status || "")))
     .sort((a, b) => merchDateValue(b.createdAt || b.updatedAt) - merchDateValue(a.createdAt || a.updatedAt))
     .slice(0, 12);
+  return recentProducts.sort(
+      (a, b) =>
+        salesPotentialRank(b) - salesPotentialRank(a) ||
+        merchDateValue(b.createdAt || b.updatedAt) - merchDateValue(a.createdAt || a.updatedAt)
+    );
 }
 
 function isNewArrivalFavorite(product) {

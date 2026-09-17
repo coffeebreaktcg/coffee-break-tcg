@@ -13,7 +13,7 @@ for (const key of Object.keys(process.env)) if (/DATA_DIR|UPLOAD_DIR|NODE_ENV/.t
 Object.assign(process.env, { NODE_ENV: "test", DATA_DIR: temp, UPLOAD_DIR: path.join(temp, "uploads") });
 
 const { redact, validateConfig } = require("../config");
-const { backupEnvelope, jarvisDataMigration, readDb, reconciliationReport, restoreBackup, sealedInventoryDrafts, sealedInventoryMigration, transitionOrder, validateBackup, writeDbBackup } = require("../server");
+const { backupEnvelope, jarvisDataMigration, readDb, reconciliationReport, restoreBackup, salesPotentialScores, sealedInventoryDrafts, sealedInventoryMigration, transitionOrder, validateBackup, writeDbBackup } = require("../server");
 const dbFile = path.join(temp, "db.json");
 
 function database(inventory = [], orders = []) {
@@ -44,6 +44,22 @@ test("production configuration is strict and development remains usable", () => 
       error => error.variables.includes("SQUARE_WEBHOOK_SIGNATURE_KEY"),
     );
   }
+});
+
+test("sales potential ranking favors completed demand and ignores cancelled orders", () => {
+  const now = Date.parse("2026-09-17T12:00:00.000Z");
+  const products = [
+    { id: "hot", name: "Charizard ex", category: "Singles", kind: "single", setName: "Obsidian Flames", price: 55, market: 60, cost: 30, stock: 1, imageUrl: "/hot.png", createdAt: "2026-09-10T12:00:00.000Z" },
+    { id: "cold", name: "Unown", category: "Singles", kind: "single", setName: "Silver Tempest", price: 55, market: 60, cost: 30, stock: 1, imageUrl: "/cold.png", createdAt: "2026-09-10T12:00:00.000Z" },
+  ];
+  const orders = [
+    { status: "paid", paidAt: "2026-09-12T12:00:00.000Z", items: [{ id: "sold-charizard", name: "Charizard V", category: "Singles", kind: "single", setName: "Obsidian Flames", quantity: 3 }] },
+    { status: "cancelled", createdAt: "2026-09-16T12:00:00.000Z", items: [{ id: "cold", name: "Unown", category: "Singles", kind: "single", setName: "Silver Tempest", quantity: 100 }] },
+  ];
+  const scores = salesPotentialScores({ inventory: products, orders }, now);
+  assert.ok(scores.get("hot") > scores.get("cold"));
+  assert.ok(scores.get("hot") <= 100);
+  assert.ok(scores.get("cold") >= 0);
 });
 
 test("migration removes only Jarvis data, preserves unknown keys and is idempotent", async () => {
