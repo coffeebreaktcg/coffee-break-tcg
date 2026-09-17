@@ -11704,6 +11704,45 @@ body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):
   }
 }
 
+/* Product visuals in the arrivals carousel use the same complete framing as catalog cards. */
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrival-product-visual {
+  position: absolute;
+  inset: clamp(10px, 1.4vw, 16px);
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrival-product-visual > .product-photo {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  padding: 0;
+  object-fit: contain;
+  background: transparent;
+  transform: none;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrival-product-visual.is-slab .slab-frame {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrival-product-visual.is-slab .slab-window .product-photo {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  padding: 0;
+  object-fit: contain;
+  background: transparent;
+  transform: none;
+}
+
 /* Keep graded cards as tall as raw cards while preserving the full slab in product details. */
 body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .product-art.slab-product-art {
   width: 88%;

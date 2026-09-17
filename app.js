@@ -2533,9 +2533,12 @@ function renderNewArrivalsCarousel() {
           const title = item.title || "Nouveauté";
           const image = item.imageUrl || "";
           const href = item.href || "/#new-arrivals";
+          const visual = item.product
+            ? `<span class="new-arrival-product-visual ${isSlabProduct(item.product) ? "is-slab" : ""}">${productVisual(item.product)}</span>`
+            : `<img src="${escapeAttribute(image)}" alt="${escapeAttribute(title)}" loading="lazy" />`;
           return `
             <a class="new-arrival-slide ${item.type === "product" ? "is-product" : ""} ${item.type === "product-fallback" ? "product-fallback" : ""}" href="${escapeAttribute(href)}" ${item.product ? `data-view-product="${escapeAttribute(item.product.id)}"` : ""}>
-              <img src="${escapeAttribute(image)}" alt="${escapeAttribute(title)}" loading="lazy" />
+              ${visual}
               <span>${escapeAttribute(title)}</span>
               ${
                 item.product
