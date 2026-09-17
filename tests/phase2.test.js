@@ -13,7 +13,7 @@ for (const key of Object.keys(process.env)) if (/DATA_DIR|UPLOAD_DIR|NODE_ENV/.t
 Object.assign(process.env, { NODE_ENV: "test", DATA_DIR: temp, UPLOAD_DIR: path.join(temp, "uploads") });
 
 const { redact, validateConfig } = require("../config");
-const { backupEnvelope, jarvisDataMigration, readDb, reconciliationReport, restoreBackup, transitionOrder, validateBackup, writeDbBackup } = require("../server");
+const { backupEnvelope, jarvisDataMigration, readDb, reconciliationReport, restoreBackup, sealedInventoryDrafts, sealedInventoryMigration, transitionOrder, validateBackup, writeDbBackup } = require("../server");
 const dbFile = path.join(temp, "db.json");
 
 function database(inventory = [], orders = []) {
@@ -98,6 +98,26 @@ test("migration removes only Jarvis data, preserves unknown keys and is idempote
   const plan = jarvisDataMigration(first);
   assert.deepEqual(plan.removedKeys, []);
   assert.deepEqual(plan.unknownKeys, ["futureCoffeeFeature"]);
+});
+
+test("sealed inventory import creates private drafts once without overwriting existing products", () => {
+  const drafts = sealedInventoryDrafts();
+  assert.equal(drafts.length, 11);
+  assert.equal(drafts.reduce((sum, item) => sum + item.stock, 0), 26);
+  assert.ok(drafts.every((item) => item.status === "admin_draft" && item.category === "Sealed" && item.price === 0));
+  assert.ok(drafts.every((item) => fs.existsSync(path.join(__dirname, "..", item.imageUrl))));
+
+  const existing = { ...drafts[0], stock: 99, price: 123 };
+  const db = database([existing]);
+  const first = sealedInventoryMigration(db);
+  assert.equal(first.addedCount, 10);
+  assert.equal(first.db.inventory.find((item) => item.id === existing.id).stock, 99);
+  assert.equal(first.db.inventory.find((item) => item.id === existing.id).price, 123);
+  const snapshot = JSON.stringify(first.db);
+  const second = sealedInventoryMigration(first.db);
+  assert.equal(second.changed, false);
+  assert.equal(second.addedCount, 0);
+  assert.equal(JSON.stringify(second.db), snapshot);
 });
 
 test("migration aborts without changing the database when its forced backup fails", async () => {

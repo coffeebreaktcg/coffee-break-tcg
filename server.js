@@ -75,6 +75,7 @@ const reservationHoldMs = 10 * 60 * 1000;
 const adminLoginAttempts = new Map();
 const maxJsonBodyBytes = Math.max(1024, Math.min(8 * 1024 * 1024, Number(process.env.MAX_JSON_BODY_BYTES) || 8 * 1024 * 1024));
 const clearInventoryMigrationId = "clear-all-inventory-2026-06-02";
+const sealedInventoryMigrationId = "import-sealed-inventory-2026-09-17";
 const businessDataKeys = new Set([
   "users", "sessions", "adminSessions", "orders", "emailOutbox", "cardShows", "reviews", "expenses",
   "inventory", "newsletter", "migrations", "merchandising", "newArrivalSlides", "auditLog",
@@ -192,6 +193,12 @@ async function readDb() {
       const inventoryCountBeforeStarterCleanup = db.inventory.length;
       db.inventory = db.inventory.filter((item) => !starterInventoryIds.has(item.id));
       if (db.inventory.length !== inventoryCountBeforeStarterCleanup) await writeDb(db);
+    }
+    if (validatedConfig.production && !db.migrations.includes(sealedInventoryMigrationId)) {
+      await writeDbBackup(db, { force: true, reason: "pre-sealed-inventory-import" });
+      const imported = sealedInventoryMigration(db);
+      await writeDb(db);
+      log("info", "inventory.sealed_imported", { addedCount: imported.addedCount });
     }
     return db;
   } catch (error) {
@@ -687,6 +694,59 @@ function createZip(files) {
 
 function defaultInventory() {
   return [];
+}
+
+function sealedInventoryDrafts() {
+  const shared = {
+    game: "Pokemon",
+    language: "en",
+    category: "Sealed",
+    status: "admin_draft",
+    condition: "Sealed",
+    cost: 0,
+    price: 0,
+    compareAtPrice: 0,
+    market: 0,
+    priceAuto: false,
+    reservedQuantity: 0,
+    maxPerCart: 0,
+    accent: "#d5742d",
+    visual: "boxed",
+    features: [],
+    featured: false,
+    heroFeatured: false,
+    featuredRank: 0,
+    homepageCollection: "",
+    lastFeaturedAt: "",
+    badge: "",
+    createdAt: "2026-09-17T15:15:00.000Z",
+    updatedAt: "2026-09-17T15:15:00.000Z",
+  };
+  const asset = (name) => `/assets/sealed-import-20260917/${name}.png`;
+  return [
+    { id: "sealed-ascended-heroes-pokemon-center-etb", sku: "SEALED-AH-PC-ETB", name: "Ascended Heroes Pokémon Center Elite Trainer Box (Exclusive)", setName: "Ascended Heroes", kind: "etb", stock: 6, imageUrl: asset("ascended-heroes-pokemon-center-etb") },
+    { id: "sealed-temporal-forces-pc-etb-walking-wake", sku: "SEALED-TF-PC-ETB-WW", name: "Temporal Forces Pokémon Center Elite Trainer Box (Walking Wake)", setName: "Temporal Forces", kind: "etb", stock: 1, imageUrl: asset("temporal-forces-pokemon-center-etb-walking-wake") },
+    { id: "sealed-temporal-forces-pc-etb-iron-leaves", sku: "SEALED-TF-PC-ETB-IL", name: "Temporal Forces Pokémon Center Elite Trainer Box (Iron Leaves)", setName: "Temporal Forces", kind: "etb", stock: 1, imageUrl: asset("temporal-forces-pokemon-center-etb-iron-leaves") },
+    { id: "sealed-journey-together-pokemon-center-etb", sku: "SEALED-JT-PC-ETB", name: "Journey Together Pokémon Center Elite Trainer Box (Exclusive)", setName: "Journey Together", kind: "etb", stock: 1, imageUrl: asset("journey-together-pokemon-center-etb") },
+    { id: "sealed-ascended-heroes-etb", sku: "SEALED-AH-ETB", name: "Ascended Heroes Elite Trainer Box", setName: "Ascended Heroes", kind: "etb", stock: 8, imageUrl: asset("ascended-heroes-etb") },
+    { id: "sealed-ascended-heroes-mega-feraligatr-ex-box", sku: "SEALED-AH-FERALIGATR-EX", name: "Ascended Heroes Mega Feraligatr ex Box", setName: "Ascended Heroes", kind: "box", stock: 1, imageUrl: asset("ascended-heroes-mega-feraligatr-ex-box") },
+    { id: "sealed-ascended-heroes-mega-meganium-ex-box", sku: "SEALED-AH-MEGANIUM-EX", name: "Ascended Heroes Mega Meganium ex Box", setName: "Ascended Heroes", kind: "box", stock: 1, imageUrl: asset("ascended-heroes-mega-meganium-ex-box") },
+    { id: "sealed-ascended-heroes-mega-emboar-ex-box", sku: "SEALED-AH-EMBOAR-EX", name: "Ascended Heroes Mega Emboar ex Box", setName: "Ascended Heroes", kind: "box", stock: 1, imageUrl: asset("ascended-heroes-mega-emboar-ex-box") },
+    { id: "sealed-30th-tech-sticker-lucario", sku: "SEALED-30-TECH-LUCARIO", name: "30th Celebration Tech Sticker Collection (Lucario)", setName: "30th Celebration", kind: "box", stock: 2, imageUrl: asset("30th-celebration-tech-sticker-lucario") },
+    { id: "sealed-30th-tech-sticker-alolan-exeggutor", sku: "SEALED-30-TECH-EXEGGUTOR", name: "30th Celebration Tech Sticker Collection (Alolan Exeggutor)", setName: "30th Celebration", kind: "box", stock: 2, imageUrl: asset("30th-celebration-tech-sticker-alolan-exeggutor") },
+    { id: "sealed-30th-knock-out-collection", sku: "SEALED-30-KNOCK-OUT", name: "30th Celebration Knock Out Collection", setName: "30th Celebration", kind: "box", stock: 2, imageUrl: asset("30th-celebration-knock-out-collection") },
+  ].map((product) => ({ ...shared, ...product }));
+}
+
+function sealedInventoryMigration(db) {
+  if (!Array.isArray(db.inventory)) db.inventory = [];
+  if (!Array.isArray(db.migrations)) db.migrations = [];
+  if (db.migrations.includes(sealedInventoryMigrationId)) return { db, addedCount: 0, changed: false };
+  const existingIds = new Set(db.inventory.map((item) => item.id));
+  const additions = sealedInventoryDrafts().filter((item) => !existingIds.has(item.id));
+  db.inventory.push(...additions);
+  db.migrations.push(sealedInventoryMigrationId);
+  return { db, addedCount: additions.length, changed: true };
 }
 
 function defaultReviews() {
@@ -4207,5 +4267,5 @@ module.exports = {
   allowedOrderTransitions, backupEnvelope, getAdminSession, getSessionUser, jarvisDataMigration, readDb,
   handleSquareWebhook, hashPassword, reconciliationReport, restoreBackup, securityHeaders,
   server, transitionOrder, validateBackup, verifyPassword, verifySquareWebhookSignature,
-  writeDbBackup, cookieHeader, adminCookieHeader,
+  writeDbBackup, cookieHeader, adminCookieHeader, sealedInventoryDrafts, sealedInventoryMigration,
 };
