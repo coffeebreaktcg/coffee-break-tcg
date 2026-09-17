@@ -2539,10 +2539,10 @@ function renderNewArrivalsCarousel() {
           return `
             <a class="new-arrival-slide ${item.type === "product" ? "is-product" : ""} ${item.type === "product-fallback" ? "product-fallback" : ""}" href="${escapeAttribute(href)}" ${item.product ? `data-view-product="${escapeAttribute(item.product.id)}"` : ""}>
               ${visual}
-              <span>${escapeAttribute(title)}</span>
+              <span class="new-arrival-title">${escapeAttribute(title)}</span>
               ${
                 item.product
-                  ? `<small>${escapeAttribute([productCategoryLabel(item.product), item.product.condition, money.format(item.product.price)].filter(Boolean).join(" · "))}</small>`
+                  ? `<small class="new-arrival-meta">${escapeAttribute([productCategoryLabel(item.product), item.product.condition, money.format(item.product.price)].filter(Boolean).join(" · "))}</small>`
                   : ""
               }
             </a>
