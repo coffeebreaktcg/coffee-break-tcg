@@ -81,6 +81,7 @@ const draftInventoryCount = document.querySelector("#draftInventoryCount");
 const publishDraftProductsButton = document.querySelector("#publishDraftProductsButton");
 const publishDraftStatus = document.querySelector("#publishDraftStatus");
 const adminOpenAddButton = document.querySelector("#adminOpenAddButton");
+const adminOpenManualCardButton = document.querySelector("#adminOpenManualCardButton");
 const adminOpenCardShowButton = document.querySelector("#adminOpenCardShowButton");
 const adminOpenSessionButton = document.querySelector("#adminOpenSessionButton");
 const adminCommandPaletteButton = document.querySelector("#adminCommandPaletteButton");
@@ -2780,16 +2781,21 @@ function renderProductDetail(id) {
         <div class="detail-art ${product.category === "Singles" && !isSlabProduct(product) ? "single-product-art" : ""}" style="--accent:${product.accent || "#d5742d"}">${productVisual(product)}</div>
         ${
           galleryImages.length > 1
-            ? `<div class="detail-gallery" aria-label="Photos additionnelles">
+            ? `<div class="detail-gallery-carousel" data-gallery-carousel>
+                <button class="detail-gallery-arrow previous" type="button" data-gallery-step="-1" aria-label="Photo précédente">‹</button>
+                <div class="detail-gallery" aria-label="Photos du produit">
                 ${galleryImages
                   .map(
                     (image, index) => `
-                      <button type="button" data-gallery-image="${escapeAttribute(image)}" aria-label="Voir la photo ${index + 1}">
+                      <button class="${index === 0 ? "active" : ""}" type="button" data-gallery-image="${escapeAttribute(image)}" aria-label="Voir la photo ${index + 1}">
                         <img src="${escapeAttribute(image)}" alt="" />
                       </button>
                     `
                   )
                   .join("")}
+                </div>
+                <button class="detail-gallery-arrow next" type="button" data-gallery-step="1" aria-label="Photo suivante">›</button>
+                <span class="detail-gallery-count" data-gallery-count>1 / ${galleryImages.length}</span>
               </div>`
             : ""
         }
@@ -2874,6 +2880,19 @@ function selectGalleryImage(button) {
   productDetailContent.querySelectorAll("[data-gallery-image]").forEach((entry) => {
     entry.classList.toggle("active", entry === button);
   });
+  const carousel = button.closest("[data-gallery-carousel]");
+  const images = [...(carousel?.querySelectorAll("[data-gallery-image]") || [])];
+  const counter = carousel?.querySelector("[data-gallery-count]");
+  if (counter) counter.textContent = `${images.indexOf(button) + 1} / ${images.length}`;
+}
+
+function stepProductGallery(button) {
+  const carousel = button?.closest("[data-gallery-carousel]");
+  const images = [...(carousel?.querySelectorAll("[data-gallery-image]") || [])];
+  if (!images.length) return;
+  const activeIndex = Math.max(0, images.findIndex((image) => image.classList.contains("active")));
+  const step = Number(button.dataset.galleryStep || 1);
+  selectGalleryImage(images[(activeIndex + step + images.length) % images.length]);
 }
 
 function fillProvinceSelects(scope = document) {
@@ -2894,9 +2913,14 @@ function syncCoffeeUpload(input) {
   const meta = wrapper.querySelector("[data-upload-meta]");
   const preview = wrapper.querySelector("[data-upload-preview]");
   const files = [...(input.files || [])];
+  const maxFiles = Math.max(0, Number(input.dataset.maxFiles || 0));
   const validFiles = [];
   const errors = [];
   for (const file of files) {
+    if (maxFiles && validFiles.length >= maxFiles) {
+      errors.push(currentLang === "en" ? `maximum ${maxFiles} photos` : `maximum ${maxFiles} photos`);
+      break;
+    }
     if (!file.type.startsWith("image/")) {
       errors.push(`${file.name}: ${currentLang === "en" ? "image only" : "image seulement"}`);
       continue;
@@ -4973,6 +4997,7 @@ function resetAdminProductForm() {
   if (marketSuggestStatus) marketSuggestStatus.textContent = "";
   if (productGameSelect) productGameSelect.value = "Pokemon";
   if (cardLanguageSelect) cardLanguageSelect.value = "en";
+  adminProductForm.querySelectorAll("[data-coffee-upload] input[type='file']").forEach(syncCoffeeUpload);
   syncAdminLanguageQuickFilter("en");
   loadPokemonSets();
   setAdminDrawerSummary(null);
@@ -4997,7 +5022,19 @@ function openAdminAddDrawer() {
   if (adminProductDrawerTitle) adminProductDrawerTitle.textContent = "Ajouter un item";
   if (adminSaveProductButton) adminSaveProductButton.textContent = "Enregistrer";
   openAdminPanel(adminProductDrawer);
+  wireCoffeeUploads(adminProductForm);
   markAdminProductFormPristine();
+  window.requestAnimationFrame(() => adminProductForm?.querySelector('input[name="name"]')?.focus());
+}
+
+function openAdminManualCardDrawer() {
+  openAdminAddDrawer();
+  if (adminProductDrawerMode) adminProductDrawerMode.textContent = "Saisie manuelle";
+  if (adminProductDrawerTitle) adminProductDrawerTitle.textContent = "Entrer une carte manuellement";
+  setFormField(adminProductForm, "category", "Singles");
+  setFormField(adminProductForm, "kind", "single");
+  syncAdminProductEditorFields();
+  wireCoffeeUploads(adminProductForm);
   window.requestAnimationFrame(() => adminProductForm?.querySelector('input[name="name"]')?.focus());
 }
 
@@ -5599,6 +5636,7 @@ document.addEventListener("click", (event) => {
   const checkoutLink = event.target.closest("[data-checkout-link]");
   const reportDownload = event.target.closest("[data-report-download]");
   const galleryImage = event.target.closest("[data-gallery-image]");
+  const galleryStep = event.target.closest("[data-gallery-step]");
   const languageButton = event.target.closest("[data-language]");
   const showAnchor = event.target.closest("[data-show-anchor]");
   const homeSectionLink = event.target.closest("[data-home-section]");
@@ -5776,6 +5814,7 @@ document.addEventListener("click", (event) => {
     requestAnimationFrame(() => scrollToShopItems("smooth"));
   }
   if (galleryImage) selectGalleryImage(galleryImage);
+  if (galleryStep) stepProductGallery(galleryStep);
   if (reportDownload) {
     event.preventDefault();
     downloadAdminReport(reportDownload);
@@ -6270,6 +6309,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 adminOpenAddButton?.addEventListener("click", () => openAdminDiscardModal(openAdminAddDrawer));
+adminOpenManualCardButton?.addEventListener("click", () => openAdminDiscardModal(openAdminManualCardDrawer));
 adminOpenCardShowButton?.addEventListener("click", focusCardShowForm);
 adminOpenSessionButton?.addEventListener("click", openAdminSessionDrawer);
 adminCommandPaletteButton?.addEventListener("click", openAdminCommandPalette);
@@ -6509,6 +6549,7 @@ adminProductForm?.addEventListener("submit", async (event) => {
   const status = adminProductForm.querySelector(".admin-status");
   const form = new FormData(adminProductForm);
   const selectedSetOption = pokemonSetSelect?.selectedOptions?.[0];
+  const manualImageData = await filesToDataUrls(form.getAll("manualImageFiles"), 5);
   const id = form.get("id") || "";
   const category = form.get("category") || "Singles";
   const requestedStatus =
@@ -6548,8 +6589,9 @@ adminProductForm?.addEventListener("submit", async (event) => {
     badge: form.get("badge"),
     features: form.getAll("features").slice(0, 2),
     imageUrl: form.get("imageUrl"),
+    imageData: manualImageData[0] || "",
     galleryImageUrls: parseJsonArray(form.get("galleryImageUrls")).slice(0, 4),
-    galleryImageData: await filesToDataUrls(form.getAll("galleryFiles"), 4),
+    galleryImageData: manualImageData.slice(1, 5),
   };
   try {
     await api("/api/admin/products", { method: "POST", body: JSON.stringify(body) });

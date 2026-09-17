@@ -4982,6 +4982,80 @@ body.admin-mode .admin-page {
   object-fit: contain;
 }
 
+.detail-gallery-carousel {
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.detail-gallery-carousel .detail-gallery {
+  margin-top: 0;
+}
+
+.detail-gallery-arrow {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgba(61, 42, 29, 0.14);
+  border-radius: 999px;
+  background: #fffaf2;
+  color: var(--coffee);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.detail-gallery-count {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.admin-card-upload {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(61, 42, 29, 0.1);
+}
+
+.admin-card-upload .coffee-upload-zone {
+  min-height: 128px;
+  border-radius: 18px;
+}
+
+@media (max-width: 620px) {
+  .detail-gallery-carousel {
+    grid-template-columns: 36px minmax(0, 1fr) 36px;
+    gap: 7px;
+  }
+
+  .detail-gallery-arrow {
+    width: 36px;
+    height: 36px;
+  }
+
+  .detail-gallery {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+  }
+
+  .detail-gallery button {
+    flex: 0 0 72px;
+    scroll-snap-align: center;
+  }
+
+  #adminOpenManualCardButton {
+    width: 100%;
+  }
+}
+
 .detail-copy h1,
 .content-shell h1 {
   margin: 0;

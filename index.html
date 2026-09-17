@@ -371,6 +371,7 @@
           </label>
           <div class="admin-command-actions">
             <button class="button primary" type="button" id="adminOpenAddButton">+ Ajouter un item</button>
+            <button class="button secondary" type="button" id="adminOpenManualCardButton">+ Entrer une carte manuellement</button>
             <button class="button primary hidden" type="button" id="adminOpenCardShowButton">+ Ajouter un événement</button>
             <button class="button secondary" type="button" id="adminOpenSessionButton">Session <span id="draftInventoryCount">0</span></button>
             <button class="button secondary admin-header-shop-link" type="button" id="adminCommandPaletteButton">⌘K</button>
@@ -569,6 +570,16 @@
                 <div class="image-search-preview hidden" id="imageSearchPreview"></div>
                 <p class="image-search-status" id="imageSearchStatus" role="status"></p>
               </div>
+              <div class="coffee-upload admin-card-upload" data-coffee-upload>
+                <input class="sr-only" id="adminManualImages" name="manualImageFiles" type="file" accept="image/*" multiple data-max-files="5" />
+                <label class="coffee-upload-zone" for="adminManualImages" data-upload-zone>
+                  <span>Choisir des fichiers</span>
+                  <strong>Ajouter les photos depuis ton téléphone</strong>
+                  <small>La première photo sera l’image principale. Les suivantes formeront le carrousel. Maximum 5 images, 8 Mo chacune.</small>
+                </label>
+                <div class="coffee-upload-meta" data-upload-meta>Aucune photo sélectionnée.</div>
+                <div class="coffee-upload-preview" data-upload-preview></div>
+              </div>
             </section>
 
             <section class="admin-form-panel admin-editor-section">
@@ -658,7 +669,6 @@
                     <option value="Commune">Commune</option>
                   </select>
                 </label>
-                <label>Photos additionnelles - jusqu’à 4 <input name="galleryFiles" type="file" accept="image/*" multiple /></label>
               </div>
               <fieldset class="feature-options">
                 <legend>Particularités - max 2</legend>
