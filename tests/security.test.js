@@ -209,6 +209,32 @@ test("photo sale groups cards, allocates the exact total and backs up before mut
   const backups = backupFiles.map((file) => JSON.parse(fs.readFileSync(path.join(temp, "backups", file))));
   assert.ok(backups.some((backup) => backup.reason === "pre-admin-photo-sale" && backup.db.inventory.length === 2));
 });
+test("an unpaid manual sale can return its items to the store exactly once", async () => {
+  const soldProduct = { ...baseProduct, id: "returned-card", name: "Returned card", stock: 0, status: "sold", soldAt: new Date().toISOString(), soldPrice: 80 };
+  reset({
+    inventory: [],
+    orders: [{
+      id: "CB-RETURN",
+      status: "admin_sale",
+      createdAt: new Date().toISOString(),
+      items: [{ id: soldProduct.id, name: soldProduct.name, category: soldProduct.category, quantity: 1, price: 80 }],
+      soldProducts: [soldProduct],
+    }],
+  });
+  const login = await request("/api/admin/login", "POST", { email: "admin@example.com", password: "test-password-long" });
+  const headers = { Cookie: login.headers["set-cookie"][0].split(";")[0] };
+  const returned = await request("/api/admin/orders/return-to-store", "POST", { id: "CB-RETURN", reason: "Paiement non reçu" }, headers);
+  assert.equal(returned.status, 200);
+  assert.equal(returned.data.order.status, "cancelled");
+  assert.equal(returned.data.inventory.find((item) => item.id === soldProduct.id)?.stock, 1);
+  assert.equal(returned.data.inventory.find((item) => item.id === soldProduct.id)?.status, "available");
+  assert.equal((await request("/api/admin/orders/return-to-store", "POST", { id: "CB-RETURN" }, headers)).status, 409);
+  const db = JSON.parse(fs.readFileSync(dbFile));
+  assert.equal(db.inventory.filter((item) => item.id === soldProduct.id).length, 1);
+  assert.ok(db.auditLog.some((entry) => entry.action === "order.returned_to_store" && entry.resourceId === "CB-RETURN"));
+  const backups = fs.readdirSync(path.join(temp, "backups")).filter((file) => file.endsWith(".json")).map((file) => JSON.parse(fs.readFileSync(path.join(temp, "backups", file))));
+  assert.ok(backups.some((backup) => backup.reason === "pre-order-return-to-store" && backup.db.orders[0].status === "admin_sale"));
+});
 test("admin reconciliation, fulfillment and email retry use existing authentication", async () => {
   reset({ orders: [{ id: "CB-PAID", status: "paid", paidAt: new Date().toISOString(), items: [], emailStatus: "failed" }], emailOutbox: [{ id: "CB-PAID-client", to: "client@example.com", status: "failed" }] });
   const login = await request("/api/admin/login", "POST", { email: "admin@example.com", password: "test-password-long" });

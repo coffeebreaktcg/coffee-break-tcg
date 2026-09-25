@@ -1137,7 +1137,8 @@ const allowedOrderTransitions = {
 function transitionOrder(order, nextStatus, context = {}) {
   const current = order.status || "pending_payment";
   if (current === nextStatus) return false;
-  if (!allowedOrderTransitions[current]?.has(nextStatus)) security.fail(`Transition de commande invalide: ${current} -> ${nextStatus}`, 409);
+  const isInventoryReturn = current === "admin_sale" && nextStatus === "cancelled" && context.inventoryRestored === true;
+  if (!allowedOrderTransitions[current]?.has(nextStatus) && !isInventoryReturn) security.fail(`Transition de commande invalide: ${current} -> ${nextStatus}`, 409);
   order.status = nextStatus;
   order.statusUpdatedAt = new Date().toISOString();
   order.statusReason = String(context.reason || "").slice(0, 300);
@@ -3770,6 +3771,63 @@ async function handleApi(req, res) {
     order.cancelReason = body.reason || "Paiement non reçu";
     audit(db, { action: "order.cancelled", actor: getAdminSession(req, db)?.email, resource: "order", resourceId: order.id, result: "success", requestId: requestId(req) });
     await writeDb(db);
+    return json(res, 200, { order, summary: summarizeSales(db), inventory: db.inventory.map(publicProduct) });
+  }
+
+  if (url.pathname === "/api/admin/orders/return-to-store" && req.method === "POST") {
+    const body = await readBody(req);
+    const order = db.orders.find((candidate) => candidate.id === body.id);
+    if (!order) return json(res, 404, { error: "Commande introuvable" });
+    if (order.status !== "admin_sale") {
+      return json(res, 409, { error: "Seules les ventes manuelles peuvent être retournées au magasin" });
+    }
+
+    const soldSnapshots = Array.isArray(order.soldProducts)
+      ? order.soldProducts
+      : order.soldProduct
+      ? [order.soldProduct]
+      : [];
+    const itemsToRestore = (order.items || []).map((item) => ({
+      item,
+      quantity: Math.max(1, Number(item.quantity || 1)),
+      snapshot: soldSnapshots.find((product) => product.id === item.id) || item,
+    }));
+    if (!itemsToRestore.length || itemsToRestore.some(({ item, snapshot }) => !item.id || !snapshot?.id)) {
+      return json(res, 409, { error: "Les données de cette vente ne permettent pas de restaurer l’inventaire" });
+    }
+
+    await writeDbBackup(db, { force: true, reason: "pre-order-return-to-store" });
+    const restoredAt = new Date().toISOString();
+    for (const { item, quantity, snapshot } of itemsToRestore) {
+      const existing = db.inventory.find((product) => product.id === item.id);
+      if (existing) {
+        existing.stock = Number(existing.stock || 0) + quantity;
+        existing.reservedQuantity = Math.max(0, Number(existing.reservedQuantity || 0));
+        existing.status = existing.category === "Preorder" ? "preorder" : "available";
+        existing.updatedAt = restoredAt;
+        delete existing.soldAt;
+        delete existing.soldPrice;
+        continue;
+      }
+      const restoredProduct = {
+        ...snapshot,
+        stock: quantity,
+        reservedQuantity: 0,
+        status: snapshot.category === "Preorder" ? "preorder" : "available",
+        updatedAt: restoredAt,
+      };
+      delete restoredProduct.soldAt;
+      delete restoredProduct.soldPrice;
+      db.inventory.push(restoredProduct);
+    }
+
+    transitionOrder(order, "cancelled", { reason: body.reason || "Paiement non reçu — items retournés au magasin", requestId: requestId(req), inventoryRestored: true });
+    order.cancelledAt = restoredAt;
+    order.cancelReason = body.reason || "Paiement non reçu";
+    order.returnedToStoreAt = restoredAt;
+    audit(db, { action: "order.returned_to_store", actor: getAdminSession(req, db)?.email, resource: "order", resourceId: order.id, result: `${itemsToRestore.length}_items`, requestId: requestId(req) });
+    await writeDb(db);
+    log("info", "order.returned_to_store", { requestId: requestId(req), orderId: order.id, itemCount: itemsToRestore.length });
     return json(res, 200, { order, summary: summarizeSales(db), inventory: db.inventory.map(publicProduct) });
   }
 

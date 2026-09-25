@@ -7632,6 +7632,23 @@ body.admin-mode .admin-page {
   padding-top: 10px;
 }
 
+.return-to-store-button {
+  min-width: 150px;
+  border-color: rgba(213, 116, 45, 0.55);
+  background: #fff7ec;
+  color: #9d4e22;
+  line-height: 1.2;
+}
+
+.return-to-store-button:hover {
+  background: #d5742d;
+  color: #fffaf2;
+}
+
+.admin-action-unavailable {
+  color: var(--muted);
+}
+
 .admin-price-sync {
   margin: -4px 0 18px;
   color: var(--muted);

@@ -3609,6 +3609,28 @@ function orderCost(order) {
   return order.items.reduce((sum, item) => sum + Number(item.cost || 0) * Number(item.quantity || 0), 0);
 }
 
+async function returnSoldOrderToStore(id, button) {
+  if (!id || !button) return;
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "Retour…";
+  try {
+    const payload = await api("/api/admin/orders/return-to-store", {
+      method: "POST",
+      body: JSON.stringify({ id, reason: "Paiement non reçu" }),
+    });
+    await loadProducts();
+    renderProducts();
+    await renderAdmin();
+    setAdminSection("sold");
+    if (adminPriceSync) adminPriceSync.textContent = `${payload.order.id} annulée : les items sont de retour dans le magasin.`;
+  } catch (error) {
+    if (adminPriceSync) adminPriceSync.textContent = error.message;
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+}
+
 function percentText(value) {
   return new Intl.NumberFormat(currentLang === "en" ? "en-CA" : "fr-CA", { style: "percent", maximumFractionDigits: 1 }).format(Number(value || 0));
 }
@@ -4360,11 +4382,14 @@ async function renderAdmin() {
                   <span>${statusLabel(order.status)}</span>
                 </div>
               </td>
+              <td data-label="Actions">
+                ${order.status === "admin_sale" ? `<button class="sale-button return-to-store-button" type="button" data-return-order-to-store="${escapeAttribute(order.id)}">Retourner au magasin</button>` : `<span class="admin-action-unavailable">—</span>`}
+              </td>
             </tr>
           `;
         })
         .join("")
-    : `<tr><td colspan="6">Aucune vente pour le moment.</td></tr>`;
+    : `<tr><td colspan="7">Aucune vente pour le moment.</td></tr>`;
 }
 
 function toggleAdminLinks(visible) {
@@ -6614,6 +6639,12 @@ adminSaleForm?.addEventListener("submit", async (event) => {
   const status = adminSaleForm.querySelector(".admin-status");
   if (status) status.textContent = "Vente en cours...";
   await registerAdminSale(form.get("id"), submitButton, form.get("soldPrice"));
+});
+
+adminOrderRows?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-return-order-to-store]");
+  if (!button) return;
+  returnSoldOrderToStore(button.dataset.returnOrderToStore, button);
 });
 
 [photoSaleCameraInput, photoSaleLibraryInput].forEach((input) => {
