@@ -514,6 +514,7 @@ function isSaleProduct(product) {
 
 const categoryRoutes = {
   "/": "all",
+  "/recherche": "all",
   "/nouveautes": "new",
   "/singles": "Singles",
   "/sealed": "Sealed",
@@ -821,7 +822,7 @@ function baseStructuredData(meta) {
       url: "https://coffeebreaktcg.com/",
       potentialAction: {
         "@type": "SearchAction",
-        target: "https://coffeebreaktcg.com/?q={search_term_string}",
+        target: "https://coffeebreaktcg.com/recherche?q={search_term_string}",
         "query-input": "required name=search_term_string",
       },
     },
@@ -1095,7 +1096,7 @@ function getProducts() {
       (state.availabilityFilter === "available" && getProductStatus(product) === "available") ||
       (state.availabilityFilter === "sale" && isSaleProduct(product)) ||
       (state.availabilityFilter === "new" && isRecentProduct(product));
-    const haystack = `${product.name} ${product.category} ${product.condition} ${conditionCode} ${product.kind || ""} ${product.sku || ""} ${product.setName || ""} ${product.cardNumber || ""} ${product.rarity || ""} ${(product.features || []).join(" ")}`.toLowerCase();
+    const haystack = `${product.name} ${product.category} ${product.condition} ${conditionCode} ${product.kind || ""} ${product.sku || ""} ${product.setName || ""} ${product.cardNumber || ""} ${product.rarity || ""} ${product.gradingCompany || ""} ${product.grade || ""} ${product.language || ""} ${(product.features || []).join(" ")}`.toLowerCase();
     const query = state.search.toLowerCase().trim();
     const searchableTokens = haystack.split(/[^a-z0-9]+/).filter(Boolean);
     const matchesSearch = ["nm", "lp", "mp"].includes(query) ? searchableTokens.includes(query) : haystack.includes(query);
@@ -1339,8 +1340,31 @@ function setShopSearch(value, { scroll = false } = {}) {
   state.search = String(value || "").trim();
   if (searchInput) searchInput.value = state.search;
   if (searchOverlayInput) searchOverlayInput.value = state.search;
+  if (window.location.pathname === "/recherche") {
+    const searchUrl = state.search ? `/recherche?q=${encodeURIComponent(state.search)}` : "/recherche";
+    history.replaceState({ ...(history.state || {}), search: state.search }, "", searchUrl);
+  }
   renderProducts();
   if (scroll) scrollToShopItems("smooth");
+}
+
+function showSearchResults(value) {
+  const query = String(value || "").trim();
+  if (!query) {
+    searchOverlayInput?.focus();
+    return;
+  }
+  state.category = "all";
+  state.game = "all";
+  state.typeFilter = "all";
+  state.setFilter = "all";
+  state.conditionFilter = "all";
+  state.availabilityFilter = "available";
+  state.search = query;
+  closeSearchOverlay();
+  history.pushState({ search: query }, "", `/recherche?q=${encodeURIComponent(query)}`);
+  applyRoute();
+  requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
 }
 
 function saveShopView(productId = "") {
@@ -1917,6 +1941,26 @@ async function loadPokemonSets() {
 }
 
 function updateCategoryHeading() {
+  if (window.location.pathname === "/recherche") {
+    const query = state.search.trim();
+    if (categoryEyebrow) categoryEyebrow.textContent = currentLang === "en" ? "Search" : "Recherche";
+    if (categoryTitle) {
+      categoryTitle.textContent = query
+        ? currentLang === "en"
+          ? `Results for “${query}”`
+          : `Résultats pour « ${query} »`
+        : currentLang === "en"
+          ? "Search the store"
+          : "Rechercher dans la boutique";
+    }
+    if (categoryIntro) {
+      categoryIntro.textContent = currentLang === "en"
+        ? "All matching singles, slabs, sealed products and One Piece items are shown here."
+        : "Tous les singles, slabs, produits sealed et items One Piece correspondants sont affichés ici.";
+    }
+    renderCategorySeoPanel(null);
+    return;
+  }
   const routeCopy = categoryCopyForPath();
   if (routeCopy) {
     if (categoryTitle) categoryTitle.textContent = routeCopy.title;
@@ -3500,6 +3544,12 @@ function goToCategory(category, push = true, game = "Pokemon") {
 }
 
 function applyRoute() {
+  const requestedSearch = new URLSearchParams(window.location.search).get("q")?.trim() || "";
+  if (window.location.pathname === "/" && requestedSearch) {
+    history.replaceState({ search: requestedSearch }, "", `/recherche?q=${encodeURIComponent(requestedSearch)}`);
+    applyRoute();
+    return;
+  }
   updatePageMeta();
   const isAdmin = window.location.pathname === "/admin";
   const isCheckout = window.location.pathname === "/checkout";
@@ -3546,7 +3596,12 @@ function applyRoute() {
   const route = gameRoutes[window.location.pathname];
   const category = route?.category || categoryRoutes[window.location.pathname] || "all";
   state.category = category;
-  state.game = route?.game || "Pokemon";
+  state.game = window.location.pathname === "/recherche" ? "all" : route?.game || "Pokemon";
+  if (window.location.pathname === "/recherche") {
+    state.search = requestedSearch;
+    if (searchInput) searchInput.value = state.search;
+    if (searchOverlayInput) searchOverlayInput.value = state.search;
+  }
   if (conditionFilterSelect) conditionFilterSelect.value = state.conditionFilter;
   if (availabilityFilterSelect) availabilityFilterSelect.value = state.availabilityFilter;
   document.querySelectorAll("[data-category]").forEach((tab) => {
@@ -6557,8 +6612,10 @@ searchInput.addEventListener("input", (event) => {
 
 document.querySelector("[data-open-search]")?.addEventListener("click", openSearchOverlay);
 
-searchOverlayInput?.addEventListener("input", (event) => {
-  setShopSearch(event.target.value);
+searchOverlayInput?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  showSearchResults(event.currentTarget.value);
 });
 
 document.querySelectorAll("[data-close-search]").forEach((button) => {
@@ -6567,13 +6624,12 @@ document.querySelectorAll("[data-close-search]").forEach((button) => {
 
 document.querySelectorAll("[data-search-chip]").forEach((button) => {
   button.addEventListener("click", () => {
-    setShopSearch(button.dataset.searchChip || "");
-    closeSearchOverlay({ scroll: true });
+    showSearchResults(button.dataset.searchChip || "");
   });
 });
 
 document.querySelector("[data-search-submit]")?.addEventListener("click", () => {
-  closeSearchOverlay({ scroll: true });
+  showSearchResults(searchOverlayInput?.value || "");
 });
 
 sortSelect.addEventListener("change", (event) => {
