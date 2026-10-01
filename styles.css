@@ -14018,6 +14018,35 @@ body:not(.admin-mode) .old-price {
   color: var(--brand-steel);
 }
 
+/* Keep checkout fully in the charcoal storefront palette. */
+body.checkout-mode:not(.admin-mode) .checkout-page {
+  background: var(--brand-charcoal);
+}
+
+body.checkout-mode:not(.admin-mode) .checkout-summary,
+body.checkout-mode:not(.admin-mode) .checkout-form {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: #2d2e2d;
+  box-shadow: 8px 9px 0 var(--brand-ink);
+}
+
+/* Keep the arrivals carousel on one flat charcoal surface. */
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrivals-carousel:not(.hidden),
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrivals-track,
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrival-slide.is-product,
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrival-slide.is-product > img {
+  background: #393a39;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrivals-carousel:not(.hidden) {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrival-slide.is-product::after {
+  background: none;
+}
+
 /* Give the newsletter email field a clear, square-cornered boundary. */
 body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .home-newsletter-form input {
   min-height: 52px;
