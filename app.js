@@ -1922,7 +1922,7 @@ function updateCategoryHeading() {
     if (categoryTitle) categoryTitle.textContent = routeCopy.title;
     if (categoryEyebrow) categoryEyebrow.textContent = routeCopy.eyebrow;
     if (categoryIntro) categoryIntro.textContent = routeCopy.intro;
-    renderCategorySeoPanel(routeCopy);
+    renderCategorySeoPanel(window.location.pathname === "/nouveautes" ? null : routeCopy);
     return;
   }
   const label = categoryLabels[state.category];
