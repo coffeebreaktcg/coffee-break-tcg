@@ -14018,6 +14018,20 @@ body:not(.admin-mode) .old-price {
   color: var(--brand-steel);
 }
 
+/* Give the newsletter email field a clear, square-cornered boundary. */
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .home-newsletter-form input {
+  min-height: 52px;
+  border: 2px solid var(--brand-ink);
+  border-radius: 0;
+  background: var(--brand-paper);
+  padding: 0 16px;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .home-newsletter-form input:focus {
+  outline: 3px solid rgba(29, 30, 29, 0.22);
+  outline-offset: 2px;
+}
+
 /* Product pages keep the header focused on the item and utility actions. */
 body.product-mode:not(.admin-mode) .main-nav {
   display: none;
