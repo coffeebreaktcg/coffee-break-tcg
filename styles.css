@@ -10118,6 +10118,18 @@ body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):
   }
 }
 
+/* The carousel uses light text for captions; restore dark ink inside slab labels. */
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrival-slide .new-arrival-product-visual .slab-grade-name,
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrival-slide .new-arrival-product-visual .slab-label strong {
+  color: #111;
+  opacity: 1;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrival-slide .new-arrival-product-visual .slab-company-mark {
+  color: #1e4d9b;
+  opacity: 1;
+}
+
 /* Graphite concept v5 — finish inventory surfaces and item actions. */
 body.category-page:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .category-seo-panel {
   border: 1px solid rgba(255, 255, 255, 0.16);
