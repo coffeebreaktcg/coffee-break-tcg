@@ -2914,7 +2914,12 @@ async function searchSealedProductImages(query, setId = "") {
 }
 
 function fallbackOnePieceSets() {
-  return [
+  const sets = [
+    { id: "op17", name: "OP-17 One Piece Card Game", releaseDate: "" },
+    { id: "op16", name: "OP-16 One Piece Card Game", releaseDate: "" },
+    { id: "op15", name: "OP-15 One Piece Card Game", releaseDate: "" },
+    { id: "op14", name: "OP-14 One Piece Card Game", releaseDate: "" },
+    { id: "op13", name: "OP-13 One Piece Card Game", releaseDate: "" },
     { id: "op12", name: "OP-12 Legacy of the Master", releaseDate: "2025/08/22" },
     { id: "op11", name: "OP-11 A Fist of Divine Speed", releaseDate: "2025/06/06" },
     { id: "op10", name: "OP-10 Royal Blood", releaseDate: "2025/03/21" },
@@ -2935,6 +2940,11 @@ function fallbackOnePieceSets() {
     { id: "st18", name: "ST-18 Starter Deck", releaseDate: "" },
     { id: "p", name: "P Promotional Cards", releaseDate: "" },
   ];
+  for (let number = 1; number <= 21; number += 1) {
+    const id = `st${String(number).padStart(2, "0")}`;
+    if (!sets.some((set) => set.id === id)) sets.push({ id, name: `ST-${String(number).padStart(2, "0")} Starter Deck`, releaseDate: "" });
+  }
+  return sets;
 }
 
 function onePieceNumberCandidates(query = "", numberHint = "", setId = "") {
@@ -2979,6 +2989,29 @@ async function searchOnePieceCardImages(query, numberHint = "", setId = "") {
   if (cached) return cached;
   const numbers = onePieceNumberCandidates(query, numberHint, setId);
   const candidates = [];
+  const normalizedQuery = normalizeSealedSearch(query);
+  if (normalizedQuery.length > 1) {
+    const db = await readDb();
+    const words = normalizedQuery.split(" ").filter((word) => word.length > 1);
+    const inventoryMatches = (db.inventory || [])
+      .filter((product) => /one\s*piece/i.test(String(product.game || "")))
+      .filter((product) => words.every((word) => normalizeSealedSearch(`${product.name} ${product.setName || ""} ${product.cardNumber || ""}`).includes(word)))
+      .slice(0, 48);
+    for (const product of inventoryMatches) {
+      if (!product.imageUrl) continue;
+      candidates.push({
+        id: `inventory-${product.id}`,
+        name: product.name,
+        setId: product.setName || "",
+        set: product.setName || "One Piece",
+        number: product.cardNumber || "",
+        rarity: product.rarity || "One Piece",
+        imageType: "card",
+        imageUrl: product.imageUrl,
+        smallImageUrl: product.imageUrl,
+      });
+    }
+  }
   for (const number of numbers) {
     const imageUrl = `https://en.onepiece-cardgame.com/images/cardlist/card/${number}.png`;
     if (!(await onePieceImageExists(imageUrl))) continue;
@@ -2995,7 +3028,7 @@ async function searchOnePieceCardImages(query, numberHint = "", setId = "") {
       smallImageUrl: imageUrl,
     });
   }
-  return setCachedSearch(key, candidates.slice(0, 48));
+  return setCachedSearch(key, candidates.filter((candidate, index, all) => all.findIndex((item) => item.id === candidate.id || item.imageUrl === candidate.imageUrl) === index).slice(0, 48));
 }
 
 function inferVisual(category, kind) {
