@@ -14018,6 +14018,24 @@ body:not(.admin-mode) .old-price {
   color: var(--brand-steel);
 }
 
+/* One continuous charcoal scene for the homepage hero and category tiles. */
+body:not(.category-page):not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .hero-category-scene {
+  background:
+    radial-gradient(circle at 86% 42%, rgba(255, 255, 255, 0.16) 0 6px, transparent 7px),
+    linear-gradient(132deg, transparent 0 52%, rgba(255, 255, 255, 0.028) 52% 66%, transparent 66%),
+    #414240;
+}
+
+body:not(.category-page):not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .hero-category-scene > .hero,
+body:not(.category-page):not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .hero-category-scene > .storefront-shortcuts-marquee {
+  background: transparent;
+}
+
+/* Restore the darker collection callout so it remains a distinct destination. */
+body:not(.category-page):not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .priority-block {
+  background: #272827;
+}
+
 body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .next-show-map.has-photo {
   border-color: rgba(255, 255, 255, 0.16);
   background: #303230;
