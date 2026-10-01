@@ -2422,6 +2422,13 @@ function normalizeSealedSearch(value) {
 function localSealedProductCandidates(query) {
   const normalized = normalizeSealedSearch(query);
   const words = normalized.split(" ").filter(Boolean);
+  const catalogPath = path.join(root, "data", "sealed-catalog.json");
+  let catalogProducts = [];
+  try {
+    catalogProducts = JSON.parse(fsSync.readFileSync(catalogPath, "utf8"));
+  } catch {
+    catalogProducts = [];
+  }
   const sealedProducts = [
     {
       name: "ETB Ascended Heroes Pokemon Center",
@@ -2439,10 +2446,14 @@ function localSealedProductCandidates(query) {
         { label: "Arriere", url: "/assets/sealed-151-etb-back.webp" },
       ],
     },
+    ...catalogProducts.map((product) => ({
+      ...product,
+      images: [{ label: "Image", url: product.imageUrl }],
+    })),
   ];
   return sealedProducts
     .filter((product) => {
-      const haystack = normalizeSealedSearch(`${product.name} ${product.set} etb elite trainer box`);
+      const haystack = normalizeSealedSearch(`${product.name} ${product.set} ${product.language || ""} ${product.kind || ""} etb elite trainer box booster bundle booster blister pack`);
       return !words.length || words.some((word) => haystack.includes(word));
     })
     .flatMap((product) =>
@@ -2452,7 +2463,9 @@ function localSealedProductCandidates(query) {
         setId: "",
         set: product.set,
         number: "",
-        rarity: "Produit scelle",
+        rarity: `Produit scellé · ${product.language === "jp" ? "Japonais" : "Anglais"}`,
+        language: product.language || "en",
+        kind: product.kind || "etb",
         imageType: "sealed",
         imageUrl: image.url,
         smallImageUrl: image.url,

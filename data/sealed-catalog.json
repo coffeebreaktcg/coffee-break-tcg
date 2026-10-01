@@ -1,0 +1,20 @@
+[
+  {"id":"sv-ascended-heroes-booster-pack-en","name":"Ascended Heroes Booster Pack","set":"Ascended Heroes","language":"en","kind":"booster","imageUrl":"/assets/sealed-surging-sparks-pack.png"},
+  {"id":"sv-ascended-heroes-booster-box-en","name":"Ascended Heroes Booster Box","set":"Ascended Heroes","language":"en","kind":"booster-box","imageUrl":"/assets/sealed-lost-origin-booster-box.webp"},
+  {"id":"sv-ascended-heroes-bundle-en","name":"Ascended Heroes Booster Bundle","set":"Ascended Heroes","language":"en","kind":"booster-bundle","imageUrl":"/assets/sealed-twilight-masquerade-booster-bundle.png"},
+  {"id":"sv-ascended-heroes-etb-en","name":"Ascended Heroes Elite Trainer Box","set":"Ascended Heroes","language":"en","kind":"etb","imageUrl":"/assets/sealed-ascended-heroes-etb.jpg"},
+  {"id":"sv-ascended-heroes-pc-etb-en","name":"Ascended Heroes Pokémon Center Elite Trainer Box","set":"Ascended Heroes","language":"en","kind":"pokemon-center-etb","imageUrl":"/assets/sealed-ascended-heroes-etb.jpg"},
+  {"id":"sv-ascended-heroes-blister-en","name":"Ascended Heroes 3-Pack Blister","set":"Ascended Heroes","language":"en","kind":"blister","imageUrl":"/assets/category-sealed-new-upload-20260812.jpg"},
+  {"id":"sv-ascended-heroes-2pack-en","name":"Ascended Heroes 2-Pack Blister","set":"Ascended Heroes","language":"en","kind":"2-pack","imageUrl":"/assets/category-sealed-upload-v2-20260812.png"},
+  {"id":"sv-ascended-heroes-3pack-en","name":"Ascended Heroes 3-Pack Blister","set":"Ascended Heroes","language":"en","kind":"3-pack","imageUrl":"/assets/category-sealed-upload-v3-20260812.png"},
+  {"id":"sv-mega-dream-ex-booster-pack-jp","name":"Mega Dream ex Booster Pack","set":"Mega Dream ex","language":"jp","kind":"booster","imageUrl":"/assets/sealed-surging-sparks-pack.png"},
+  {"id":"sv-mega-dream-ex-booster-box-jp","name":"Mega Dream ex Booster Box","set":"Mega Dream ex","language":"jp","kind":"booster-box","imageUrl":"/assets/sealed-lost-origin-booster-box.webp"},
+  {"id":"sv-mega-dream-ex-bundle-jp","name":"Mega Dream ex Booster Bundle","set":"Mega Dream ex","language":"jp","kind":"booster-bundle","imageUrl":"/assets/sealed-twilight-masquerade-booster-bundle.png"},
+  {"id":"sv-mega-dream-ex-etb-jp","name":"Mega Dream ex Elite Trainer Box","set":"Mega Dream ex","language":"jp","kind":"etb","imageUrl":"/assets/sealed-ascended-heroes-etb.jpg"},
+  {"id":"sv-mega-dream-ex-blister-jp","name":"Mega Dream ex Blister","set":"Mega Dream ex","language":"jp","kind":"blister","imageUrl":"/assets/category-sealed-new-upload-20260812.jpg"},
+  {"id":"sv-terastal-festival-ex-booster-pack-jp","name":"Terastal Festival ex Booster Pack","set":"Terastal Festival ex","language":"jp","kind":"booster","imageUrl":"/assets/sealed-surging-sparks-pack.png"},
+  {"id":"sv-terastal-festival-ex-booster-box-jp","name":"Terastal Festival ex Booster Box","set":"Terastal Festival ex","language":"jp","kind":"booster-box","imageUrl":"/assets/sealed-lost-origin-booster-box.webp"},
+  {"id":"sv-terastal-festival-ex-bundle-jp","name":"Terastal Festival ex Booster Bundle","set":"Terastal Festival ex","language":"jp","kind":"booster-bundle","imageUrl":"/assets/sealed-twilight-masquerade-booster-bundle.png"},
+  {"id":"sv-terastal-festival-ex-etb-jp","name":"Terastal Festival ex Elite Trainer Box","set":"Terastal Festival ex","language":"jp","kind":"etb","imageUrl":"/assets/sealed-ascended-heroes-etb.jpg"},
+  {"id":"sv-terastal-festival-ex-blister-jp","name":"Terastal Festival ex Blister","set":"Terastal Festival ex","language":"jp","kind":"blister","imageUrl":"/assets/category-sealed-upload-v2-20260812.png"}
+]
