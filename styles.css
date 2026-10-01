@@ -14059,43 +14059,52 @@ body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):
 body:not(.admin-mode) .product-art.slab-product-art .slab-grade-name,
 body:not(.admin-mode) .home-product-art .slab-grade-name,
 body:not(.admin-mode) .new-arrival-product-visual .slab-grade-name {
-  font-size: clamp(13px, 1.45vw, 18px);
+  font-size: clamp(12px, 1.2vw, 16px);
   line-height: 1;
 }
 
 body:not(.admin-mode) .product-art.slab-product-art .slab-label strong,
 body:not(.admin-mode) .home-product-art .slab-label strong,
 body:not(.admin-mode) .new-arrival-product-visual .slab-label strong {
-  min-width: 36px;
-  font-size: clamp(23px, 2.35vw, 31px);
+  min-width: 34px;
+  font-size: clamp(21px, 2vw, 28px);
   line-height: 1;
 }
 
 body:not(.admin-mode) .product-art.slab-product-art .slab-company-mark,
 body:not(.admin-mode) .home-product-art .slab-company-mark,
 body:not(.admin-mode) .new-arrival-product-visual .slab-company-mark {
-  font-size: clamp(9px, 0.85vw, 12px);
+  font-size: clamp(8px, 0.75vw, 11px);
   font-weight: 950;
   line-height: 1;
+}
+
+/* Let featured products sit directly on the charcoal category background. */
+body.category-page:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .category-featured-products .home-product-card {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
 }
 
 @media (max-width: 720px) {
   body:not(.admin-mode) .product-art.slab-product-art .slab-grade-name,
   body:not(.admin-mode) .home-product-art .slab-grade-name,
   body:not(.admin-mode) .new-arrival-product-visual .slab-grade-name {
-    font-size: 14px;
+    font-size: 13px;
   }
 
   body:not(.admin-mode) .product-art.slab-product-art .slab-label strong,
   body:not(.admin-mode) .home-product-art .slab-label strong,
   body:not(.admin-mode) .new-arrival-product-visual .slab-label strong {
-    min-width: 34px;
-    font-size: 26px;
+    min-width: 32px;
+    font-size: 24px;
   }
 
   body:not(.admin-mode) .product-art.slab-product-art .slab-company-mark,
   body:not(.admin-mode) .home-product-art .slab-company-mark,
   body:not(.admin-mode) .new-arrival-product-visual .slab-company-mark {
-    font-size: 10px;
+    font-size: 9px;
   }
 }
