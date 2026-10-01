@@ -1244,11 +1244,16 @@ function productGalleryImages(product) {
   return [...new Set(images)].slice(0, 5);
 }
 
+function imageFallbackAttribute(product) {
+  if (!["Sealed", "Preorder"].includes(product.category) && product.visual !== "boxed") return "";
+  return ` onerror="this.onerror=null;this.src='/assets/category-sealed-new-upload-20260812.jpg'"`;
+}
+
 function productVisual(product) {
   if (isSlabProduct(product)) {
     const imageUrl = productImageUrl(product);
     const visual = imageUrl
-      ? `<img class="product-photo" src="${escapeAttribute(imageUrl)}" alt="${escapeAttribute(product.name)}" />`
+      ? `<img class="product-photo" src="${escapeAttribute(imageUrl)}" alt="${escapeAttribute(product.name)}"${imageFallbackAttribute(product)} />`
       : `<span class="card-visual graded ${visualClass(product)}" aria-hidden="true"></span>`;
     return `
       <span class="slab-frame ${slabCompanyClass(product)} slab-grade-${escapeAttribute(String(product.grade || "authentic").replace(/[^0-9a-z]+/gi, "-"))}">
@@ -1260,7 +1265,7 @@ function productVisual(product) {
   const imageUrl = productImageUrl(product);
   if (imageUrl) {
     const sealedClass = sealedFallbackImage(product) === imageUrl ? " sealed-product-photo" : "";
-    return `<img class="product-photo${sealedClass}" src="${escapeAttribute(imageUrl)}" alt="${escapeAttribute(product.name)}" />`;
+    return `<img class="product-photo${sealedClass}" src="${escapeAttribute(imageUrl)}" alt="${escapeAttribute(product.name)}"${imageFallbackAttribute(product)} />`;
   }
   return `<span class="card-visual ${visualClass(product)}" aria-hidden="true"></span>`;
 }
@@ -1269,13 +1274,13 @@ function cartVisual(product) {
   if (isSlabProduct(product)) {
     const imageUrl = productImageUrl(product);
     const visual = imageUrl
-      ? `<img src="${escapeAttribute(imageUrl)}" alt="" />`
+      ? `<img src="${escapeAttribute(imageUrl)}" alt=""${imageFallbackAttribute(product)} />`
       : `<span class="card-visual graded ${visualClass(product)}" aria-hidden="true"></span>`;
     return `<span class="cart-slab-thumb">${visual}</span>`;
   }
   const imageUrl = productImageUrl(product);
   if (imageUrl) {
-    return `<img class="cart-photo-thumb" src="${escapeAttribute(imageUrl)}" alt="" />`;
+    return `<img class="cart-photo-thumb" src="${escapeAttribute(imageUrl)}" alt=""${imageFallbackAttribute(product)} />`;
   }
   return productVisual(product);
 }
@@ -1284,14 +1289,14 @@ function compactVisual(product) {
   if (isSlabProduct(product)) {
     const imageUrl = productImageUrl(product);
     const visual = imageUrl
-      ? `<img src="${escapeAttribute(imageUrl)}" alt="" />`
+      ? `<img src="${escapeAttribute(imageUrl)}" alt=""${imageFallbackAttribute(product)} />`
       : `<span class="card-visual graded ${visualClass(product)}" aria-hidden="true"></span>`;
     return `<span class="compact-slab-thumb">${visual}</span>`;
   }
   const imageUrl = productImageUrl(product);
   if (imageUrl) {
     const sealedClass = sealedFallbackImage(product) === imageUrl ? " sealed-product-photo" : "";
-    return `<img class="compact-photo-thumb${sealedClass}" src="${escapeAttribute(imageUrl)}" alt="" />`;
+    return `<img class="compact-photo-thumb${sealedClass}" src="${escapeAttribute(imageUrl)}" alt=""${imageFallbackAttribute(product)} />`;
   }
   return productVisual(product);
 }
