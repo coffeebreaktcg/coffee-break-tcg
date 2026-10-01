@@ -14018,6 +14018,17 @@ body:not(.admin-mode) .old-price {
   color: var(--brand-steel);
 }
 
+/* Product pages keep the header focused on the item and utility actions. */
+body.product-mode:not(.admin-mode) .main-nav {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  body.product-mode:not(.admin-mode) .header-actions {
+    grid-column: 4;
+  }
+}
+
 /* One continuous charcoal scene for the homepage hero and category tiles. */
 body:not(.category-page):not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .hero-category-scene {
   background:
