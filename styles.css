@@ -13800,3 +13800,138 @@ body.checkout-mode:not(.admin-mode) .totals div {
     box-shadow: 4px 5px 0 var(--brand-ink);
   }
 }
+
+/* Graphite concept v6 — softer section rhythm and centered desktop hero. */
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .hero {
+  grid-template-columns: minmax(0, 1fr);
+  background:
+    radial-gradient(circle at 86% 78%, rgba(255, 255, 255, 0.16) 0 6px, transparent 7px),
+    linear-gradient(132deg, transparent 0 52%, rgba(255, 255, 255, 0.028) 52% 66%, transparent 66%),
+    #414240;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .hero-copy {
+  width: min(100%, 1120px);
+  max-width: 1120px;
+  justify-self: center;
+  align-items: center;
+  text-align: center;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .hero-brand-lockup {
+  justify-items: center;
+  text-align: center;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .hero h1,
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .hero p:not(.eyebrow) {
+  margin-inline: auto;
+  text-align: center;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .hero-actions {
+  justify-content: center;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .storefront-shortcuts-marquee {
+  background: #494a48;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .home-new-arrivals,
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .home-product-section {
+  background: #393a39;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrivals-carousel:not(.hidden),
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrival-slide.is-product,
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .new-arrival-slide.is-product > img {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: #222322;
+  box-shadow: none;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .mission-band {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: #5d5f5c;
+  color: var(--brand-paper);
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .mission-band .eyebrow,
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .mission-band h2,
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .mission-band p:not(.eyebrow) {
+  color: var(--brand-paper);
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .shows-section {
+  background: #353635;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .next-show-card {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: #515350;
+  color: var(--brand-paper);
+  box-shadow: 9px 10px 0 #202120;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .next-show-card h3,
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .next-show-card p,
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .next-show-card strong,
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .next-show-card span,
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .next-show-card .eyebrow {
+  color: var(--brand-paper);
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .next-show-card .button.primary {
+  border-color: var(--brand-paper);
+  background: var(--brand-paper);
+  color: var(--brand-ink);
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .next-show-card .button.secondary {
+  border-color: rgba(255, 255, 255, 0.58);
+  color: var(--brand-paper);
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .priority-block {
+  background: #272827;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .home-newsletter {
+  background: #4d4f4c;
+}
+
+body:not(.admin-mode) .site-footer {
+  background: #202120;
+}
+
+body:not(.admin-mode) .price,
+body:not(.admin-mode) .current-price,
+body:not(.admin-mode) .new-arrival-meta,
+body:not(.admin-mode) .home-product-price,
+body:not(.admin-mode) .product-price,
+body:not(.admin-mode) .detail-price {
+  color: var(--brand-paper);
+}
+
+body:not(.admin-mode) .old-price {
+  color: var(--brand-steel);
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .next-show-map.has-photo {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: #303230;
+}
+
+body:not(.admin-mode):not(.checkout-mode):not(.account-mode):not(.product-mode):not(.content-mode) .next-show-map-link {
+  border-color: rgba(255, 255, 255, 0.5);
+  color: var(--brand-paper);
+}
+
+@media (min-width: 781px) {
+  body:not(.admin-mode) .site-header .brand {
+    position: absolute;
+    left: 50%;
+    width: auto;
+    transform: translateX(-50%);
+  }
+}
